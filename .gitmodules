@@ -1,0 +1,3 @@
+[submodule "src/copilot_backend"]
+	path = src/copilot_backend
+	url = https://github.com/AIDC-AI/ComfyUI-Copilot.git

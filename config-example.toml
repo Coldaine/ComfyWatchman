@@ -1,56 +1,76 @@
-# ComfyFixerSmart Configuration Example
-# Copy this file to config/default.toml and customize for your setup
-# Environment variables can override these values
+# Example configuration for ComfyFixerSmart
 
-# Paths - REQUIRED for operation
-# Set your ComfyUI installation path here
-comfyui_root = "/path/to/your/ComfyUI/installation"
+# --- Core Settings ---
+# Root directory of your ComfyUI installation.
+# comfyui_root = "/path/to/ComfyUI"
 
-# Workflow directories to scan for .json workflow files
-# These are relative to the ComfyUI root if not absolute paths
-workflow_dirs = [
-    "user/default/workflows",
-    "/additional/workflow/directory"
-]
+# List of directories to scan for workflows.
+workflow_dirs = ["workflows/"]
 
-# Output and working directories
-output_dir = "output"          # Directory for generated scripts and results
-log_dir = "log"               # Directory for log files
-state_dir = "state"           # Directory for state and cache files
+# Directory to save outputs like reports and download scripts.
+output_dir = "output/"
 
-# Search and logging
-search_log_file = "qwen_search_history.log"  # Search operation log
-download_counter_file = "download_counter.txt"  # Download progress tracking
+# Directory for log files.
+log_dir = "log/"
 
-# API Settings
-civitai_api_base = "https://civitai.com/api/v1"
-civitai_download_base = "https://civitai.com/api/download/models"
-civitai_api_timeout = 30  # API request timeout in seconds
+# --- Search Backend Configuration ---
+[search]
+# Order of search backends to try.
+# Available: "civitai", "modelscope", "huggingface"
+backend_order = ["civitai", "modelscope"]
 
-# Model Settings
-# File extensions to consider as models
-model_extensions = [
-    ".safetensors",
-    ".ckpt",
-    ".pt",
-    ".bin",
-    ".pth"
-]
+# Civitai API key. It's recommended to set this via the
+# CIVITAI_API_KEY environment variable for security.
+# civitai_api_key = "YOUR_API_KEY_HERE"
 
-# Model type mapping - maps ComfyUI node types to model directories
-# Add custom mappings as needed for your workflows
-model_type_mapping = { "CheckpointLoaderSimple" = "checkpoints", "CheckpointLoader" = "checkpoints", "LoraLoader" = "loras", "LoraLoaderModelOnly" = "loras", "VAELoader" = "vae", "CLIPLoader" = "clip", "DualCLIPLoader" = "clip", "ControlNetLoader" = "controlnet", "UpscaleModelLoader" = "upscale_models", "CLIPVisionLoader" = "clip_vision", "UNETLoader" = "unet", "SAMLoader" = "sams", "GroundingDinoModelLoader" = "grounding-dino" }
+# Enable caching for search results to speed up repeated runs.
+enable_cache = true
 
-# State Management
-state_file = "download_state.json"  # Download state tracking
+# Time-to-live for cached search results, in seconds (default: 1 day).
+cache_ttl = 86400
 
-# Logging
-log_format = "%Y-%m-%d %H:%M:%S"  # Timestamp format for logs
-run_id_format = "%Y%m%d_%H%M%S"   # Format for run IDs
 
-# Feature flags
-enable_claude_verification = false  # Enable Claude AI verification (requires API key)
+# --- ComfyUI-Copilot Integration (Optional) ---
+[copilot]
+# Master switch to enable all Copilot-based features.
+# Requires the Copilot backend to be installed as a submodule.
+enabled = false
 
-# Validation Thresholds
-min_model_size = 1000000  # Minimum model file size in bytes (1MB)
-recent_attempt_hours = 1  # Hours to consider a download attempt "recent"
+# If enabled, use the Copilot engine for deep workflow validation.
+# This requires ComfyUI to be running.
+validation = true
+
+# If enabled, allow the Copilot engine to attempt automatic repairs
+# on broken workflows.
+auto_repair = false
+
+# If true, the tool will fail gracefully if a Copilot feature is
+# enabled but ComfyUI is not running. If false, it will proceed
+# without using the feature.
+require_comfyui = false
+
+
+# --- State Management Configuration ---
+[state]
+# Choose the backend for storing state (e.g., download history).
+# Options: "json" (default) or "sql".
+backend = "json"
+
+# Path for the JSON state directory (if backend is "json").
+json_path = "state/"
+
+# Database connection URL (if backend is "sql").
+# Requires `sqlalchemy` to be installed.
+sql_url = "sqlite:///state/comfyfixer_state.db"
+
+
+# --- Fallback and Error Handling ---
+[fallback]
+# Behavior on validation error: "warn", "skip", "fail"
+on_validation_error = "warn"
+
+# Behavior on search error: "next_backend", "skip", "fail"
+on_search_error = "next_backend"
+
+# Behavior on auto-repair error: "report_only", "skip", "fail"
+on_repair_error = "report_only"
