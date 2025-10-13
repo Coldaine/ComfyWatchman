@@ -201,4 +201,4 @@ class Config:
         return str(self.log_dir / self.search_log_file)
 
 # Global config instance
-config = Config()
+config = Config()# Kilo Experiment - Copilot Configuration Flags
