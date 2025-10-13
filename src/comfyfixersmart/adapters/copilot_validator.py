@@ -44,64 +44,49 @@ class CopilotValidator:
         """Check if the validator is properly initialized and ready."""
         return self.enabled
 
-    async def validate(self, workflow_path: str, session_id: str = "comfyfixer-session") -> Optional[Dict[str, Any]]:
+    async def validate_and_repair(self, workflow_path: str, session_id: str = "comfyfixer-repair-session") -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
-        Validates a workflow file using the Copilot debug agent.
+        Validates and optionally repairs a workflow file.
 
-        This simulates the environment needed for the agent to run headlessly.
+        If auto-repair is enabled, this method will overwrite the original
+        workflow file with the repaired version.
 
         Args:
             workflow_path: The absolute path to the workflow.json file.
-            session_id: A unique ID for the validation session.
+            session_id: A unique ID for the session.
 
         Returns:
-            A dictionary containing the final validation report, or None on failure.
+            A tuple containing:
+            - The final validation report.
+            - The repaired workflow data if changes were made, otherwise None.
         """
-        if not self.is_available():
-            self.logger.error("Validation called but Copilot backend is not available.")
-            return None
+        report = await self.validate(workflow_path, session_id)
 
-        try:
-            with open(workflow_path, 'r', encoding='utf-8') as f:
-                workflow_data = json.load(f)
-        except (IOError, json.JSONDecodeError) as e:
-            self.logger.error(f"Failed to read or parse workflow file {workflow_path}: {e}")
-            return None
+        if not report or not config.copilot.auto_repair:
+            return report, None
 
-        self.logger.info(f"Starting Copilot validation for: {workflow_path}")
+        # Check the report for evidence of a successful repair
+        repaired_workflow = None
+        summary = report.get("structured_summary", [])
+        if not isinstance(summary, list):
+            return report, None
 
-        # --- Context Simulation ---
-        # The Copilot backend uses a request context to get session_id and config.
-        # We must simulate this context for the agent to work headlessly.
-        set_session_id(session_id)
-        # We can pass a mock config. For now, an empty one is sufficient.
-        # This might need to be expanded if the agents require specific config values.
-        set_config({})
-        # --- End Context Simulation ---
-
-        final_report = None
-        try:
-            # The debug_workflow_errors is an async generator. We need to iterate
-            # through it to get the final result.
-            async for text_update, ext_data in debug_workflow_errors(workflow_data):
-                if ext_data and ext_data.get("finished"):
-                    self.logger.info("Copilot validation stream finished.")
-                    final_report = {
-                        "full_text_log": text_update,
-                        "structured_summary": ext_data.get("data")
-                    }
+        for item in summary:
+            if isinstance(item, dict) and item.get("type") in ("param_update", "workflow_update"):
+                workflow_data = item.get("data", {}).get("workflow_data")
+                if workflow_data:
+                    self.logger.info(f"Found repaired workflow data in validation report for {workflow_path}.")
+                    repaired_workflow = workflow_data
                     break
-            
-            if final_report:
-                self.logger.info(f"Successfully received validation report for {workflow_path}.")
-            else:
-                self.logger.warning(f"Copilot validation for {workflow_path} finished without a final report.")
+        
+        if repaired_workflow:
+            try:
+                # Overwrite the original file with the repaired workflow
+                with open(workflow_path, 'w', encoding='utf-8') as f:
+                    json.dump(repaired_workflow, f, indent=2, ensure_ascii=False)
+                self.logger.info(f"Successfully saved repaired workflow to {workflow_path}")
+                return report, repaired_workflow
+            except IOError as e:
+                self.logger.error(f"Failed to save repaired workflow to {workflow_path}: {e}")
 
-            return final_report
-
-        except Exception as e:
-            self.logger.error(f"An unexpected error occurred during Copilot validation for {workflow_path}: {e}")
-            # In a real scenario, you might want to see the traceback
-            # import traceback
-            # self.logger.error(traceback.format_exc())
-            return None
+        return report, None
