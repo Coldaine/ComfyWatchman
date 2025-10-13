@@ -23,7 +23,11 @@ from dataclasses import dataclass
 
 from .config import config
 from .logging import get_logger
+import asyncio
 from .utils import validate_json_file, determine_model_type, _is_model_filename
+
+# Import for integration
+from .adapters.copilot_validator import CopilotValidator
 
 
 @dataclass
@@ -36,6 +40,7 @@ class WorkflowInfo:
     model_count: int
     node_count: int
     errors: List[str]
+    copilot_validation_report: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -65,6 +70,7 @@ class WorkflowScanner:
             logger: Optional logger instance. If None, uses default logger.
         """
         self.logger = logger or get_logger("WorkflowScanner")
+        self.validator = CopilotValidator(logger=self.logger)
 
     def scan_workflows(self, specific_paths: Optional[List[str]] = None,
                       workflow_dirs: Optional[List[str]] = None) -> List[str]:
@@ -112,10 +118,10 @@ class WorkflowScanner:
         self.logger.info(f"Total workflows to scan: {len(workflows)}")
         return workflows
 
-    def scan_workflows_detailed(self, specific_paths: Optional[List[str]] = None,
+    async def scan_workflows_detailed(self, specific_paths: Optional[List[str]] = None,
                                workflow_dirs: Optional[List[str]] = None) -> List[WorkflowInfo]:
         """
-        Scan workflows and return detailed information about each workflow.
+        Scan workflows and return detailed information about each workflow, running analysis in parallel.
 
         Args:
             specific_paths: List of specific workflow file paths to scan
@@ -125,15 +131,13 @@ class WorkflowScanner:
             List of WorkflowInfo objects with detailed workflow metadata
         """
         workflow_paths = self.scan_workflows(specific_paths, workflow_dirs)
-        detailed_info = []
-
-        for path in workflow_paths:
-            info = self._analyze_workflow(path)
-            detailed_info.append(info)
+        
+        tasks = [self._analyze_workflow(path) for path in workflow_paths]
+        detailed_info = await asyncio.gather(*tasks)
 
         return detailed_info
 
-    def _analyze_workflow(self, workflow_path: str) -> WorkflowInfo:
+    async def _analyze_workflow(self, workflow_path: str) -> WorkflowInfo:
         """Analyze a single workflow file and return detailed information."""
         path_obj = Path(workflow_path)
         errors = []
@@ -150,9 +154,11 @@ class WorkflowScanner:
 
         model_count = 0
         node_count = 0
+        validation_report = None
 
         if is_valid:
             try:
+                # This part is synchronous and CPU-bound, so it's fine to run it directly.
                 models, nodes = self.extract_models_from_workflow(workflow_path, return_node_count=True)
                 model_count = len(models)
                 node_count = nodes
@@ -160,18 +166,29 @@ class WorkflowScanner:
                 errors.append(f"Error extracting models: {e}")
                 is_valid = False
 
+        # Conditionally run the Copilot validation if enabled and available
+        if is_valid and config.copilot.enabled and config.copilot.validation:
+            if self.validator.is_available():
+                # This is an async network call, so we await it.
+                validation_report = await self.validator.validate(workflow_path)
+                if validation_report is None and config.copilot.require_comfyui:
+                    errors.append("Copilot validation failed, and it is required by config.")
+            elif config.copilot.require_comfyui:
+                errors.append("Copilot validation is required by config, but the backend is not available.")
+
         return WorkflowInfo(
             path=workflow_path,
             filename=path_obj.name,
             size=size,
-            is_valid=is_valid,
+            is_valid=is_valid and not errors, # Mark as invalid if validation fails and is required
             model_count=model_count,
             node_count=node_count,
-            errors=errors
+            errors=errors,
+            copilot_validation_report=validation_report
         )
 
     def extract_models_from_workflow(self, workflow_path: str,
-                                   return_node_count: bool = False) -> List[ModelReference]:
+                                   return_node_count: bool = False):
         """
         Parse workflow and extract model references.
 
