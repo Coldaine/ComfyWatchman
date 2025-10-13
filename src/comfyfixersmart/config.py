@@ -84,11 +84,6 @@ class Config:
         self._apply_env_overrides()
         self._set_default_backend_order()
         self._ensure_dirs()
-    def __post_init__(self):
-        """Initialize after creation."""
-        self._load_from_toml()
-        self._apply_env_overrides()
-        self._ensure_dirs()
 
     def _load_from_toml(self):
         """Load configuration from default.toml if exists."""
@@ -162,6 +157,12 @@ class Config:
 
     def _ensure_dirs(self):
         """Ensure configuration directories exist."""
+        self.output_dir.mkdir(exist_ok=True)
+        self.log_dir.mkdir(exist_ok=True)
+        self.temp_dir.mkdir(exist_ok=True)
+        # Ensure state path from config is created
+        Path(self.state.json_path).mkdir(exist_ok=True)
+
     def _set_default_backend_order(self):
         """Set the default backend order based on available backends and configuration."""
         # Import here to avoid circular imports
@@ -177,11 +178,6 @@ class Config:
         # Use configured order if provided, otherwise use default
         if not self.search.backend_order:
             self.search.backend_order = default_order
-        self.output_dir.mkdir(exist_ok=True)
-        self.log_dir.mkdir(exist_ok=True)
-        self.temp_dir.mkdir(exist_ok=True)
-        # Ensure state path from config is created
-        Path(self.state.json_path).mkdir(exist_ok=True)
 
 
     @property
