@@ -32,6 +32,11 @@ from .logging import get_logger
 from .utils import get_api_key, validate_url, sanitize_filename
 from .state_manager import StateManager
 
+# Import adapters and feature flags
+from .adapters import MODELSCOPE_AVAILABLE
+if MODELSCOPE_AVAILABLE:
+    from .adapters.modelscope_search import ModelScopeSearch
+
 
 @dataclass
 class SearchResult:
@@ -69,9 +74,9 @@ class SearchBackend(ABC):
 class CivitaiSearch(SearchBackend):
     """Civitai API search backend."""
 
-    def __init__(self, api_key: Optional[str] = None, logger=None):
+    def __init__(self, logger=None):
         super().__init__(logger)
-        self.api_key = api_key or get_api_key()
+        self.api_key = config.search.civitai_api_key or get_api_key() # Fallback for old method
         self.base_url = "https://civitai.com/api/v1"
 
     def get_name(self) -> str:
@@ -288,26 +293,27 @@ class ModelSearch:
         self.logger = logger or get_logger("ModelSearch")
         self.state_manager = state_manager
 
-        # Initialize backends
-        self.backends = {
+        # Initialize available backends dynamically
+        self.backends: Dict[str, SearchBackend] = {
             'civitai': CivitaiSearch(logger=self.logger),
-            'qwen': QwenSearch(logger=self.logger),
             'huggingface': HuggingFaceSearch(logger=self.logger)
+            # 'qwen' is deprecated/placeholder, so we leave it out for now
         }
+        if MODELSCOPE_AVAILABLE:
+            self.logger.info("ModelScope is available, adding to search backends.")
+            self.backends['modelscope'] = ModelScopeSearch(logger=self.logger)
 
         # Setup caching
         self.cache_dir = Path(cache_dir or config.temp_dir) / "search_cache"
         self.cache_dir.mkdir(exist_ok=True)
 
     def search_model(self, model_info: Dict[str, Any],
-                    backends: Optional[List[str]] = None,
                     use_cache: bool = True) -> SearchResult:
         """
-        Search for a model using specified backends.
+        Search for a model using the configured backend order.
 
         Args:
             model_info: Dictionary with model information
-            backends: List of backend names to try ('civitai', 'qwen', 'huggingface')
             use_cache: Whether to use cached results
 
         Returns:
@@ -316,29 +322,28 @@ class ModelSearch:
         filename = model_info['filename']
 
         # Check cache first
-        if use_cache:
+        if use_cache and config.search.enable_cache:
             cached_result = self._get_cached_result(filename)
             if cached_result:
                 self.logger.info(f"Using cached result for {filename}")
                 return cached_result
 
-        # Default backends
-        if backends is None:
-            backends = ['civitai']  # Start with Civitai
+        # Use the backend order from the global config
+        backends_to_try = config.search.backend_order
 
-        # Try each backend
-        for backend_name in backends:
+        # Try each backend in the configured order
+        for backend_name in backends_to_try:
             if backend_name not in self.backends:
-                self.logger.warning(f"Unknown backend: {backend_name}")
+                self.logger.warning(f"Configured backend '{backend_name}' is not available or unknown.")
                 continue
 
             backend = self.backends[backend_name]
-            self.logger.info(f"Trying {backend_name} search for {filename}")
+            self.logger.info(f"Trying '{backend_name}' search for '{filename}'")
 
             result = backend.search(model_info)
 
             # Cache successful results
-            if result.status == 'FOUND' and use_cache:
+            if result.status == 'FOUND' and use_cache and config.search.enable_cache:
                 self._cache_result(result)
 
             # Mark attempt in state manager
@@ -347,7 +352,7 @@ class ModelSearch:
                     filename, model_info, result.__dict__ if result.status == 'FOUND' else None
                 )
 
-            # Return if found or if it's an error (don't try other backends)
+            # Return if found or if it's a critical error (don't try other backends)
             if result.status in ['FOUND', 'ERROR', 'INVALID_FILENAME']:
                 return result
 
@@ -356,13 +361,12 @@ class ModelSearch:
             status='NOT_FOUND',
             filename=filename,
             metadata={
-                'backends_tried': backends,
-                'reason': f'No results from {len(backends)} backends'
+                'backends_tried': backends_to_try,
+                'reason': f'No results from configured backends'
             }
         )
 
     def search_multiple_models(self, models: List[Dict[str, Any]],
-                             backends: Optional[List[str]] = None,
                              use_cache: bool = True) -> List[SearchResult]:
         """
         Search for multiple models.

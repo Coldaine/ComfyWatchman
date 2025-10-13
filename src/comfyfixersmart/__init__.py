@@ -1,3 +1,13 @@
+# Set up paths for submodules before any other imports
+try:
+    from . import submodule_loader
+    submodule_loader.setup_submodule_paths()
+except ImportError:
+    # This might happen during initial setup or if the file is moved.
+    # We can add more robust error handling if needed.
+    print("Warning: submodule_loader.py not found. Submodule imports may fail.")
+
+
 """
 ComfyFixerSmart - Incremental ComfyUI Model Downloader
 
