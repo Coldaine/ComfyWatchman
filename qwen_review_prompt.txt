@@ -1,0 +1,304 @@
+ROLE: Senior Code Reviewer
+
+TASK: Perform a thorough code review of recent changes in the 'ComfyFixerSmart' repository. The goal was to complete 'Workstream A' of our integration plan: adding 'ModelScope' as an optional, configurable search backend.
+
+Here is the content of the files that were created or modified. Please review them for correctness, architecture, resilience, readability, and completeness.
+
+---
+**File: `src/comfyfixersmart/__init__.py` (Modified)**
+```python
+# Set up paths for submodules before any other imports
+try:
+    from . import submodule_loader
+    submodule_loader.setup_submodule_paths()
+except ImportError:
+    # This might happen during initial setup or if the file is moved.
+    # We can add more robust error handling if needed.
+    print("Warning: submodule_loader.py not found. Submodule imports may fail.")
+
+
+"""
+ComfyFixerSmart - Incremental ComfyUI Model Downloader
+
+A comprehensive tool for analyzing ComfyUI workflows and downloading missing models
+from Civitai and other sources.
+"""
+
+__version__ = "2.0.0"
+__author__ = "ComfyFixerSmart Team"
+__description__ = "Incremental ComfyUI model downloader with enhanced state management"
+__url__ = "https://github.com/your-repo/comfyfixersmart"
+__license__ = "MIT"
+
+# Migration information
+MIGRATION_TARGET_VERSION = "2.0.0"
+LEGACY_VERSION_SUPPORT = "1.x"
+COMPATIBILITY_LAYER_ACTIVE = True
+
+def get_version_info():
+    """Get detailed version information."""
+    return {
+        "version": __version__,
+        "migration_target": MIGRATION_TARGET_VERSION,
+        "legacy_support": LEGACY_VERSION_SUPPORT,
+        "compatibility_layer": COMPATIBILITY_LAYER_ACTIVE,
+        "description": __description__,
+        "author": __author__,
+    }
+```
+---
+**File: `src/comfyfixersmart/submodule_loader.py` (New File)**
+```python
+"""
+System path management for ComfyFixerSmart.
+
+This module ensures that bundled submodules (like the forked Copilot backend)
+are correctly added to the Python path, making them importable by our application.
+"""
+
+import sys
+from pathlib import Path
+
+def setup_submodule_paths():
+    """
+    Adds the necessary submodule directories to the Python system path.
+    """
+    # Get the root directory of the `comfyfixersmart` package
+    package_root = Path(__file__).parent.parent.resolve()
+
+    # Path to the forked copilot backend submodule
+    copilot_backend_path = package_root / "copilot_backend"
+
+    if copilot_backend_path.exists() and str(copilot_backend_path) not in sys.path:
+        # We need to add the parent of `backend` so that `from backend...` works
+        # as it does in the original Copilot structure.
+        sys.path.insert(0, str(copilot_backend_path))
+
+    # We also need to add the `src` directory of our own project to resolve
+    # sibling modules correctly.
+    src_path = package_root.parent
+    if src_path.exists() and str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+```
+---
+**File: `src/comfyfixersmart/adapters/modelscope_search.py` (New File)**
+```python
+"""
+ModelScope Search Adapter for ComfyFixerSmart
+
+Provides a search backend that integrates with the ModelScope utilities
+forked from the ComfyUI-Copilot repository.
+"""
+
+from ..search import SearchBackend, SearchResult
+from ..logging import get_logger
+from typing import Dict, Any
+
+# Feature detection from our new __init__.py
+from . import MODELSCOPE_AVAILABLE
+
+# Conditionally import from the forked submodule
+if MODELSCOPE_AVAILABLE:
+    try:
+        # This path assumes the submodule is at src/copilot_backend
+        # We may need to adjust sys.path if imports fail
+        from ..copilot_backend.backend.utils import modelscope_gateway
+    except (ImportError, ModuleNotFoundError):
+        # Handle cases where the submodule is present but has issues
+        modelscope_gateway = None
+else:
+    modelscope_gateway = None
+
+
+class ModelScopeSearch(SearchBackend):
+    """
+    A search backend to find models using the ModelScope platform.
+
+    This adapter calls the search logic present in the forked
+    ComfyUI-Copilot codebase.
+    """
+
+    def __init__(self, logger=None):
+        super().__init__(logger)
+        if not MODELSCOPE_AVAILABLE or modelscope_gateway is None:
+            self.logger.warning(
+                "ModelScope dependencies not found. The ModelScopeSearch backend will be disabled."
+            )
+            self.enabled = False
+        else:
+            self.enabled = True
+            self.logger.info("ModelScopeSearch backend initialized.")
+
+    def get_name(self) -> str:
+        return "modelscope"
+
+    def search(self, model_info: Dict[str, Any]) -> SearchResult:
+        """
+        Search for a model on ModelScope.
+
+        Args:
+            model_info: A dictionary containing model details, like 'filename'.
+
+        Returns:
+            A SearchResult object.
+        """
+        if not self.enabled:
+            return SearchResult(
+                status='ERROR',
+                filename=model_info['filename'],
+                source=self.get_name(),
+                error_message="ModelScope backend is not available or failed to initialize."
+            )
+
+        filename = model_info['filename']
+        self.logger.info(f"Searching ModelScope for: {filename}")
+
+        try:
+            # NOTE: The forked 'modelscope_gateway.py' does not have a direct
+            # filename search function. It has 'search_models' which takes a query.
+            # We will adapt to use that. The original `parameter_tools.py` in Copilot
+            # provides a better example of how it's used.
+            # For now, we will implement a placeholder that simulates the call.
+
+            # Placeholder logic:
+            # In a real implementation, we would call a function like:
+            # results = modelscope_gateway.search_models(query=filename, type_filter=model_info.get('type'))
+            # and then parse 'results' to find the best match.
+
+            self.logger.warning("ModelScope search is currently a placeholder and will not find real models.")
+            
+            # Returning NOT_FOUND as we need to further investigate the gateway's usage.
+            return SearchResult(
+                status='NOT_FOUND',
+                filename=filename,
+                source=self.get_name(),
+                metadata={'reason': 'Full implementation pending deeper integration with gateway.'}
+            )
+
+        except Exception as e:
+            self.logger.error(f"An unexpected error occurred during ModelScope search: {e}")
+            return SearchResult(
+                status='ERROR',
+                filename=filename,
+                source=self.get_name(),
+                error_message=str(e)
+            )
+```
+---
+**File: `src/comfyfixersmart/search.py` (Modified)**
+```python
+"""
+Model Search Module for ComfyFixerSmart
+...
+"""
+...
+from .state_manager import StateManager
+
+# Import adapters and feature flags
+from .adapters import MODELSCOPE_AVAILABLE
+if MODELSCOPE_AVAILABLE:
+    from .adapters.modelscope_search import ModelScopeSearch
+
+
+@dataclass
+class SearchResult:
+...
+
+class CivitaiSearch(SearchBackend):
+    """Civitai API search backend."""
+
+    def __init__(self, logger=None):
+        super().__init__(logger)
+        self.api_key = config.search.civitai_api_key or get_api_key() # Fallback for old method
+        self.base_url = "https://civitai.com/api/v1"
+...
+
+class ModelSearch:
+    """
+    Unified model search coordinator.
+    ...
+    """
+
+    def __init__(self, state_manager: Optional[StateManager] = None,
+                 cache_dir: Optional[str] = None, logger=None):
+        """
+        Initialize the model search coordinator.
+        ...
+        """
+        self.logger = logger or get_logger("ModelSearch")
+        self.state_manager = state_manager
+
+        # Initialize available backends dynamically
+        self.backends: Dict[str, SearchBackend] = {
+            'civitai': CivitaiSearch(logger=self.logger),
+            'huggingface': HuggingFaceSearch(logger=self.logger)
+            # 'qwen' is deprecated/placeholder, so we leave it out for now
+        }
+        if MODELSCOPE_AVAILABLE:
+            self.logger.info("ModelScope is available, adding to search backends.")
+            self.backends['modelscope'] = ModelScopeSearch(logger=self.logger)
+
+        # Setup caching
+        self.cache_dir = Path(cache_dir or config.temp_dir) / "search_cache"
+        self.cache_dir.mkdir(exist_ok=True)
+
+    def search_model(self, model_info: Dict[str, Any],
+                    use_cache: bool = True) -> SearchResult:
+        """
+        Search for a model using the configured backend order.
+        ...
+        """
+        filename = model_info['filename']
+
+        # Check cache first
+        if use_cache and config.search.enable_cache:
+            cached_result = self._get_cached_result(filename)
+            if cached_result:
+                self.logger.info(f"Using cached result for {filename}")
+                return cached_result
+
+        # Use the backend order from the global config
+        backends_to_try = config.search.backend_order
+
+        # Try each backend in the configured order
+        for backend_name in backends_to_try:
+            if backend_name not in self.backends:
+                self.logger.warning(f"Configured backend '{backend_name}' is not available or unknown.")
+                continue
+
+            backend = self.backends[backend_name]
+            self.logger.info(f"Trying '{backend_name}' search for '{filename}'")
+
+            result = backend.search(model_info)
+
+            # Cache successful results
+            if result.status == 'FOUND' and use_cache and config.search.enable_cache:
+                self._cache_result(result)
+
+            # Mark attempt in state manager
+            if self.state_manager:
+                self.state_manager.mark_download_attempted(
+                    filename, model_info, result.__dict__ if result.status == 'FOUND' else None
+                )
+
+            # Return if found or if it's a critical error (don't try other backends)
+            if result.status in ['FOUND', 'ERROR', 'INVALID_FILENAME']:
+                return result
+
+        # If all backends returned NOT_FOUND
+        return SearchResult(
+            status='NOT_FOUND',
+            filename=filename,
+            metadata={
+                'backends_tried': backends_to_try,
+                'reason': f'No results from configured backends'
+            }
+        )
+...
+```
+
+My specific questions for the review are:
+1. Is the adapter pattern used effectively for `ModelScopeSearch`?
+2. Is the submodule loading mechanism in `__init__.py` and `submodule_loader.py` a robust approach?
+3. Does the code handle the optional nature of the ModelScope dependency gracefully?
+4. Is leaving the `ModelScopeSearch.search` method as a placeholder acceptable for this initial integration phase, given the complexity of the gateway?

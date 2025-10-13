@@ -80,14 +80,12 @@ class ModelScopeSearch(SearchBackend):
             # results = modelscope_gateway.search_models(query=filename, type_filter=model_info.get('type'))
             # and then parse 'results' to find the best match.
 
-            self.logger.warning("ModelScope search is currently a placeholder and will not find real models.")
-            
-            # Returning NOT_FOUND as we need to further investigate the gateway's usage.
+            self.logger.warning("ModelScope search is not yet implemented.")
             return SearchResult(
-                status='NOT_FOUND',
+                status='ERROR',
                 filename=filename,
                 source=self.get_name(),
-                metadata={'reason': 'Full implementation pending deeper integration with gateway.'}
+                error_message="ModelScope search is not yet implemented."
             )
 
         except Exception as e:

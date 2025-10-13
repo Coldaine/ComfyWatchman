@@ -1,13 +1,3 @@
-# Set up paths for submodules before any other imports
-try:
-    from . import submodule_loader
-    submodule_loader.setup_submodule_paths()
-except ImportError:
-    # This might happen during initial setup or if the file is moved.
-    # We can add more robust error handling if needed.
-    print("Warning: submodule_loader.py not found. Submodule imports may fail.")
-
-
 """
 ComfyFixerSmart - Incremental ComfyUI Model Downloader
 
@@ -18,7 +8,7 @@ from Civitai and other sources.
 __version__ = "2.0.0"
 __author__ = "ComfyFixerSmart Team"
 __description__ = "Incremental ComfyUI model downloader with enhanced state management"
-__url__ = "https://github.com/your-repo/comfyfixersmart"
+__url__ = "https://github.com/darthsith/ComfyFixerSmart"
 __license__ = "MIT"
 
 # Migration information
