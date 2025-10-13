@@ -175,4 +175,4 @@ class CopilotAdapter(BaseAdapter):
             return []
 
         # Subclasses should override to return actual capabilities
-        return ["copilot_integration"]
+        return ["copilot_integration"]# Kilo Experiment - Base Adapter Classes
