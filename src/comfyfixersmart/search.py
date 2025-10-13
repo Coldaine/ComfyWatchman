@@ -34,8 +34,12 @@ from .state_manager import StateManager
 
 # Import adapters and feature flags
 from .adapters import MODELSCOPE_AVAILABLE
-if MODELSCOPE_AVAILABLE:
+
+# Conditionally import ModelScopeSearch
+try:
     from .adapters.modelscope_search import ModelScopeSearch
+except ImportError:
+    ModelScopeSearch = None
 
 
 @dataclass
@@ -299,16 +303,27 @@ class ModelSearch:
             'huggingface': HuggingFaceSearch(logger=self.logger)
             # 'qwen' is deprecated/placeholder, so we leave it out for now
         }
-        if MODELSCOPE_AVAILABLE:
-            self.logger.info("ModelScope is available, adding to search backends.")
+
+        # Conditionally register ModelScope backend
+        if MODELSCOPE_AVAILABLE and ModelScopeSearch and config.copilot.enable_modelscope:
+            self.logger.info("ModelScope backend enabled and available, adding to search backends.")
             self.backends['modelscope'] = ModelScopeSearch(logger=self.logger)
+        elif MODELSCOPE_AVAILABLE and ModelScopeSearch and not config.copilot.enable_modelscope:
+            self.logger.info("ModelScope backend available but disabled in configuration.")
+        elif MODELSCOPE_AVAILABLE and not ModelScopeSearch:
+            self.logger.warning("ModelScope package available but ModelScopeSearch import failed.")
+        else:
+            self.logger.info("ModelScope backend not available.")
+
+        # Validate and set backend order
+        self._validate_backend_order()
 
         # Setup caching
         self.cache_dir = Path(cache_dir or config.temp_dir) / "search_cache"
         self.cache_dir.mkdir(exist_ok=True)
 
     def search_model(self, model_info: Dict[str, Any],
-                    use_cache: bool = True) -> SearchResult:
+                     use_cache: bool = True) -> SearchResult:
         """
         Search for a model using the configured backend order.
 
@@ -381,7 +396,7 @@ class ModelSearch:
         """
         results = []
         for model in models:
-            result = self.search_model(model, backends, use_cache)
+            result = self.search_model(model, use_cache)
             results.append(result)
 
             # Small delay to be respectful to APIs
@@ -435,6 +450,30 @@ class ModelSearch:
             'backends_available': list(self.backends.keys())
         }
 
+    def _validate_backend_order(self):
+        """Validate the configured backend order against available backends."""
+        configured_order = config.search.backend_order
+        available_backends = set(self.backends.keys())
+
+        # Filter out invalid backends
+        valid_order = [backend for backend in configured_order if backend in available_backends]
+
+        # Log warnings for invalid backends
+        invalid_backends = [backend for backend in configured_order if backend not in available_backends]
+        if invalid_backends:
+            self.logger.warning(f"Configured backends not available: {invalid_backends}. "
+                              f"Available backends: {list(available_backends)}")
+
+        # If no valid backends remain, fall back to default order
+        if not valid_order:
+            valid_order = list(available_backends)
+            self.logger.warning("No valid backends in configured order, falling back to all available backends")
+
+        # Update the config with the validated order
+        config.search.backend_order = valid_order
+
+        self.logger.info(f"Using backend order: {valid_order}")
+
 
 # Convenience functions for backward compatibility
 def search_civitai(model, api_key=None, logger=None):
@@ -449,7 +488,7 @@ def search_civitai(model, api_key=None, logger=None):
     Returns:
         SearchResult object
     """
-    backend = CivitaiSearch(api_key, logger)
+    backend = CivitaiSearch(logger)
     return backend.search(model)
 
 

@@ -16,6 +16,16 @@ def is_package_available(package_name: str) -> bool:
 # Check for ModelScope (for optional search backend)
 MODELSCOPE_AVAILABLE = is_package_available("modelscope")
 
+# Conditionally import ModelScopeSearch when available
+if MODELSCOPE_AVAILABLE:
+    try:
+        from .modelscope_search import ModelScopeSearch
+    except ImportError:
+        ModelScopeSearch = None
+        MODELSCOPE_AVAILABLE = False
+else:
+    ModelScopeSearch = None
+
 # Check for SQLAlchemy (for optional SQL state backend)
 SQLALCHEMY_AVAILABLE = is_package_available("sqlalchemy")
 

@@ -12,7 +12,7 @@ from setuptools import setup
 # Read version from package
 def get_version():
     """Get version from package __init__.py"""
-    with open("src/comfywatchman/__init__.py", "r") as f:
+    with open("src/comfyfixersmart/__init__.py", "r") as f:
         for line in f:
             if line.startswith("__version__"):
                 return line.split("=")[1].strip().strip('"')
@@ -55,7 +55,7 @@ setup(
     keywords="comfyui stable-diffusion model-downloader automation ai",
     python_requires=">=3.7",
     package_dir={"": "src"},
-    packages=["comfywatchman"],
+    packages=["comfyfixersmart"],
     include_package_data=True,
     install_requires=[
         "requests>=2.25.0",
@@ -78,7 +78,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "comfywatchman=comfywatchman.cli:main",
+            "comfywatchman=comfyfixersmart.cli:main",
         ],
     },
     project_urls={

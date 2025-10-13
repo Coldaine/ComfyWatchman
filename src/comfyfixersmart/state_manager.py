@@ -25,7 +25,6 @@ import os
 
 from .config import config
 from .logging import get_logger
-from .adapters.sql_state import SqlStateManager
 
 
 class DownloadStatus(Enum):
@@ -61,7 +60,7 @@ class StateData:
     """Complete state data structure."""
     version: str = "2.0"
     downloads: Dict[str, List[DownloadAttempt]] = field(default_factory=dict)
-    history: List[DownloadAttempt]] = field(default_factory=list)
+    history: List[DownloadAttempt] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -346,6 +345,7 @@ class StateManagerFactory:
             if cls._instance is None:
                 logger = logger or get_logger("StateManagerFactory")
                 if config.state.backend == "sql":
+                    from .adapters.sql_state import SqlStateManager
                     logger.info("Using SQL state backend.")
                     cls._instance = SqlStateManager(db_path=config.state.sql_url, logger=logger)
                 else:

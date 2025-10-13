@@ -9,15 +9,14 @@ import sys
 @dataclass
 class CopilotConfig:
     """Configuration for the ComfyUI-Copilot integration."""
-    enabled: bool = False
-    validation: bool = True
-    auto_repair: bool = False
-    require_comfyui: bool = False
+    enable_validation: bool = False
+    enable_auto_repair: bool = False
+    enable_modelscope: bool = False
 
 @dataclass
 class SearchConfig:
     """Configuration for model search functionalities."""
-    backend_order: List[str] = field(default_factory=lambda: ["civitai", "modelscope", "huggingface"])
+    backend_order: List[str] = field(default_factory=list)  # Will be set dynamically
     civitai_api_key: Optional[str] = os.getenv("CIVITAI_API_KEY")
     enable_cache: bool = True
     cache_ttl: int = 86400
@@ -79,6 +78,12 @@ class Config:
     min_model_size: int = 1_000_000  # 1MB minimum for valid models
     recent_attempt_hours: int = 1  # Hours to consider recent failure
 
+    def __post_init__(self):
+        """Initialize after creation."""
+        self._load_from_toml()
+        self._apply_env_overrides()
+        self._set_default_backend_order()
+        self._ensure_dirs()
     def __post_init__(self):
         """Initialize after creation."""
         self._load_from_toml()
@@ -157,6 +162,21 @@ class Config:
 
     def _ensure_dirs(self):
         """Ensure configuration directories exist."""
+    def _set_default_backend_order(self):
+        """Set the default backend order based on available backends and configuration."""
+        # Import here to avoid circular imports
+        from .adapters import MODELSCOPE_AVAILABLE
+
+        # Default order without ModelScope
+        default_order = ["civitai", "huggingface"]
+
+        # Add ModelScope if enabled and available
+        if self.copilot.enable_modelscope and MODELSCOPE_AVAILABLE:
+            default_order.insert(0, "modelscope")  # Add at the beginning
+
+        # Use configured order if provided, otherwise use default
+        if not self.search.backend_order:
+            self.search.backend_order = default_order
         self.output_dir.mkdir(exist_ok=True)
         self.log_dir.mkdir(exist_ok=True)
         self.temp_dir.mkdir(exist_ok=True)

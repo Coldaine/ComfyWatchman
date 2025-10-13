@@ -6,7 +6,7 @@ forked ComfyUI-Copilot backend.
 """
 
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 from ..logging import get_logger
 from . import COPILOT_AVAILABLE

@@ -37,6 +37,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Development dependencies
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -46,9 +47,31 @@ dev = [
     "sphinx>=4.0.0",
     "sphinx-rtd-theme>=1.0.0",
 ]
+# Documentation dependencies
 docs = [
     "sphinx>=4.0.0",
     "sphinx-rtd-theme>=1.0.0",
+]
+# Core Copilot dependencies needed for validation and repair
+copilot = [
+    "sqlalchemy>=1.4.0,<2.0",
+    "python-dotenv>=0.19.0",
+    "openai>=1.5.0",
+    "aiohttp>=3.8.0",
+    "httpx>=0.24.0",
+]
+# ModelScope-specific dependencies
+modelscope = [
+    "modelscope>=1.28.0",
+]
+# Includes all optional dependencies for complete functionality
+full = [
+    "sqlalchemy>=1.4.0,<2.0",
+    "python-dotenv>=0.19.0",
+    "openai>=1.5.0",
+    "aiohttp>=3.8.0",
+    "httpx>=0.24.0",
+    "modelscope>=1.28.0",
 ]
 
 [project.urls]
@@ -59,7 +82,7 @@ Issues = "https://github.com/yourusername/comfywatchman/issues"
 Changelog = "https://github.com/yourusername/comfywatchman/blob/main/CHANGELOG.md"
 
 [project.scripts]
-comfywatchman = "comfywatchman.cli:main"
+comfywatchman = "comfyfixersmart.cli:main"
 
 [tool.setuptools]
 zip-safe = false
@@ -70,7 +93,7 @@ where = ["src"]
 exclude = ["tests*", "docs*"]
 
 [tool.setuptools.package-data]
-comfywatchman = ["config/*.toml", "templates/*"]
+comfyfixersmart = ["config/*.toml", "templates/*"]
 
 [tool.black]
 line-length = 100
@@ -118,7 +141,7 @@ python_classes = "Test*"
 python_functions = "test_*"
 
 [tool.coverage.run]
-source = ["src/comfywatchman"]
+source = ["src/comfyfixersmart"]
 omit = ["*/tests/*", "*/test_*.py"]
 
 [tool.coverage.report]

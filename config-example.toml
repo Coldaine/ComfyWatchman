@@ -16,8 +16,8 @@ log_dir = "log/"
 # --- Search Backend Configuration ---
 [search]
 # Order of search backends to try.
-# Available: "civitai", "modelscope", "huggingface"
-backend_order = ["civitai", "modelscope"]
+# Available: "civitai", "huggingface", "qwen", "modelscope" (when enabled)
+backend_order = ["civitai", "huggingface", "qwen"]
 
 # Civitai API key. It's recommended to set this via the
 # CIVITAI_API_KEY environment variable for security.
@@ -32,22 +32,18 @@ cache_ttl = 86400
 
 # --- ComfyUI-Copilot Integration (Optional) ---
 [copilot]
-# Master switch to enable all Copilot-based features.
-# Requires the Copilot backend to be installed as a submodule.
-enabled = false
+# Enable Copilot-based workflow validation.
+# When enabled, uses the Copilot engine for deep workflow validation.
+# Requires ComfyUI to be running.
+enable_validation = false
 
-# If enabled, use the Copilot engine for deep workflow validation.
-# This requires ComfyUI to be running.
-validation = true
+# Enable automatic repair of broken workflows using Copilot.
+# When enabled, allows the Copilot engine to attempt automatic repairs.
+enable_auto_repair = false
 
-# If enabled, allow the Copilot engine to attempt automatic repairs
-# on broken workflows.
-auto_repair = false
-
-# If true, the tool will fail gracefully if a Copilot feature is
-# enabled but ComfyUI is not running. If false, it will proceed
-# without using the feature.
-require_comfyui = false
+# Enable ModelScope search backend.
+# When enabled, adds "modelscope" to the search backend order.
+enable_modelscope = false
 
 
 # --- State Management Configuration ---
