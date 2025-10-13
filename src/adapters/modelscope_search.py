@@ -185,4 +185,4 @@ class ModelScopeSearch(SearchBackend):
                 'search_attempts': 1,
                 'modelscope_info': result
             }
-        )
+        )# Kilo Experiment - ModelScope Search Adapter

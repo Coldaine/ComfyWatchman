@@ -505,4 +505,4 @@ def search_with_qwen(model, temp_dir=None, logger=None):
         SearchResult object
     """
     backend = QwenSearch(temp_dir, logger)
-    return backend.search(model)
+    return backend.search(model)# Kilo Experiment - Enhanced Search with ModelScope Integration
