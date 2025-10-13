@@ -1,0 +1,8 @@
+# Runtime dependencies for ComfyWatchman
+# Install with: pip install -r requirements.txt
+
+# HTTP requests library
+requests>=2.25.0
+
+# TOML parsing (for Python < 3.11)
+tomli>=1.2.0; python_version < "3.11"

@@ -1,0 +1,50 @@
+# Include configuration files
+include config/*.toml
+
+# Include documentation
+include docs/**/*.md
+include docs/**/*.rst
+include docs/**/*.txt
+
+# Include example files
+include *.example
+include examples/**/*
+
+# Include scripts
+include scripts/**/*
+include *.sh
+
+# Include license and changelog
+include LICENSE*
+include CHANGELOG*
+include CHANGES*
+
+# Include additional metadata
+include AUTHORS*
+include CONTRIBUTORS*
+include MANIFEST.in
+include requirements*.txt
+
+# Exclude unnecessary files
+exclude .git*
+exclude .DS_Store
+exclude __pycache__
+exclude *.pyc
+exclude *.pyo
+exclude .pytest_cache
+exclude .tox
+exclude .coverage
+exclude htmlcov
+exclude *.egg-info
+exclude dist
+exclude build
+exclude .mypy_cache
+exclude .vscode
+exclude .idea
+exclude *.log
+exclude output/*
+exclude log/*
+exclude state/*
+exclude archives/*
+exclude ScanTool/scan_results*
+exclude ScanTool/models_organized.json

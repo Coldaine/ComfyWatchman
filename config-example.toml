@@ -1,0 +1,56 @@
+# ComfyFixerSmart Configuration Example
+# Copy this file to config/default.toml and customize for your setup
+# Environment variables can override these values
+
+# Paths - REQUIRED for operation
+# Set your ComfyUI installation path here
+comfyui_root = "/path/to/your/ComfyUI/installation"
+
+# Workflow directories to scan for .json workflow files
+# These are relative to the ComfyUI root if not absolute paths
+workflow_dirs = [
+    "user/default/workflows",
+    "/additional/workflow/directory"
+]
+
+# Output and working directories
+output_dir = "output"          # Directory for generated scripts and results
+log_dir = "log"               # Directory for log files
+state_dir = "state"           # Directory for state and cache files
+
+# Search and logging
+search_log_file = "qwen_search_history.log"  # Search operation log
+download_counter_file = "download_counter.txt"  # Download progress tracking
+
+# API Settings
+civitai_api_base = "https://civitai.com/api/v1"
+civitai_download_base = "https://civitai.com/api/download/models"
+civitai_api_timeout = 30  # API request timeout in seconds
+
+# Model Settings
+# File extensions to consider as models
+model_extensions = [
+    ".safetensors",
+    ".ckpt",
+    ".pt",
+    ".bin",
+    ".pth"
+]
+
+# Model type mapping - maps ComfyUI node types to model directories
+# Add custom mappings as needed for your workflows
+model_type_mapping = { "CheckpointLoaderSimple" = "checkpoints", "CheckpointLoader" = "checkpoints", "LoraLoader" = "loras", "LoraLoaderModelOnly" = "loras", "VAELoader" = "vae", "CLIPLoader" = "clip", "DualCLIPLoader" = "clip", "ControlNetLoader" = "controlnet", "UpscaleModelLoader" = "upscale_models", "CLIPVisionLoader" = "clip_vision", "UNETLoader" = "unet", "SAMLoader" = "sams", "GroundingDinoModelLoader" = "grounding-dino" }
+
+# State Management
+state_file = "download_state.json"  # Download state tracking
+
+# Logging
+log_format = "%Y-%m-%d %H:%M:%S"  # Timestamp format for logs
+run_id_format = "%Y%m%d_%H%M%S"   # Format for run IDs
+
+# Feature flags
+enable_claude_verification = false  # Enable Claude AI verification (requires API key)
+
+# Validation Thresholds
+min_model_size = 1000000  # Minimum model file size in bytes (1MB)
+recent_attempt_hours = 1  # Hours to consider a download attempt "recent"

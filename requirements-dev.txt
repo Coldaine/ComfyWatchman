@@ -1,0 +1,22 @@
+# Development dependencies for ComfyWatchman
+# Install with: pip install -r requirements-dev.txt
+
+# Runtime dependencies
+-r requirements.txt
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Code quality
+black>=22.0.0
+flake8>=4.0.0
+mypy>=0.950
+
+# Documentation
+sphinx>=4.0.0
+sphinx-rtd-theme>=1.0.0
+
+# Development tools
+pre-commit>=2.17.0
+tox>=3.24.0
