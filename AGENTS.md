@@ -10,6 +10,16 @@ This file provides project context and instructions for AI coding agents working
 
 **Development Philosophy**: Solo developer project - favor practical solutions over enterprise patterns, reuse existing code patterns, avoid unnecessary abstractions.
 
+**COMFYUI_ROOT** must point to `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable`. Every download belongs inside `${COMFYUI_ROOT}/models/<type>/`; the repository itself should never contain `.safetensors`, `.ckpt`, `.pt`, `.pth`, `.bin`, `.onnx`, `.npz`, or other large binaries.
+
+**Configuration guardrails** live in `config/default.toml`, which now pins `comfyui_root` and `workflow_dirs` to the paths above. Temporary overrides can export `COMFYUI_ROOT="/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable"`, but clear them before finishing work so the default remains authoritative.
+
+**Failure-first policy**: abort immediately if `config.models_dir` is missing or cannot be resolved. Generated download scripts must refuse to run without a valid models directory and should never embed raw model binaries.
+
+**Git hygiene**: run `git status` before and after changes. The pre-commit hook blocks files ≥ 90 MB, and `.gitignore` already excludes weights, archives, partial downloads, and generated scripts—leave those defenses intact.
+
+**Escalation protocol**: any scope changes for Phase 1 or Phase 2 (see `docs/vision.md`) require explicit owner approval. Surface uncertainties instead of guessing about download destinations or behavior.
+
 ## Critical Paths
 
 ### ComfyUI Installation

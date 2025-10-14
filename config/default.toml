@@ -3,10 +3,10 @@
 # Environment variables can override these values.
 
 # Paths
-# comfyui_root = "/path/to/your/ComfyUI/installation"
-# workflow_dirs = [
-#     "/path/to/your/ComfyUI/installation/user/default/workflows"
-# ]
+comfyui_root = "/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable"
+workflow_dirs = [
+    "/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/user/default/workflows"
+]
 output_dir = "output"
 log_dir = "log"
 state_dir = "state"
