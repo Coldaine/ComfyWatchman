@@ -32,7 +32,7 @@ htmlcov/
 
 # Logs
 *.log
-log/*.log
+log/
 
 # Virtual environments
 venv/
@@ -53,11 +53,48 @@ Thumbs.db
 
 # Project-specific
 state/
-output/*.json
-output/*.sh
+output/
 config/.compatibility_state.json
 
 # Temporary files
 *.tmp
 *.bak
 .backup
+*.part
+
+# Common archives and compressed files
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+*.bz2
+*.xz
+*.zst
+
+# Model binaries and large artifacts (prevent accidental commits)
+# Common AI/ComfyUI model formats
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+*.npz
+# Sometimes downloads create numbered duplicates
+*.safetensors.*
+*.ckpt.*
+*.pt.*
+*.pth.*
+*.bin.*
+
+# Generated download helper scripts at repo root
+# Keep explicit allow-list for real dev scripts if added later
+/*download*.sh
+/*_download.sh
+/complete_download.sh
+/corrected_download.sh
+/final_download.sh
+/fixed_download.sh
+/simple_download.sh
+/test_download.sh

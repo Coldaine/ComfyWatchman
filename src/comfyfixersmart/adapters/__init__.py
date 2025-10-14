@@ -29,17 +29,37 @@ else:
 # Check for SQLAlchemy (for optional SQL state backend)
 SQLALCHEMY_AVAILABLE = is_package_available("sqlalchemy")
 
-# Placeholder for ComfyUI-Copilot backend check.
-# This will be more robust once it's a submodule.
+# Check for ComfyUI-Copilot backend submodule
 def is_copilot_available() -> bool:
     """Check if the forked ComfyUI-Copilot backend is available."""
-    # For now, we can check if a key file exists. This will be improved
-    # when using git submodules.
-    # A simple check could be for the main agent file.
-    copilot_agent_path = "src/copilot_backend/service/debug_agent.py"
-    # This path will need to be adjusted based on the submodule location.
-    # For now, let's assume a placeholder logic.
-    return is_package_available("agents") # A key dependency of the copilot backend
+    import os
+    from pathlib import Path
+    
+    # Check if the submodule directory exists
+    copilot_path = Path(__file__).parent.parent.parent / "copilot_backend"
+    if not copilot_path.exists():
+        return False
+    
+    # Check if key files exist in the submodule
+    modelscope_gateway = copilot_path / "backend" / "utils" / "modelscope_gateway.py"
+    if not modelscope_gateway.exists():
+        return False
+    
+    # Check if we can import from the submodule
+    try:
+        # Try importing a key module to verify it's working
+        import sys
+        # Add the submodule to sys.path temporarily
+        original_path = sys.path.copy()
+        sys.path.insert(0, str(copilot_path.parent))
+        try:
+            from copilot_backend.backend.utils.modelscope_gateway import ModelScopeGateway
+            return True
+        finally:
+            # Restore original sys.path
+            sys.path = original_path
+    except (ImportError, ModuleNotFoundError, AttributeError):
+        return False
 
 COPILOT_AVAILABLE = is_copilot_available()
 

@@ -198,82 +198,278 @@ class CivitaiSearch(SearchBackend):
 
 
 class QwenSearch(SearchBackend):
-    """Qwen-based autonomous search backend."""
+    """Qwen-based agentic search backend - PRIMARY search orchestrator."""
 
     def __init__(self, temp_dir: Optional[str] = None, logger=None):
         super().__init__(logger)
         self.temp_dir = Path(temp_dir or config.temp_dir)
-        self.temp_dir.mkdir(exist_ok=True)
+        self.temp_dir.mkdir(exist_ok=True, parents=True)
 
     def get_name(self) -> str:
         return "qwen"
 
     def search(self, model_info: Dict[str, Any]) -> SearchResult:
-        """Use Qwen agent to search for a model."""
+        """Use Qwen agent to orchestrate multi-strategy search with reasoning."""
         filename = model_info['filename']
+        model_type = model_info.get('type', 'unknown')
+        node_type = model_info.get('node_type', 'unknown')
+
+        self.logger.info(f"Launching Qwen agentic search for: {filename}")
 
         # Create unique result file
-        safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
+        safe_name = sanitize_filename(filename)
         result_file = self.temp_dir / f"qwen_result_{safe_name}.json"
 
-        # Build Qwen prompt
-        prompt = self._build_qwen_prompt(model_info)
+        # Build comprehensive Qwen prompt
+        prompt = self._build_agentic_prompt(filename, model_type, node_type, result_file)
 
         try:
-            # Run Qwen (this is a placeholder - actual implementation would call Qwen)
-            # For now, return a mock result
-            self.logger.info(f"Qwen search for: {filename}")
-
-            # Mock Qwen execution - in real implementation, this would run:
-            # subprocess.run(['qwen', '-p', prompt, '--yolo'], ...)
-
-            # For demonstration, return NOT_FOUND
-            return SearchResult(
-                status='NOT_FOUND',
-                filename=filename,
-                metadata={
-                    'civitai_searches': 0,
-                    'huggingface_searches': 0,
-                    'reason': 'Qwen integration not implemented yet'
-                }
+            # Run Qwen with YOLO mode (auto-approve all actions)
+            import subprocess
+            result = subprocess.run(
+                ['qwen', '-p', prompt, '--yolo'],
+                capture_output=True,
+                text=True,
+                timeout=900,  # 15 minutes max
+                cwd=str(self.temp_dir)
             )
 
+            # Check if Qwen wrote output file
+            if not result_file.exists():
+                self.logger.warning(f"Qwen did not create output file for {filename}")
+                self.logger.debug(f"Qwen stdout: {result.stdout[-1000:]}")
+                self.logger.debug(f"Qwen stderr: {result.stderr[-1000:]}")
+                return SearchResult(
+                    status='NOT_FOUND',
+                    filename=filename,
+                    metadata={'reason': 'Qwen search did not produce results'}
+                )
+
+            # Read Qwen's result
+            with open(result_file) as f:
+                qwen_result = json.load(f)
+
+            # Parse Qwen's findings
+            return self._parse_qwen_result(qwen_result, filename)
+
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"Qwen search timed out for {filename}")
+            return SearchResult(
+                status='ERROR',
+                filename=filename,
+                error_message='Qwen search timed out after 15 minutes'
+            )
         except Exception as e:
-            self.logger.error(f"Qwen search error: {e}")
+            self.logger.error(f"Qwen search error for {filename}: {e}")
             return SearchResult(
                 status='ERROR',
                 filename=filename,
                 error_message=str(e)
             )
 
-    def _build_qwen_prompt(self, model_info: Dict[str, Any]) -> str:
-        """Build the Qwen search prompt."""
-        # This would be the full prompt from QWEN_SEARCH_IMPLEMENTATION_PLAN.md
-        return f"Search for model: {model_info['filename']}"
+    def _build_agentic_prompt(self, filename: str, model_type: str, node_type: str,
+                             result_file: Path) -> str:
+        """Build comprehensive agentic search prompt for Qwen."""
+        return f"""You are an autonomous AI model discovery agent. Your task is to find the correct download source for a ComfyUI model file using intelligent search strategies.
 
+INPUT DATA:
+- Filename: {filename}
+- Model Type: {model_type}
+- Node Type: {node_type}
 
-class HuggingFaceSearch(SearchBackend):
-    """HuggingFace model search backend."""
+ENVIRONMENT:
+- CIVITAI_API_KEY is available in environment (from ~/.secrets)
+- TAVILY_API_KEY is available for web search
+- You have access to: bash, web_search, web_fetch tools
 
-    def __init__(self, logger=None):
-        super().__init__(logger)
+YOUR MISSION:
+Find where to download this EXACT file, or confirm it doesn't exist on Civitai/HuggingFace.
 
-    def get_name(self) -> str:
-        return "huggingface"
+SEARCH STRATEGY (Execute in order):
 
-    def search(self, model_info: Dict[str, Any]) -> SearchResult:
-        """Search HuggingFace for a model."""
-        filename = model_info['filename']
+=== PHASE 1: CIVITAI API SEARCH (Max 5 attempts) ===
 
-        # For now, return NOT_FOUND as HuggingFace search is complex
-        # Real implementation would use web search or API
-        self.logger.info(f"HuggingFace search for: {filename}")
+1. Extract search keywords from filename:
+   - Remove extensions: .pth, .pt, .safetensors, .ckpt, .bin
+   - Split on delimiters: _, -, .
+   - Identify: version numbers, model types, keywords
 
+   Examples:
+   "rife49.pth" → ["rife", "49", "frame interpolation"]
+   "4xNMKDSuperscale.pt" → ["nmkd", "superscale", "4x", "upscale"]
+
+2. Try Civitai API with these queries (stop when found):
+   a) Exact name without extension
+   b) Main keyword only
+   c) Alternative terms based on model type
+   d) Broader category search
+
+3. API endpoint: https://civitai.com/api/v1/models
+   Parameters: ?query=<term>&limit=10&sort=Highest+Rated
+   Headers: Authorization: Bearer $CIVITAI_API_KEY
+
+4. For EACH result:
+   - Fetch full details: https://civitai.com/api/v1/models/{{id}}
+   - Check ALL modelVersions[].files[].name for EXACT match to "{filename}"
+   - Log: "Checked model {{id}} '{{name}}': {{files found}}"
+
+5. CRITICAL: Match must be EXACT filename (case-sensitive)
+
+=== PHASE 2: WEB SEARCH + HUGGINGFACE (If Civitai fails) ===
+
+1. Use Tavily web search with smart patterns:
+   - If "rife*.pth" → "rife frame interpolation huggingface"
+   - If "sam_*.pth" → "facebook sam segment anything huggingface"
+   - If "*NMKD*" → "nmkd upscaler huggingface github"
+   - Otherwise → "{filename} site:huggingface.co OR site:github.com"
+
+2. Extract repos from results:
+   - Look for: huggingface.co/<user>/<repo>/blob/main/<path>
+   - Look for: github.com/<user>/<repo>/releases
+
+3. Verify file exists:
+   - HuggingFace: Use `hf` CLI or web_fetch to check repo files
+   - GitHub: Check releases or repo files
+
+4. If found, construct download URL:
+   - HF: https://huggingface.co/<user>/<repo>/resolve/main/<path>
+   - GitHub: Use release asset URL or raw.githubusercontent.com
+
+=== PHASE 3: OUTPUT RESULT ===
+
+Write to {result_file}:
+
+SUCCESS - Found on Civitai:
+{{{{
+  "status": "FOUND",
+  "source": "civitai",
+  "civitai_id": <model_id>,
+  "version_id": <version_id>,
+  "civitai_name": "<model_name>",
+  "version_name": "<version_name>",
+  "download_url": "https://civitai.com/api/download/models/<version_id>",
+  "confidence": "exact",
+  "metadata": {{{{
+    "search_attempts": <count>,
+    "reasoning": "brief explanation"
+  }}}}
+}}}}
+
+SUCCESS - Found on HuggingFace:
+{{{{
+  "status": "FOUND",
+  "source": "huggingface",
+  "repo": "<user>/<repo>",
+  "file_path": "<path>",
+  "download_url": "<url>",
+  "confidence": "high",
+  "metadata": {{{{
+    "search_attempts": <count>,
+    "reasoning": "brief explanation"
+  }}}}
+}}}}
+
+UNCERTAIN - Need Human Review:
+{{{{
+  "status": "UNCERTAIN",
+  "candidates": [
+    {{{{"source": "...", "name": "...", "url": "...", "match_score": 0.7}}}}
+  ],
+  "reason": "Multiple candidates found, need manual verification",
+  "metadata": {{{{
+    "search_attempts": <count>
+  }}}}
+}}}}
+
+NOT FOUND:
+{{{{
+  "status": "NOT_FOUND",
+  "metadata": {{{{
+    "civitai_searches": <count>,
+    "web_searches": <count>,
+    "reason": "detailed explanation of where you looked"
+  }}}}
+}}}}
+
+INVALID:
+{{{{
+  "status": "INVALID_FILENAME",
+  "reason": "Filename contains invalid characters or is malformed"
+}}}}
+
+CRITICAL RULES:
+1. Filename validation must be EXACT match
+2. Try multiple strategies before giving up
+3. ALWAYS write output JSON to {result_file}
+4. Log your reasoning clearly
+5. If uncertain, return UNCERTAIN status with candidates
+6. Maximum 15 minutes timeout
+
+BEGIN AGENTIC SEARCH NOW. Think step by step and log your progress."""
+
+    def _parse_qwen_result(self, qwen_result: Dict[str, Any], filename: str) -> SearchResult:
+        """Parse Qwen's search results into SearchResult object."""
+        status = qwen_result.get('status', 'ERROR')
+
+        if status == 'FOUND':
+            source = qwen_result.get('source', 'unknown')
+
+            if source == 'civitai':
+                return SearchResult(
+                    status='FOUND',
+                    filename=filename,
+                    source='civitai',
+                    civitai_id=qwen_result.get('civitai_id'),
+                    version_id=qwen_result.get('version_id'),
+                    civitai_name=qwen_result.get('civitai_name'),
+                    version_name=qwen_result.get('version_name'),
+                    download_url=qwen_result.get('download_url'),
+                    confidence=qwen_result.get('confidence', 'exact'),
+                    metadata=qwen_result.get('metadata', {})
+                )
+
+            elif source == 'huggingface':
+                return SearchResult(
+                    status='FOUND',
+                    filename=filename,
+                    source='huggingface',
+                    download_url=qwen_result.get('download_url'),
+                    confidence=qwen_result.get('confidence', 'high'),
+                    metadata={
+                        'repo': qwen_result.get('repo'),
+                        'file_path': qwen_result.get('file_path'),
+                        **qwen_result.get('metadata', {})
+                    }
+                )
+
+        elif status == 'UNCERTAIN':
+            return SearchResult(
+                status='NOT_FOUND',  # Treat uncertain as not found for now
+                filename=filename,
+                metadata={
+                    'reason': qwen_result.get('reason', 'Uncertain matches'),
+                    'candidates': qwen_result.get('candidates', []),
+                    'requires_review': True
+                }
+            )
+
+        elif status == 'INVALID_FILENAME':
+            return SearchResult(
+                status='INVALID_FILENAME',
+                filename=filename,
+                error_message=qwen_result.get('reason', 'Invalid filename')
+            )
+
+        # NOT_FOUND or ERROR
         return SearchResult(
-            status='NOT_FOUND',
+            status=status,
             filename=filename,
-            metadata={'reason': 'HuggingFace search not implemented yet'}
+            metadata=qwen_result.get('metadata', {}),
+            error_message=qwen_result.get('error_message')
         )
+
+
+# HuggingFaceSearch removed - Qwen agentic search handles all backends
 
 
 class ModelSearch:
@@ -298,10 +494,10 @@ class ModelSearch:
         self.state_manager = state_manager
 
         # Initialize available backends dynamically
+        # Qwen is the PRIMARY agentic search backend that handles all sources
         self.backends: Dict[str, SearchBackend] = {
-            'civitai': CivitaiSearch(logger=self.logger),
-            'huggingface': HuggingFaceSearch(logger=self.logger)
-            # 'qwen' is deprecated/placeholder, so we leave it out for now
+            'qwen': QwenSearch(logger=self.logger),  # PRIMARY - agentic search
+            'civitai': CivitaiSearch(logger=self.logger)  # FALLBACK - direct API
         }
 
         # Conditionally register ModelScope backend
@@ -505,4 +701,4 @@ def search_with_qwen(model, temp_dir=None, logger=None):
         SearchResult object
     """
     backend = QwenSearch(temp_dir, logger)
-    return backend.search(model)
+    return backend.search(model)# Kilo Experiment - Enhanced Search with ModelScope Integration

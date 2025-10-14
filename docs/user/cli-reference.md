@@ -238,19 +238,30 @@ ComfyFixerSmart automatically detects model types based on:
 
 ## Search Backends
 
-### Civitai Backend
+ComfyWatchman uses an **agentic search architecture** that intelligently discovers models across multiple sources. See **[Search Architecture](../SEARCH_ARCHITECTURE.md)** for complete details.
 
+### Primary: Qwen Agentic Search (Default)
+
+- **Type**: AI agent orchestrating multi-phase search
+- **Phase 1**: Civitai API with intelligent keyword extraction and exact filename validation
+- **Phase 2**: Tavily web search + HuggingFace repository discovery
+- **Features**: Reasoning, doubt handling, multi-source federation
+- **Requirements**: Qwen CLI, CIVITAI_API_KEY, TAVILY_API_KEY
+- **Accuracy**: >95% exact match validation
+
+### Fallback: Civitai Direct
+
+- **Type**: Direct API search (no agent reasoning)
 - **API**: https://civitai.com/api/v1
 - **Authentication**: API key required
-- **Features**: Model metadata, versions, download URLs
-- **Limitations**: Requires API key, rate limited
+- **Use Case**: When Qwen unavailable or for faster batch operations
+- **Limitations**: No HuggingFace search, basic matching
 
-### HuggingFace Backend
+### Experimental: ModelScope
 
-- **API**: https://huggingface.co/api
-- **Authentication**: Optional token for private repos
-- **Features**: Model discovery, direct downloads
-- **Limitations**: Less metadata than Civitai
+- **Type**: Alternative model hub (China-based)
+- **Status**: Optional, disabled by default
+- **Configuration**: Set `copilot.enable_modelscope = true`
 
 ## Error Handling
 

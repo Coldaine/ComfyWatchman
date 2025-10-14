@@ -49,11 +49,12 @@ Make ComfyUI workflows instantly runnable and meaningfully understood by an inte
 ### Phase 2 — Knowledge-Guided Resolution
 - **Curated Knowledge Base:** Maintain a plain-document knowledge pack (no databases) distilled from research reports and owner-approved materials to ground LLM reasoning.
 - **Scheduled Discovery:** On the same cadence (or hourly if testing demonstrates value) attempt to resolve missing models/nodes, updating the dashboard and reports.
-- **Search Workflow:**
-  - Primary path: Civitai API queries orchestrated by Qwen (current LLM) with web-search fallback tooling.
-  - Secondary path: Hugging Face CLI downloads when appropriate.
-  - Reasoned deliberation: LLM must think through each step, request review when uncertain, and log its rationale.
-- **Doubt Handling:** When the correct model/node is uncertain, trigger the designated backup plan for manual confirmation or alternative strategies.
+- **Agentic Search Workflow:** (see [Search Architecture](SEARCH_ARCHITECTURE.md) for complete details)
+  - **Phase 1**: Civitai API search with intelligent keyword extraction and exact filename validation
+  - **Phase 2**: Tavily web search + HuggingFace repository discovery for models not on Civitai
+  - **Agent Orchestration**: Qwen LLM coordinates search strategies, validates matches, and logs reasoning
+  - **Multi-Source**: Seamlessly handles Civitai, HuggingFace, and ModelScope sources
+- **Doubt Handling:** When uncertain (multiple candidates, low confidence), return UNCERTAIN status with candidate list for manual review
 - **Owner Workflow Schemas:** Capture lightweight, versioned schemas that reflect preferred build patterns—initially:
   1. **Auto-Inpaint Frontend:** Plug-and-play mask generation chain (SAM + Florence today, but designed for swappable detectors/growth nodes) that supports automatic masking and controlled mask growth without manual painting.
   2. **Image-Cycling Frontend:** Workflow loader that targets one or more folders, feeds images one at a time (not batch style), and advances via random/seed changes between runs. This frontend depends on Workflow Schema #3.

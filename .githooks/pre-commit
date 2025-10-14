@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Prevent committing files larger than 90MB to avoid GitHub size limits
+# and keep the repo clean of model weights and large artifacts.
+
+limit_mb=90
+limit_bytes=$((limit_mb * 1024 * 1024))
+
+# Get list of files added or modified in the index
+files=$(git diff --cached --name-only --diff-filter=AM)
+
+blocked=0
+for f in $files; do
+  if [ -f "$f" ]; then
+    size=$(wc -c <"$f")
+    if [ "$size" -ge "$limit_bytes" ]; then
+      echo "[pre-commit] Error: '$f' is $(numfmt --to=iec --suffix=B "$size" 2>/dev/null || echo ${size}B), exceeds ${limit_mb}MB."
+      blocked=1
+    fi
+  fi
+done
+
+if [ $blocked -ne 0 ]; then
+  echo "[pre-commit] Commit aborted. Please remove large files from git or use Git LFS if appropriate."
+  exit 1
+fi
+
+exit 0

@@ -10,27 +10,56 @@ model search functionality.
 from ..logging import get_logger
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 import sys
-sys.path.append('/home/coldaine/StableDiffusionWorkflow/ComfyFixerSmart/src')
-from adapters.base import CopilotAdapter
+import os
+from pathlib import Path
+
+# Get the logger
+logger = get_logger(__name__)
+
+from .base import CopilotAdapter
 
 if TYPE_CHECKING:
     from ..search import SearchBackend, SearchResult
 
 from ..search import SearchBackend, SearchResult
 # Feature detection from our new __init__.py
-from . import MODELSCOPE_AVAILABLE
+from . import MODELSCOPE_AVAILABLE, COPILOT_AVAILABLE
+
+# Import the fallback implementation
+from .modelscope_fallback import ModelScopeGatewayFallback
 
 # Conditionally import from the forked submodule
-if MODELSCOPE_AVAILABLE:
+ModelScopeGateway = None
+if MODELSCOPE_AVAILABLE and COPILOT_AVAILABLE:
     try:
-        # This path assumes the submodule is at src/copilot_backend
-        # We may need to adjust sys.path if imports fail
-        from ..copilot_backend.backend.utils.modelscope_gateway import ModelScopeGateway
-    except (ImportError, ModuleNotFoundError):
-        # Handle cases where the submodule is present but has issues
+        # Get the path to the copilot_backend submodule
+        current_dir = Path(__file__).parent
+        copilot_path = current_dir.parent.parent / "copilot_backend"
+        
+        # Add the parent directory to sys.path if not already there
+        parent_dir = str(copilot_path.parent)
+        if parent_dir not in sys.path:
+            sys.path.insert(0, parent_dir)
+        
+        # Try to import the ModelScopeGateway
+        from copilot_backend.backend.utils.modelscope_gateway import ModelScopeGateway
+        logger.info("Successfully imported ModelScopeGateway from copilot_backend")
+    except (ImportError, ModuleNotFoundError) as e:
+        logger.warning(f"Failed to import ModelScopeGateway from copilot_backend: {e}")
+        ModelScopeGateway = None
+    except Exception as e:
+        logger.error(f"Unexpected error importing ModelScopeGateway: {e}")
         ModelScopeGateway = None
 else:
-    ModelScopeGateway = None
+    if not MODELSCOPE_AVAILABLE:
+        logger.info("ModelScope package not available, using fallback implementation")
+    if not COPILOT_AVAILABLE:
+        logger.info("ComfyUI-Copilot backend not available, using fallback implementation")
+
+# If we couldn't import the real ModelScopeGateway, use the fallback
+if ModelScopeGateway is None:
+    ModelScopeGateway = ModelScopeGatewayFallback
+    logger.info("Using ModelScopeGatewayFallback implementation")
 
 
 class ModelScopeAdapter(CopilotAdapter):
@@ -44,21 +73,30 @@ class ModelScopeAdapter(CopilotAdapter):
     def __init__(self, name: str = "modelscope", description: str = "ModelScope model search and download"):
         super().__init__(name, description)
         self._gateway = None
+        # Use the module logger instead of self.logger which might not be initialized yet
+        self.logger = logger
+
+    def get_name(self) -> str:
+        """Return the name of this adapter."""
+        return self.name
 
     def is_available(self) -> bool:
         """Check if ModelScope dependencies are available."""
-        return MODELSCOPE_AVAILABLE and ModelScopeGateway is not None
+        # Always return True now since we have a fallback implementation
+        return True
 
     def initialize(self) -> bool:
         """Initialize the ModelScope gateway."""
-        if not self.is_available():
-            self.logger.warning("ModelScope dependencies not available")
-            return False
-
         try:
             self._gateway = ModelScopeGateway()
             self._initialized = True
-            self.logger.info("ModelScopeAdapter initialized successfully")
+            
+            # Check if we're using the fallback implementation
+            if hasattr(self._gateway, '__class__') and 'Fallback' in self._gateway.__class__.__name__:
+                self.logger.info("ModelScopeAdapter initialized with fallback implementation")
+            else:
+                self.logger.info("ModelScopeAdapter initialized with full ModelScope gateway")
+                
             return True
         except Exception as e:
             self.logger.error(f"Failed to initialize ModelScopeAdapter: {e}")
@@ -193,6 +231,14 @@ class ModelScopeSearch(SearchBackend):
         self.adapter = ModelScopeAdapter()
         self.enabled = self.adapter.initialize()
 
+        # Check if we're using the fallback implementation
+        if hasattr(self.adapter._gateway, '__class__') and 'Fallback' in self.adapter._gateway.__class__.__name__:
+            self.logger.info("ModelScopeSearch initialized with fallback implementation")
+            self.fallback_mode = True
+        else:
+            self.logger.info("ModelScopeSearch initialized with full ModelScope gateway")
+            self.fallback_mode = False
+
         if not self.enabled:
             self.logger.warning("ModelScopeSearch backend disabled due to initialization failure")
 
@@ -236,7 +282,10 @@ class ModelScopeSearch(SearchBackend):
                     status='NOT_FOUND',
                     filename=filename,
                     source=self.get_name(),
-                    metadata={'reason': f'No ModelScope results for {filename}'}
+                    metadata={
+                        'reason': f'No ModelScope results for {filename}',
+                        'fallback_mode': self.fallback_mode
+                    }
                 )
 
             # Take the best result (first one)
@@ -256,7 +305,8 @@ class ModelScopeSearch(SearchBackend):
                     'chinese_name': best_match.get('ChineseName', ''),
                     'downloads': best_match.get('Downloads', 0),
                     'libraries': best_match.get('Libraries', []),
-                    'last_updated': best_match.get('LastUpdatedTime', '')
+                    'last_updated': best_match.get('LastUpdatedTime', ''),
+                    'fallback_mode': self.fallback_mode
                 }
             )
 
@@ -266,7 +316,8 @@ class ModelScopeSearch(SearchBackend):
                 status='ERROR',
                 filename=filename,
                 source=self.get_name(),
-                error_message=str(e)
+                error_message=str(e),
+                metadata={'fallback_mode': self.fallback_mode}
             )
 
     def _construct_download_url(self, model_data: Dict[str, Any]) -> str:
