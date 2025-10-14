@@ -9,13 +9,14 @@ import json
 from typing import Dict, Any, Optional, Tuple
 
 from ..logging import get_logger
+from ..config import config
 from . import COPILOT_AVAILABLE
 
 # Conditionally import from the forked submodule
 if COPILOT_AVAILABLE:
     try:
-        from backend.service.debug_agent import debug_workflow_errors
-        from backend.utils.request_context import set_session_id, set_config
+        from ...backend.service.debug_agent import debug_workflow_errors
+        from ...backend.utils.request_context import set_session_id, set_config
     except (ImportError, ModuleNotFoundError) as e:
         debug_workflow_errors = None
         set_session_id, set_config = None, None

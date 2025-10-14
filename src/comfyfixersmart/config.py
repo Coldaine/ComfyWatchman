@@ -68,6 +68,30 @@ class Config:
         'UNETLoader': 'unet',
         'SAMLoader': 'sams',
         'GroundingDinoModelLoader': 'grounding-dino',
+        # Video Frame Interpolation (VFI) models - stored in checkpoints directory
+        'RIFE VFI': 'checkpoints',
+        'GMFSS Fortuna VFI': 'checkpoints',
+        'IFRNet VFI': 'checkpoints',
+        'IFUnet VFI': 'checkpoints',
+        'M2M VFI': 'checkpoints',
+        'Sepconv VFI': 'checkpoints',
+        'AMT VFI': 'checkpoints',
+        'FILM VFI': 'checkpoints',
+        'STMFNet VFI': 'checkpoints',
+        'FLAVR VFI': 'checkpoints',
+        'CAIN VFI': 'checkpoints',
+        'DownloadAndLoadGIMMVFIModel': 'checkpoints',
+        # Ultralytics YOLO detection models
+        'UltralyticsDetectorProvider': 'ultralytics',
+        # HunyuanVideo models
+        'HunyuanVideoLoraLoader': 'loras',
+        # WanVideo models
+        'WanVideoLoraSelect': 'loras',
+        'WanVideoLoraSelectMulti': 'loras',
+        'LoadWanVideoT5TextEncoder': 'text_encoders',
+        'WanVideoVAELoader': 'vae',
+        'WanVideoModelLoader': 'diffusion_models',
+        'WanVideoControlnetLoader': 'controlnet',
     })
 
     # Logging
@@ -168,12 +192,13 @@ class Config:
         # Import here to avoid circular imports
         from .adapters import MODELSCOPE_AVAILABLE
 
-        # Default order without ModelScope
-        default_order = ["civitai", "huggingface"]
+        # Default order: Qwen as primary agentic search orchestrator, then direct API backends
+        # Qwen provides intelligent multi-source search with reasoning and result synthesis
+        default_order = ["qwen", "civitai"]
 
         # Add ModelScope if enabled and available
         if self.copilot.enable_modelscope and MODELSCOPE_AVAILABLE:
-            default_order.insert(0, "modelscope")  # Add at the beginning
+            default_order.insert(1, "modelscope")  # Add after Qwen but before others
 
         # Use configured order if provided, otherwise use default
         if not self.search.backend_order:

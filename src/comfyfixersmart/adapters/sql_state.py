@@ -16,7 +16,7 @@ from . import SQLALCHEMY_AVAILABLE
 if SQLALCHEMY_AVAILABLE:
     try:
         # This will require the submodule path to be configured correctly
-        from backend.dao.workflow_table import WorkflowDatabase
+        from ...backend.dao.workflow_table import WorkflowDatabase
     except (ImportError, ModuleNotFoundError):
         WorkflowDatabase = None
 else:

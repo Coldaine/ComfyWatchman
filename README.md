@@ -68,6 +68,16 @@ comfywatchman --dir /path/to/workflows
 
 📚 **[Full Documentation](docs/README.md)** - Complete user and developer guides
 
+### Current Roadmap Status (October 2025)
+
+We are actively executing **Phase 1: Strengthen Core** from the three-phase roadmap in `docs/CROSSROADS.md`.
+
+- ✅ Completed: consolidated Python package (`src/comfyfixersmart`), unified CLI (`comfywatchman` command), agentic search pipeline (Qwen → Civitai → web fallback), state-backed download manager, and TOML/env-based configuration.
+- 🔄 In Progress: documentation polish and developer onboarding materials (this README + `docs/` refresh), packaging cleanup for PyPI, and CLI ergonomics.
+- ⏳ Not Yet Started (Phase 1 items): external plugin API surface, optional telemetry hooks, extended integration examples.
+
+Phase 2 (optimization layer) and Phase 3 (ecosystem integrations) remain future work; no engineering has begun on those tracks yet.
+
 ### Quick Links
 
 - **[User Guide](docs/user/user-guide.md)** - Installation, setup, and usage
@@ -82,6 +92,7 @@ comfywatchman --dir /path/to/workflows
 
 - **[Vision](docs/vision.md)** — Where ComfyWatchman is headed (LLM + RAG, hardware‑aware reviews, safety, and automation philosophy)
 - **[Proposed Architecture](docs/architecture.md)** — Component design for LLM‑assisted review, local knowledge pack/RAG, and end‑to‑end orchestration
+- **[Search Architecture](docs/SEARCH_ARCHITECTURE.md)** — Agentic search system (Qwen + Tavily), multi-source federation (Civitai, HuggingFace), and doubt handling
 
 ### Research & Strategic Direction
 
@@ -90,11 +101,12 @@ comfywatchman --dir /path/to/workflows
 - **[Existing Systems Analysis](docs/research/EXISTING_SYSTEMS.md)** — Comprehensive review of 15+ existing tools (ComfyUI-Copilot, ComfyScript, ComfyGPT, etc.)
 - **[ComfyUI-Copilot Deep Dive](docs/research/ComfyUI-Copilot-Research-Report.md)** — Detailed analysis of ComfyUI-Copilot architecture and capabilities
 
-Related planning/feature docs:
-- **Qwen Search Plan**: `docs/planning/QWEN_SEARCH_IMPLEMENTATION_PLAN.md`
-- **Qwen Operator Guide**: `docs/planning/QWEN_PROMPT.md`
-- **Agent Guide**: `docs/planning/AGENT_GUIDE.md`
-- **Claude URL Verification** (optional): `docs/reports/CLAUDE_VERIFICATION.md`
+### Search System Details
+
+- **[Search Architecture](docs/SEARCH_ARCHITECTURE.md)** — Complete guide to agentic search with Qwen + Tavily
+- **[Qwen Search Plan](docs/planning/QWEN_SEARCH_IMPLEMENTATION_PLAN.md)** — Original implementation plan and requirements
+- **[Qwen Operator Guide](docs/planning/QWEN_PROMPT.md)** — Prompt engineering and agent instructions
+- **[Agent Guide](docs/planning/AGENT_GUIDE.md)** — Guide for AI agents using ComfyWatchman
 
 Planned: Automatic, continuously updated Workflow Health Report (supersedes `workflow_analysis_report.md`). See [Vision](docs/vision.md) and [Proposed Architecture](docs/architecture.md).
 
@@ -103,21 +115,25 @@ Planned: Automatic, continuously updated Workflow Health Report (supersedes `wor
 ## 📋 Requirements
 
 **Required:**
+
 - Python 3.7+
 - Civitai API key (free account)
 - ComfyUI installation
 
 **Optional:**
+
 - HuggingFace token (for private models)
-- Qwen CLI (enhanced search capabilities)
+- Qwen CLI (for agentic search - recommended)
+- Tavily API key (for web search fallback)
 
 ## 🔧 How It Works
 
 1. **Workflow Analysis** - Parses ComfyUI JSON workflows to extract model references
 2. **Inventory Check** - Compares against local ComfyUI model directories
-3. **Intelligent Search** - Queries Civitai and HuggingFace APIs for missing models
-4. **Smart Downloads** - Downloads models to correct directories with verification
-5. **Comprehensive Reporting** - Generates detailed reports and download scripts
+3. **Agentic Search** - Uses Qwen AI agent to intelligently search Civitai and HuggingFace with exact filename validation
+4. **Web Search Fallback** - Falls back to Tavily web search for models not found via APIs
+5. **Smart Downloads** - Downloads models to correct directories with verification
+6. **Comprehensive Reporting** - Generates detailed reports and download scripts
 
 ## 🎯 Use Cases
 

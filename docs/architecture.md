@@ -30,15 +30,22 @@ This document outlines an architecture that respects the Phase 1 and Phase 2 req
   - Refreshes cached views of installed nodes and models on every scheduled run
 
 - Resolver & Verifier
-  - Backends: Civitai, HuggingFace; pluggable SearchBackend API
-  - Qwen agent integration for hard cases (optional)
-  - Claude Code URL verification (optional, offline‑safe fallback)
+  - **Agentic Search**: Qwen-orchestrated multi-phase search (PRIMARY - see [Search Architecture](SEARCH_ARCHITECTURE.md))
+  - **Phase 1**: Civitai API with intelligent keyword extraction and exact filename validation
+  - **Phase 2**: Web search (Tavily) + HuggingFace repository discovery
+  - **Doubt Handling**: UNCERTAIN status with candidate list when confidence is low
+  - Backends: Pluggable SearchBackend API (Civitai direct, ModelScope experimental)
   - Integrity checks (size, hash if available), resumable downloads
-  - Doubt handling: when matches are uncertain, escalate to backup plan for manual review or alternate strategies
 
-- Downloader
-  - Places files into correct ComfyUI directories with type validation
-  - Concurrency with rate limiting; retry and resume logic
+- **Handles the low-level download mechanics** (e.g., executing `wget`), placing files into correct ComfyUI directories with type validation. It is orchestrated by the **Automated Download & Verification Service**.
+
+- Automated Download & Verification Service
+  - **Evolves the Downloader from a manual script generator into a true, "fire-and-forget" background service.**
+  - **Persistent Job Queue:** Uses a lightweight, file-based queue (`persist-queue`) to manage a list of pending download jobs. The main application dispatches jobs to this queue instead of generating a script.
+  - **Background Worker (`download_worker.py`):** A standalone, long-running process that pulls jobs from the queue, executes downloads with automatic retries and resume (`wget -c`), and triggers the verification step.
+  - **Agentic Verification:** Upon successful download, the worker invokes a specialized Qwen agent with a strict rubric to verify the integrity and correctness of the downloaded file (e.g., checking for unexpected file types or executables in archives).
+  - **Logging and State Management:** All actions, including verification failures, are logged and tracked in the central state manager, making the entire process observable through the UI.
+  - **Exhaustive Framework:** For a complete breakdown of this service, see the detailed domain document: **[Automated Download & Verification Workflow](domains/AUTOMATED_DOWNLOAD_WORKFLOW.md)**.
 
 - Workflow Graph Builder
   - Normalizes each workflow into a typed DAG of nodes/edges/params
@@ -93,7 +100,10 @@ This document outlines an architecture that respects the Phase 1 and Phase 2 req
 4. Inventory: Build local `Models[]` with type classification.
 5. Diff: `Missing = ModelRefs - Models`.
 6. Knowledge Pack Refresh: Rebuild document bundle from curated sources if changed.
-7. Resolve: For each `Missing`, prioritize Civitai API search via LLM; fall back to Hugging Face CLI; log reasoning.
+7. Resolve: For each `Missing`, use agentic search (Qwen) to orchestrate multi-phase discovery:
+   - Phase 1: Civitai API with exact filename validation (max 5-8 attempts)
+   - Phase 2: Tavily web search + HuggingFace repository discovery
+   - Phase 3: Return FOUND, UNCERTAIN (with candidates), or NOT_FOUND
 8. Download: Materialize models with integrity checks; update progress.
 9. Graph: Serialize workflow DAGs for contextual analysis.
 10. Review: Assemble context; run LLM; emit `review.json|md`.

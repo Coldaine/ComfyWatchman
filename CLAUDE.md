@@ -25,7 +25,8 @@ The project is a **Python package** designed for both CLI usage and programmatic
 ### API Keys
 
 API keys are stored in `~/.secrets` and auto-loaded via `~/.bashrc`. Use environment variables:
-- `CIVITAI_API_KEY` - Required for Civitai downloads
+- `CIVITAI_API_KEY` - Required for Civitai API search
+- `TAVILY_API_KEY` - Required for web search fallback (Qwen agent)
 - `HF_TOKEN` or `HUGGINGFACE_TOKEN` - Optional for HuggingFace private models
 
 ## Architecture
@@ -66,8 +67,11 @@ src/comfyfixersmart/
 **ModelSearch** (`search.py`): Unified search interface with multiple backends
 - `search_model()` - Search single model across backends
 - `search_multiple_models()` - Batch search with caching
-- Backends: CivitaiSearch, QwenSearch, HuggingFaceSearch
-- Returns `SearchResult` objects with download URLs
+- **Primary Backend**: `QwenSearch` - Agentic search orchestrating Civitai API + web search + HuggingFace discovery
+- **Fallback Backend**: `CivitaiSearch` - Direct Civitai API (no agent reasoning)
+- **Experimental**: `ModelScopeSearch` - Alternative model hub (optional)
+- Returns `SearchResult` objects with download URLs and confidence levels
+- See **[docs/SEARCH_ARCHITECTURE.md](docs/SEARCH_ARCHITECTURE.md)** for complete architecture details
 
 **StateManager** (`state_manager.py`): Tracks download attempts and success/failure
 - Persists state to `state_dir/download_state.json`
@@ -253,8 +257,10 @@ logger.debug("Detailed debug info")
 - **legacy/**: Previous implementation versions kept for reference
 - **archives/**: Historical tools and research (ScanTool, etc.)
 - **docs/**: Comprehensive documentation including planning, reports, research
+- **docs/SEARCH_ARCHITECTURE.md**: Complete agentic search architecture (Qwen + Tavily + multi-source)
 - **docs/planning/RIGHT_SIZED_PLAN.md**: Core architectural design document
 - **docs/planning/AGENT_GUIDE.md**: Guide for AI agents using this tool
+- **docs/planning/QWEN_SEARCH_IMPLEMENTATION_PLAN.md**: Original search implementation plan
 - **docs/research/**: Research on related systems (ComfyUI-Copilot, etc.)
 
 ## Compatibility Modes
