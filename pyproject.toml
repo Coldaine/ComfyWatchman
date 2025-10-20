@@ -72,6 +72,12 @@ full = [
     "aiohttp>=3.8.0",
     "httpx>=0.24.0",
     "modelscope>=1.28.0",
+    "safetensors>=0.4.2",
+    "onnx>=1.14.0",
+]
+inspector = [
+    "safetensors>=0.4.2",
+    "onnx>=1.14.0",
 ]
 
 [project.urls]
