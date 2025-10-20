@@ -1,29 +1,39 @@
-# Model Metadata Inspector (DP-016)
+# Model Metadata Inspector
 
-Safe, metadata-only inspection tool for ComfyUI model files.
+Safe-by-default tooling for summarising ComfyUI model assets.
 
-- Safetensors: reads headers/metadata via safetensors.safe_open (no tensor materialization)
-- PyTorch pickles (.pth/.ckpt/.pt/.bin): never unpickle; flagged unsafe
-- ONNX: best-effort format detection (no dependency required)
-- Optional SHA256 for integrity bookkeeping
+- `.safetensors`: header metadata only via `safetensors.safe_open`.
+- `.ckpt` / `.pt` / `.pth` / `.bin`: pickle containers stay unopened unless `--unsafe`.
+- `.onnx`: reads basic metadata when the optional `onnx` dependency is present.
+- Diffusers directories: summarised at directory level with optional component listings.
+- Optional SHA256 hashing (`--hash`) for integrity checks.
 
 ## CLI
 
-- Inspect files or directories:
-  - comfywatchman-inspect path/to/file.safetensors
-  - comfywatchman-inspect /path/to/models --hash --json
+- `comfywatchman inspect path/to/file.safetensors`
+- `comfywatchman inspect /path/to/models --recursive --format json`
+- `comfy-inspect path/to/repo --no-components`
 
-Exit code is non-zero if any item is unsafe or has errors.
+Both commands share the same flags and exit with non-zero status when any entry reports warnings.
 
 ## Library
 
-Python API:
+```python
+from comfyfixersmart.inspector import inspect_file, inspect_paths
 
-- from comfyfixersmart.inspector import inspect_file, inspect_paths
-- returns InspectionResult objects with fields: path, size, ext, type_hint, safe_to_load, format, tensors, metadata, sha256, error
+single = inspect_file("model.safetensors")
+bulk = inspect_paths(["model.safetensors", "models/"], fmt="json", recursive=True)
+```
+
+Each result is a dict with stable keys:
+
+- `filename`, `path`, `size_bytes`, `format`
+- `type_hint`, `family` (optional), `source_hints` (optional)
+- `metadata` (format specific), `warnings`
+- `sha256` (only when hashing enabled)
 
 ## Safety Notes
 
-- Never call torch.load on external files.
-- For .safetensors we read headers only. In rare corrupt files, we report an error.
-- Hashing large files can be slow; use --hash selectively.
+- Unsafe pickle loading is opt-in only (`--unsafe`).
+- Safetensors and ONNX reads avoid tensor materialisation.
+- Hashing large files can be slow; enable only when required.

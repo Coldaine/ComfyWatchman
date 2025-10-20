@@ -1,10 +1,7 @@
-"""
-Command Line Interface for ComfyFixerSmart
-
-Provides CLI entry points for running ComfyFixerSmart from the command line.
-"""
+"""Command Line Interface for ComfyFixerSmart."""
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -17,106 +14,180 @@ from .core import run_comfy_fixer, run_v1_compatibility_mode, run_v2_compatibili
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser."""
     parser = argparse.ArgumentParser(
-        prog="comfyfixer",
+        prog="comfywatchman",
         description="ComfyFixerSmart - Incremental ComfyUI model downloader",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  comfyfixer                          # Analyze all workflows in default directories
-  comfyfixer workflow.json            # Analyze specific workflow file
-  comfyfixer --dir /path/to/workflows  # Analyze workflows in specific directory
-  comfyfixer --search civitai,huggingface  # Use specific search backends
-  comfyfixer --v1                      # Use v1 compatibility mode
-  comfyfixer --v2                      # Use v2 compatibility mode (default)
-        """
+  comfywatchman                          # Analyze all workflows in default directories
+  comfywatchman workflow.json            # Analyze specific workflow file
+  comfywatchman --dir /path/to/workflows  # Analyze workflows in specific directory
+  comfywatchman --search civitai,huggingface  # Use specific search backends
+  comfywatchman inspect model.safetensors  # Inspect a single model file
+        """,
     )
 
     # Input options
     parser.add_argument(
-        'workflows',
-        nargs='*',
-        help='Specific workflow files to analyze'
+        "workflows",
+        nargs="*",
+        help="Specific workflow files to analyze",
     )
 
     parser.add_argument(
-        '--dir', '--workflow-dir',
-        action='append',
-        dest='workflow_dirs',
-        help='Directory to scan for workflow files (can be used multiple times)'
+        "--dir",
+        "--workflow-dir",
+        action="append",
+        dest="workflow_dirs",
+        help="Directory to scan for workflow files (can be used multiple times)",
     )
 
     # Search options
     parser.add_argument(
-        '--search', '--backends',
-        default='civitai',
-        help='Comma-separated list of search backends (default: civitai)'
+        "--search",
+        "--backends",
+        default="civitai",
+        help="Comma-separated list of search backends (default: civitai)",
     )
 
     # Mode options
     parser.add_argument(
-        '--v1',
-        action='store_true',
-        help='Use v1 compatibility mode (incremental processing)'
+        "--v1",
+        action="store_true",
+        help="Use v1 compatibility mode (incremental processing)",
     )
 
     parser.add_argument(
-        '--v2',
-        action='store_true',
-        help='Use v2 compatibility mode (batch processing, default)'
+        "--v2",
+        action="store_true",
+        help="Use v2 compatibility mode (batch processing, default)",
     )
 
     # Output options
     parser.add_argument(
-        '--output-dir',
+        "--output-dir",
         type=Path,
-        help=f'Output directory for results (default: {config.output_dir})'
+        help=f"Output directory for results (default: {config.output_dir})",
     )
 
     parser.add_argument(
-        '--no-script',
-        action='store_true',
-        help='Skip generating download script'
+        "--no-script",
+        action="store_true",
+        help="Skip generating download script",
     )
 
     parser.add_argument(
-        '--verify-urls',
-        action='store_true',
-        help='Enable URL verification during downloads'
+        "--verify-urls",
+        action="store_true",
+        help="Enable URL verification during downloads",
     )
 
     # Configuration
     parser.add_argument(
-        '--config',
+        "--config",
         type=Path,
-        help='Path to configuration file'
+        help="Path to configuration file",
     )
 
     parser.add_argument(
-        '--comfyui-root',
+        "--comfyui-root",
         type=Path,
-        help='Path to ComfyUI installation (required if not configured)'
+        help="Path to ComfyUI installation (required if not configured)",
     )
 
     # Logging
     parser.add_argument(
-        '--log-level',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        default='INFO',
-        help='Set logging level (default: INFO)'
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Set logging level (default: INFO)",
     )
 
     parser.add_argument(
-        '--quiet',
-        action='store_true',
-        help='Suppress non-error output'
+        "--quiet",
+        action="store_true",
+        help="Suppress non-error output",
     )
 
     parser.add_argument(
-        '--version',
-        action='version',
-        version=f'%(prog)s 2.0.0'
+        "--version",
+        action="version",
+        version="%(prog)s 2.0.0",
     )
 
+    return parser
+
+
+def _add_bool_toggle(
+    parser: argparse.ArgumentParser,
+    *,
+    name: str,
+    help_enable: str,
+    help_disable: str,
+    default: bool,
+) -> None:
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument(f"--{name}", dest=name, action="store_true", help=help_enable)
+    group.add_argument(f"--no-{name}", dest=name, action="store_false", help=help_disable)
+    parser.set_defaults(**{name: default})
+
+
+def create_inspect_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="comfywatchman inspect",
+        description="Inspect model metadata without loading tensors.",
+    )
+    parser.add_argument(
+        "paths",
+        nargs="+",
+        help="Paths to files or directories to inspect",
+    )
+    parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Recursively inspect directories",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+    _add_bool_toggle(
+        parser,
+        name="summary",
+        help_enable="Show condensed text output (default)",
+        help_disable="Show expanded metadata section in text output",
+        default=True,
+    )
+    parser.add_argument(
+        "--hash",
+        action="store_true",
+        help="Compute SHA256 hashes (can be slow)",
+    )
+    parser.add_argument(
+        "--unsafe",
+        action="store_true",
+        help="Allow unsafe torch.load for pickle checkpoints",
+    )
+    _add_bool_toggle(
+        parser,
+        name="components",
+        help_enable="Include per-component listings for Diffusers directories (default)",
+        help_disable="Exclude per-component listings for Diffusers directories",
+        default=True,
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Set logging level (default: INFO)",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress non-error output",
+    )
     return parser
 
 
@@ -125,13 +196,12 @@ def setup_logging(log_level: str, quiet: bool) -> None:
     import logging
 
     if quiet:
-        log_level = 'ERROR'
+        log_level = "ERROR"
 
-    # Configure root logger
     logging.basicConfig(
         level=getattr(logging, log_level),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
@@ -139,38 +209,67 @@ def update_config_from_args(args: argparse.Namespace) -> None:
     """Update global config from command line arguments."""
     global config
 
-    if args.config and args.config.exists():
-        # Load config from file if specified
+    if getattr(args, "config", None) and args.config.exists():
         config.load_from_file(args.config)
 
-    # Override with command line arguments
-    if args.output_dir:
+    if getattr(args, "output_dir", None):
         config.output_dir = args.output_dir
-    if args.comfyui_root:
+    if getattr(args, "comfyui_root", None):
         config.comfyui_root = args.comfyui_root
 
 
-def main() -> int:
-    """Main CLI entry point."""
-    parser = create_parser()
-    args = parser.parse_args()
+def _run_inspect_command(args: argparse.Namespace) -> int:
+    from .inspector import inspect_paths
 
-    # Setup logging
-    setup_logging(args.log_level, args.quiet)
+    include_components = getattr(args, "components", True)
+    results = inspect_paths(
+        args.paths,
+        recursive=args.recursive,
+        fmt=args.format,
+        summary=args.summary,
+        do_hash=args.hash,
+        unsafe=args.unsafe,
+        include_components=include_components,
+    )
+
+    if args.format == "json":
+        payload: object
+        if isinstance(results, list) and len(results) == 1:
+            payload = results[0]
+        else:
+            payload = results
+        print(
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+            flush=True,
+        )
+    else:
+        print(results, flush=True)
+    return 0
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """Main CLI entry point."""
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+
+    if raw_args and raw_args[0] == "inspect":
+        inspect_parser = create_inspect_parser()
+        inspect_args = inspect_parser.parse_args(raw_args[1:])
+        setup_logging(inspect_args.log_level, inspect_args.quiet)
+        return _run_inspect_command(inspect_args)
+
+    parser = create_parser()
+    args = parser.parse_args(raw_args)
+
+    setup_logging(getattr(args, "log_level", "INFO"), getattr(args, "quiet", False))
 
     logger = get_logger("ComfyFixerCLI")
 
     try:
-        # Update configuration
         update_config_from_args(args)
 
-        # Parse search backends
-        search_backends = [b.strip() for b in args.search.split(',')] if args.search else ['civitai']
+        search_backends = [b.strip() for b in args.search.split(",")] if args.search else ["civitai"]
 
-        # Determine workflow directories
-        workflow_dirs = args.workflow_dirs
-        if not workflow_dirs:
-            workflow_dirs = [str(d) for d in config.workflow_dirs]
+        workflow_dirs = args.workflow_dirs or [str(d) for d in config.workflow_dirs]
 
         logger.info("=" * 70)
         logger.info("ComfyFixerSmart v2.0.0 - Starting Analysis")
@@ -179,23 +278,19 @@ def main() -> int:
         logger.info(f"Search backends: {search_backends}")
         logger.info(f"Output directory: {config.output_dir}")
 
-        # Determine which mode to run
         if args.v1:
-            # V1 compatibility mode
             logger.info("Running in V1 compatibility mode (incremental)")
             result = run_v1_compatibility_mode(
                 specific_workflows=args.workflows if args.workflows else None,
-                verify_urls=args.verify_urls
+                verify_urls=args.verify_urls,
             )
         elif args.v2 or (not args.v1 and not args.v2):
-            # V2 mode (default)
             logger.info("Running in V2 mode (batch processing)")
             result = run_v2_compatibility_mode(
                 specific_workflows=args.workflows if args.workflows else None,
-                retry_failed=False  # Could add --retry flag later
+                retry_failed=False,
             )
         else:
-            # Unified mode using ComfyFixerCore
             logger.info("Running unified analysis")
             from .core import ComfyFixerCore
 
@@ -205,10 +300,9 @@ def main() -> int:
                 workflow_dirs=workflow_dirs,
                 search_backends=search_backends,
                 generate_script=not args.no_script,
-                verify_urls=args.verify_urls
+                verify_urls=args.verify_urls,
             )
 
-        # Report results
         if result:
             logger.info("=" * 70)
             logger.info("Analysis Complete!")
@@ -236,13 +330,14 @@ def main() -> int:
     except KeyboardInterrupt:
         logger.info("\nOperation cancelled by user")
         return 130
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        if args.log_level == 'DEBUG':
+    except Exception as exc:  # pragma: no cover - defensive logging path
+        logger.error(f"Unexpected error: {exc}")
+        if getattr(args, "log_level", "INFO") == "DEBUG":
             import traceback
+
             logger.debug(traceback.format_exc())
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

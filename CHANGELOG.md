@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `comfywatchman inspect` command for deterministic model metadata summaries
+- Standalone `comfy-inspect` console script exposing the inspector without the main CLI
+- `comfyfixersmart.inspector` library module with safe inspection APIs
+- Usage guide at `docs/usage/inspect.md`
 - Comprehensive documentation structure in `docs/` directory
 - User guides, developer documentation, and API reference
 - Performance optimization guides and troubleshooting documentation
