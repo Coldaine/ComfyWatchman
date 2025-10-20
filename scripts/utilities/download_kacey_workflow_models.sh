@@ -2,9 +2,23 @@
 # Download script for kacey-f1-inpaining-v1.0-workflow.json models
 # Generated: 2025-10-12
 
-# Don't exit on error, track failures instead
+set -Eeuo pipefail
 
-MODELS_ROOT="/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/models"
+# Resolve COMFYUI_ROOT with guardrails (AGENTS.md)
+COMFYUI_ROOT_DEFAULT="/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable"
+COMFYUI_ROOT="${COMFYUI_ROOT:-$COMFYUI_ROOT_DEFAULT}"
+MODELS_ROOT="${COMFYUI_ROOT}/models"
+
+if [[ ! -d "$MODELS_ROOT" ]]; then
+    echo "❌ Models directory not found: $MODELS_ROOT" >&2
+    echo "Set COMFYUI_ROOT or create the directory. Aborting per failure-first policy." >&2
+    exit 1
+fi
+
+if ! command -v wget >/dev/null 2>&1; then
+    echo "❌ wget not found in PATH. Please install wget." >&2
+    exit 1
+fi
 
 echo "=============================================="
 echo "Downloading Models for Kacey F1 Inpainting Workflow"
