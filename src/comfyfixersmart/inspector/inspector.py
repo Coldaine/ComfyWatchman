@@ -171,10 +171,18 @@ def _inspect_model_file(path: Path, ctx: InspectionContext) -> Dict[str, object]
         metadata.update(meta)
         warnings.extend(meta_warnings)
 
-    sha_val = _hash_file(path) if ctx.do_hash else None
+    sha_val: Optional[str] = None
+    if ctx.do_hash:
+        try:
+            sha_val = _hash_file(path)
+        except (OSError, IOError) as exc:
+            warnings.append(f"Hashing failed: {exc}")
 
     type_hint, family = _guess_type_hint(path, file_format, metadata, size_bytes)
     source_hints = _guess_source_hints(path)
+
+    if file_format == "other":
+        warnings.append("Unrecognized extension; limited metadata only")
 
     return {
         "filename": path.name,

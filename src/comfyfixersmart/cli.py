@@ -222,6 +222,7 @@ def _run_inspect_command(args: argparse.Namespace) -> int:
     from .inspector import inspect_paths
 
     include_components = getattr(args, "components", True)
+
     results = inspect_paths(
         args.paths,
         recursive=args.recursive,
@@ -233,18 +234,34 @@ def _run_inspect_command(args: argparse.Namespace) -> int:
     )
 
     if args.format == "json":
+        json_results = results
+    else:
+        json_results = inspect_paths(
+            args.paths,
+            recursive=args.recursive,
+            fmt="json",
+            summary=args.summary,
+            do_hash=args.hash,
+            unsafe=args.unsafe,
+            include_components=include_components,
+        )
+
+    items = json_results if isinstance(json_results, list) else [json_results]
+    exit_code = 1 if any((item.get("warnings") for item in items if isinstance(item, dict) and item.get("warnings"))) else 0
+
+    if args.format == "json":
         payload: object
-        if isinstance(results, list) and len(results) == 1:
-            payload = results[0]
+        if isinstance(json_results, list) and len(json_results) == 1:
+            payload = json_results[0]
         else:
-            payload = results
+            payload = json_results
         print(
             json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
             flush=True,
         )
     else:
         print(results, flush=True)
-    return 0
+    return exit_code
 
 
 def main(argv: Optional[List[str]] = None) -> int:

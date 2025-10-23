@@ -23,7 +23,7 @@ from datetime import datetime
 
 from .config import config
 from .logging import get_logger
-from .state_manager import StateManager
+from .state_manager import JsonStateManager
 from .scanner import WorkflowScanner, extract_models_from_workflow
 from .inventory import ModelInventory, build_local_inventory
 from .search import ModelSearch, SearchResult
@@ -98,7 +98,7 @@ class ComfyFixerCore:
             state_manager: Optional StateManager instance
         """
         self.logger = logger or get_logger("ComfyFixerCore")
-        self.state_manager = state_manager or StateManager(config.state_dir, logger=self.logger)
+        self.state_manager = state_manager or JsonStateManager(config.state_dir, logger=self.logger)
 
         # Initialize components
         self.scanner = WorkflowScanner(logger=self.logger)
