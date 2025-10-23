@@ -231,7 +231,7 @@ def test_cli_inspect_text_single_file(tmp_path):
 
     proc = subprocess.run(
         [sys.executable, "-m", "comfyfixersmart.cli", "inspect", str(file_path)],
-        check=True,
+        check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -239,11 +239,12 @@ def test_cli_inspect_text_single_file(tmp_path):
     )
 
     assert "model.bin" in proc.stdout
+    assert proc.returncode == 1
 
 
 def test_cli_inspect_json_single_file(tmp_path):
     file_path = tmp_path / "model.safetensors"
-    _create_dummy_file(file_path)
+    _write_safetensors(file_path, {"test_key": "test_value"})
 
     proc = subprocess.run(
         [
@@ -280,7 +281,7 @@ def test_cli_inspector_module_no_summary(tmp_path):
             "--no-summary",
             "--hash",
         ],
-        check=True,
+        check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -289,3 +290,4 @@ def test_cli_inspector_module_no_summary(tmp_path):
 
     assert "metadata:" in proc.stdout
     assert "sha256:" in proc.stdout
+    assert proc.returncode == 1
