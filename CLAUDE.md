@@ -8,6 +8,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The project is a **Python package** designed for both CLI usage and programmatic integration.
 
+### Relationship to ComfyUI-Copilot
+
+**CRITICAL CONTEXT:** This project is designed to **complement and integrate with** [ComfyUI-Copilot](https://github.com/AIDC-AI/ComfyUI-Copilot), not compete with it.
+
+**Strategic Integration:**
+- **ComfyWatchman Focus:** Dependency resolution, model discovery, multi-backend search, offline-first operations
+- **Copilot Focus:** Workflow generation, LLM orchestration, interactive debugging, UI integration
+- **Upstream Remote:** `upstream` points to AIDC-AI/ComfyUI-Copilot for integration reference
+- **Integration Approach:** ComfyWatchman provides advanced dependency management that can be used standalone OR integrated into Copilot's workflow
+
+**Why This Matters:**
+- PRs and issues from `upstream` (ComfyUI-Copilot) are for their project, not ours
+- We provide complementary capabilities: better search (Civitai+HF vs ModelScope), better state management, CLI tools
+- Our adapters (`adapters/copilot_validator.py`, `adapters/sql_state.py`) enable integration pathways
+- See `docs/CROSSROADS.md` for the complete strategic analysis and decision framework
+
+**Key Differentiators:**
+1. **Multi-backend search** - CivitAI + HuggingFace + Qwen agent vs Copilot's ModelScope only
+2. **Offline-first** - Works without constant LLM calls; deterministic and resumable
+3. **CLI interface** - Automation-friendly command-line tools vs Copilot's web UI only
+4. **Production-grade state management** - Sophisticated caching, retry logic, download verification
+
 ## Critical Path Information
 
 ### ComfyUI Installation Paths
@@ -37,16 +59,26 @@ The codebase follows a clean modular architecture with separation of concerns:
 
 ```
 src/comfyfixersmart/
-├── cli.py              # Command-line interface entry point
-├── core.py             # Main orchestrator (ComfyFixerCore class)
-├── config.py           # Configuration management (TOML + env vars)
-├── scanner.py          # Workflow scanning and model extraction
-├── inventory.py        # Local model/node inventory building
-├── search.py           # Multi-backend model search (Civitai, HF, Qwen)
-├── download.py         # Download management and script generation
-├── state_manager.py    # State tracking and caching
-├── logging.py          # Structured logging utilities
-└── utils.py            # Shared utility functions
+├── cli.py                   # Main CLI entry point (comfywatchman command)
+├── core.py                  # Main orchestrator (ComfyFixerCore class)
+├── config.py                # Configuration management (TOML + env vars)
+├── scanner.py               # Workflow scanning and model extraction
+├── inventory.py             # Local model/node inventory building
+├── search.py                # Multi-backend model search (Civitai, HF, Qwen)
+├── download.py              # Download management and script generation
+├── state_manager.py         # State tracking and caching
+├── logging.py               # Structured logging utilities
+├── utils.py                 # Shared utility functions
+├── inspector/               # Model metadata inspection subsystem
+│   ├── cli.py              # Inspector CLI entry point (comfy-inspect command)
+│   ├── inspector.py        # Safe model metadata extraction
+│   └── logging.py          # Inspector-specific logging
+└── adapters/                # Optional integrations with external systems
+    ├── base.py             # Base adapter abstract classes
+    ├── copilot_validator.py # ComfyUI-Copilot validation adapter
+    ├── sql_state.py        # SQL-based state backend (optional)
+    ├── modelscope_search.py # ModelScope search backend
+    └── modelscope_fallback.py # ModelScope download fallback
 ```
 
 ### Key Classes
@@ -82,6 +114,19 @@ src/comfyfixersmart/
 - Environment variables override TOML values
 - Global instance: `from comfyfixersmart.config import config`
 
+**ModelInspector** (`inspector/inspector.py`): Safe metadata extraction from model files
+- `inspect_file()` - Extract metadata from single file without loading tensors
+- `inspect_paths()` - Batch inspection of files/directories
+- Supports safetensors, ONNX, and (opt-in) pickle formats
+- Returns lightweight metadata: file size, format, hash (optional), tensor info
+
+**Adapters** (`adapters/`): Optional integrations following adapter pattern
+- `BaseAdapter` - Abstract base for all adapters
+- `CopilotValidatorAdapter` - Workflow validation via ComfyUI-Copilot
+- `SqlStateAdapter` - Alternative SQL-based state persistence
+- `ModelScopeSearch` - ModelScope hub search backend
+- All adapters are optional dependencies, check `is_available()` before use
+
 ## Development Workflow
 
 ### Installation
@@ -92,28 +137,31 @@ pip install -e .
 
 # With development dependencies
 pip install -e .[dev]
+
+# With optional dependencies
+pip install -e .[inspector]    # Add safetensors/ONNX support
+pip install -e .[copilot]      # Add Copilot validation adapter
+pip install -e .[modelscope]   # Add ModelScope search backend
+pip install -e .[full]         # Install all optional features
 ```
 
 ### Running the Tool
 
 ```bash
-# Analyze all workflows in configured directories
-comfywatchman
+# Main workflow analysis tool
+comfywatchman                              # Analyze all workflows
+comfywatchman path/to/workflow.json        # Analyze specific workflow
+comfywatchman --dir /path/to/workflows     # Analyze directory
+comfywatchman --search civitai,huggingface # Use specific backends
+comfywatchman --v1                         # V1 mode (incremental + Qwen)
+comfywatchman --v2                         # V2 mode (batch, default)
 
-# Analyze specific workflow file
-comfywatchman path/to/workflow.json
-
-# Analyze workflows in specific directory
-comfywatchman --dir /path/to/workflows
-
-# Use different search backends
-comfywatchman --search civitai,huggingface
-
-# V1 compatibility mode (incremental processing with Qwen)
-comfywatchman --v1
-
-# V2 mode (batch processing, default)
-comfywatchman --v2
+# Model metadata inspector (separate tool)
+comfy-inspect model.safetensors            # Inspect single model
+comfy-inspect models/ --recursive          # Inspect directory recursively
+comfy-inspect model.ckpt --unsafe          # Allow pickle loading (caution!)
+comfy-inspect models/ --format json        # Output as JSON
+comfy-inspect models/ --hash               # Include SHA256 hashes
 ```
 
 ### Configuration
@@ -126,10 +174,13 @@ Configuration priority (highest to lowest):
 
 **Important:** `comfyui_root` must be configured before running. No default path is provided.
 
-Create `config/default.toml` based on `config-example.toml`:
+Configuration file location: `config/default.toml` (already exists in repo, edit as needed)
+
+Example configuration (based on `config-example.toml`):
 ```toml
 comfyui_root = "/path/to/ComfyUI"
 workflow_dirs = ["user/default/workflows"]
+civitai_api_key = "${CIVITAI_API_KEY}"  # Uses env var
 ```
 
 ### Testing
@@ -248,6 +299,36 @@ logger.debug("Detailed debug info")
 2. Update `cli.update_config_from_args()` if it affects config
 3. Pass through to `core.run_workflow_analysis()` or compatibility functions
 
+### Creating a New Adapter
+
+1. Create new file in `adapters/` inheriting from `BaseAdapter`
+2. Implement required methods: `get_name()`, `is_available()`, `initialize()`, `shutdown()`
+3. Add optional dependency group to `pyproject.toml` if needed
+4. Register adapter in appropriate module (e.g., `search.py` for search backends)
+5. Add integration tests in `tests/integration/`
+
+### Working with the Inspector
+
+The inspector provides safe metadata extraction from model files:
+
+```python
+from comfyfixersmart.inspector import inspect_file, inspect_paths
+
+# Single file inspection
+result = inspect_file("model.safetensors", do_hash=True)
+print(result["file_size"], result["format"], result["sha256"])
+
+# Batch inspection
+results = inspect_paths(["models/"], recursive=True, include_components=False)
+for path, metadata in results.items():
+    print(f"{path}: {metadata['format']}")
+```
+
+**Safety notes:**
+- Inspector never loads full tensors into memory
+- Pickle formats (`.ckpt`, `.pt`, `.pth`) require `--unsafe` flag
+- Always verify file sources before using `--unsafe`
+
 ## Key Files and Their Purposes
 
 - **pyproject.toml**: Package metadata, dependencies, build configuration, tool settings
@@ -257,11 +338,25 @@ logger.debug("Detailed debug info")
 - **legacy/**: Previous implementation versions kept for reference
 - **archives/**: Historical tools and research (ScanTool, etc.)
 - **docs/**: Comprehensive documentation including planning, reports, research
+- **docs/CROSSROADS.md**: **[CRITICAL]** Strategic decision framework for Copilot integration
 - **docs/SEARCH_ARCHITECTURE.md**: Complete agentic search architecture (Qwen + Tavily + multi-source)
 - **docs/planning/RIGHT_SIZED_PLAN.md**: Core architectural design document
 - **docs/planning/AGENT_GUIDE.md**: Guide for AI agents using this tool
 - **docs/planning/QWEN_SEARCH_IMPLEMENTATION_PLAN.md**: Original search implementation plan
 - **docs/research/**: Research on related systems (ComfyUI-Copilot, etc.)
+- **docs/research/ComfyUI-Copilot-Research-Report.md**: Deep analysis of Copilot architecture and integration opportunities
+- **docs/research/EXISTING_SYSTEMS.md**: Comprehensive survey of 15+ competing/complementary tools
+
+## Git Repository Structure
+
+**Remotes:**
+- **origin**: `https://github.com/Coldaine/ComfyWatchman.git` - Our main repository
+- **upstream**: `https://github.com/AIDC-AI/ComfyUI-Copilot.git` - Integration reference (different codebase)
+
+**Important:** When checking PRs or issues:
+- Use `gh pr list --repo Coldaine/ComfyWatchman` for OUR project
+- PRs from `upstream` are for ComfyUI-Copilot (Node.js/React web UI), not our Python CLI tool
+- The two projects have completely different codebases but complementary missions
 
 ## Compatibility Modes
 
@@ -295,10 +390,40 @@ State files in `state_dir` (default: `./state/`):
 
 ## Strategic Direction
 
-This project is at a strategic crossroads regarding its relationship with ComfyUI-Copilot and similar tools. See:
-- `docs/CROSSROADS.md` - Strategic decision framework
-- `docs/research/EXISTING_SYSTEMS.md` - Analysis of related tools
-- `docs/vision.md` - Long-term vision including LLM integration
+**Current Position: Integration & Complement Strategy**
+
+ComfyWatchman is designed to **enhance ComfyUI-Copilot** by providing superior dependency management while maintaining standalone value as a CLI tool.
+
+### The Hybrid Architecture Strategy
+
+**ComfyWatchman Provides:**
+- Multi-backend search (Civitai + HuggingFace + Qwen agent)
+- Production-grade state management with retry logic
+- Offline-first operation for reliability
+- CLI automation for CI/CD pipelines
+- Advanced model metadata inspection
+
+**ComfyUI-Copilot Provides:**
+- Workflow generation from text
+- Interactive debugging with streaming UI
+- Multi-agent orchestration (Link, Parameter, Structural agents)
+- Deep ComfyUI integration
+- Browser-based user experience
+
+### Integration Pathways
+
+1. **Adapter Layer** (`adapters/copilot_validator.py`) - Validates Copilot-generated workflows
+2. **Optional Backend** (`adapters/sql_state.py`) - Alternative state persistence compatible with Copilot's checkpoint system
+3. **Standalone Mode** - CLI tools work independently of Copilot
+4. **API Integration** - Python APIs can be called from Copilot's backend
+
+### Key Documents
+
+- **`docs/CROSSROADS.md`** - Complete strategic analysis and decision framework
+- **`docs/research/ComfyUI-Copilot-Research-Report.md`** - Deep dive into Copilot architecture
+- **`docs/research/EXISTING_SYSTEMS.md`** - Landscape analysis of 15+ related tools
+- **`docs/vision.md`** - Long-term vision including LLM integration
+- **`docs/architecture.md`** - Proposed architecture for Phase 2 integration
 
 **Owner Directive:** Phase 1 and Phase 2 requirements in Vision and Architecture docs are mandatory and require explicit owner consent to modify.
 
@@ -323,7 +448,9 @@ Model references are in `widgets_values` arrays. The scanner looks for strings e
 
 Package name: `comfywatchman` (PyPI name differs from project name ComfyFixerSmart for branding)
 
-Entry point: `comfywatchman` command installed by pip
+Entry points:
+- `comfywatchman` - Main workflow analysis CLI
+- `comfy-inspect` - Model metadata inspector CLI
 
 Current status: Development version 2.0.0, not yet published to PyPI
 

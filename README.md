@@ -6,17 +6,20 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-ComfyWatchman is an intelligent, scheduled assistant that continuously analyzes ComfyUI workflows, identifies missing models and custom nodes, searches for replacements on Civitai and HuggingFace, and downloads them to the correct directories while generating readiness reports and a local dashboard.
+ComfyWatchman is an intelligent assistant that analyzes ComfyUI workflows, identifies missing models and custom nodes, searches for them across multiple sources (Civitai, HuggingFace), and automates downloads with production-grade state management.
+
+**🔗 Designed to complement [ComfyUI-Copilot](https://github.com/AIDC-AI/ComfyUI-Copilot)** - While Copilot excels at workflow generation and interactive debugging, ComfyWatchman provides superior dependency management, multi-backend search, and CLI automation.
 
 **✨ Key Features:**
 - 🔍 **Automatic Workflow Analysis** - Parses ComfyUI JSON workflows
-- 🔎 **Intelligent Model Search** - Searches Civitai and HuggingFace APIs
-- 📥 **Smart Downloads** - Incremental processing with immediate downloads
-- ✅ **Built-in Verification** - File integrity and compatibility checks
-- 🛠️ **Comprehensive CLI** - Full command-line interface with extensive options
+- 🔎 **Multi-Backend Search** - Civitai + HuggingFace + Qwen AI agent (vs Copilot's ModelScope-only)
+- 🤖 **Agentic Search** - LLM-powered reasoning for hard-to-find models with web fallback
+- 📥 **Smart Downloads** - Production-grade state management with retry logic and verification
+- ✅ **Offline-First** - Works without constant LLM calls; deterministic and resumable
+- 🛠️ **Comprehensive CLI** - Automation-friendly tools for CI/CD pipelines
 - 📊 **Detailed Reporting** - Human-readable reports and JSON exports
 - 🔧 **Highly Configurable** - TOML-based configuration system
-- 🐳 **Container Ready** - Docker and CI/CD integration support
+- 🔌 **Integration Ready** - Adapters for ComfyUI-Copilot validation and state sync
 
 ## 🚀 Quick Start
 

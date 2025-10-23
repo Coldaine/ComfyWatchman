@@ -442,7 +442,7 @@ def run_v2_compatibility_mode(specific_workflows=None, retry_failed=False, logge
 
     return core.run_workflow_analysis(
         specific_workflows=specific_workflows,
-        search_backends=['civitai'],  # V2 uses direct Civitai API
+        search_backends=None,  # Use config defaults (qwen, civitai) for best results
         generate_script=True,
         verify_urls=False
     )
