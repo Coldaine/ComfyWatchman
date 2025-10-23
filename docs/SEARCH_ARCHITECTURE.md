@@ -4,6 +4,8 @@
 
 ComfyWatchman implements an **agentic search architecture** that uses AI reasoning to intelligently discover and download missing ComfyUI models. Instead of naive keyword matching, the system employs a **multi-phase search strategy** with uncertainty handling and fallback mechanisms.
 
+> **Implementation Status (2025-10-23):** This architecture is now the prescribed baseline for V2 runs. Default backend order MUST remain `['qwen', 'civitai']`, exact filename validation is mandatory, and `UNCERTAIN` results must be surfaced for manual review.
+
 ## Architecture Principles
 
 ### 1. Agentic Decision-Making

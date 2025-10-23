@@ -29,7 +29,7 @@ from abc import ABC, abstractmethod
 
 from .config import config
 from .logging import get_logger
-from .utils import get_api_key, validate_url, sanitize_filename
+from .utils import get_api_key, validate_url, sanitize_filename, validate_civitai_response
 from .state_manager import StateManager
 
 # Import adapters and feature flags
@@ -44,8 +44,12 @@ except ImportError:
 
 @dataclass
 class SearchResult:
-    """Result of a model search operation."""
-    status: str  # 'FOUND', 'NOT_FOUND', 'INVALID_FILENAME', 'ERROR'
+    """Result of a model search operation.
+
+    Note: status may be one of 'FOUND', 'NOT_FOUND', 'INVALID_FILENAME', 'ERROR', 'UNCERTAIN'.
+    'UNCERTAIN' indicates candidates exist but need human review and should not be downloaded automatically.
+    """
+    status: str
     filename: str
     source: Optional[str] = None  # 'civitai', 'huggingface'
     civitai_id: Optional[int] = None
@@ -54,6 +58,7 @@ class SearchResult:
     version_name: Optional[str] = None
     download_url: Optional[str] = None
     confidence: Optional[str] = None  # 'exact', 'fuzzy'
+    type: Optional[str] = None  # Model type for placement (e.g., 'loras', 'vae')
     metadata: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
 
@@ -88,8 +93,11 @@ class CivitaiSearch(SearchBackend):
 
     def search(self, model_info: Dict[str, Any]) -> SearchResult:
         """Search Civitai API for a model."""
-        filename = model_info['filename']
+        raw_filename = model_info['filename']
         model_type = model_info.get('type', '')
+
+        # Normalize to basename independent of OS/path style
+        filename = self._normalize_filename(raw_filename)
 
         # Clean filename for search
         query = self._prepare_search_query(filename)
@@ -128,6 +136,7 @@ class CivitaiSearch(SearchBackend):
                 return SearchResult(
                     status='NOT_FOUND',
                     filename=filename,
+                    type=model_type,
                     metadata={'search_attempts': 1, 'reason': 'No results found'}
                 )
 
@@ -135,26 +144,45 @@ class CivitaiSearch(SearchBackend):
             best_match = self._find_best_match(results, filename)
 
             if best_match:
-                return self._create_result_from_match(best_match, filename, 'exact')
+                result_obj, version = best_match
+                return self._create_result_from_match(result_obj, version, filename, model_type, 'exact')
             else:
-                # Try fuzzy match with first result
-                first_result = results[0]
-                return self._create_result_from_match(first_result, filename, 'fuzzy')
+                # No exact filename match; do not return fuzzy 'FOUND'
+                # Provide top candidate context for human review in metadata
+                top = results[0]
+                meta = {
+                    'search_attempts': 1,
+                    'reason': 'No exact filename match on Civitai',
+                    'top_candidate': {
+                        'id': top.get('id'),
+                        'name': top.get('name'),
+                        'type': top.get('type')
+                    }
+                }
+                return SearchResult(
+                    status='NOT_FOUND',
+                    filename=filename,
+                    type=model_type,
+                    metadata=meta
+                )
 
         except Exception as e:
             self.logger.error(f"Civitai search error: {e}")
             return SearchResult(
                 status='ERROR',
                 filename=filename,
+                type=model_type,
                 error_message=str(e)
             )
 
     def _prepare_search_query(self, filename: str) -> str:
         """Prepare filename for search query."""
-        # Remove extension and clean up
-        query = filename.replace('.safetensors', '').replace('.ckpt', '').replace('.pth', '').replace('.pt', '').replace('.bin', '')
-        # Replace underscores and dots with spaces
-        query = re.sub(r'[_.]', ' ', query)
+        # Normalize separators and remove extension
+        base = self._normalize_filename(filename)
+        # Remove common extensions
+        base = re.sub(r"\.(safetensors|ckpt|pth|pt|bin|onnx)$", "", base, flags=re.IGNORECASE)
+        # Replace underscores, backslashes, forward slashes, and dots with spaces
+        query = re.sub(r"[\\/_.]+", " ", base)
         return query.strip()
 
     def _get_type_filter(self, model_type: str) -> Optional[str]:
@@ -170,31 +198,39 @@ class CivitaiSearch(SearchBackend):
         }
         return type_mapping.get(model_type)
 
-    def _find_best_match(self, results: List[Dict], target_filename: str) -> Optional[Dict]:
-        """Find the best matching result."""
+    def _find_best_match(self, results: List[Dict], target_filename: str) -> Optional[Tuple[Dict, Dict]]:
+        """Find the best matching result with the exact modelVersion that contains the file."""
+        target_lower = target_filename.lower()
         for result in results:
             for version in result.get('modelVersions', []):
                 for file_info in version.get('files', []):
-                    if file_info.get('name', '').lower() == target_filename.lower():
-                        return result
+                    if file_info.get('name', '').lower() == target_lower:
+                        return result, version
         return None
 
-    def _create_result_from_match(self, result: Dict, filename: str, confidence: str) -> SearchResult:
-        """Create SearchResult from Civitai API result."""
-        version = result['modelVersions'][0]  # Use first version
-
+    def _create_result_from_match(self, result: Dict, version: Dict, filename: str, model_type: str, confidence: str) -> SearchResult:
+        """Create SearchResult from an exact Civitai API match and its specific version."""
         return SearchResult(
             status='FOUND',
             filename=filename,
             source='civitai',
-            civitai_id=result['id'],
-            version_id=version['id'],
-            civitai_name=result['name'],
-            version_name=version['name'],
-            download_url=f"https://civitai.com/api/download/models/{version['id']}",
+            civitai_id=result.get('id'),
+            version_id=version.get('id'),
+            civitai_name=result.get('name'),
+            version_name=version.get('name'),
+            download_url=f"https://civitai.com/api/download/models/{version.get('id')}",
             confidence=confidence,
+            type=model_type,
             metadata={'search_attempts': 1}
         )
+
+    def _normalize_filename(self, name: str) -> str:
+        """Normalize a possibly path-like filename using both separators and return the basename."""
+        try:
+            parts = re.split(r"[\\/]+", name)
+            return parts[-1] if parts else name
+        except Exception:
+            return name
 
 
 class QwenSearch(SearchBackend):
@@ -444,7 +480,7 @@ BEGIN AGENTIC SEARCH NOW. Think step by step and log your progress."""
 
         elif status == 'UNCERTAIN':
             return SearchResult(
-                status='NOT_FOUND',  # Treat uncertain as not found for now
+                status='UNCERTAIN',
                 filename=filename,
                 metadata={
                     'reason': qwen_result.get('reason', 'Uncertain matches'),
@@ -553,6 +589,13 @@ class ModelSearch:
 
             result = backend.search(model_info)
 
+            # Attach model type for downstream placement if backend didn't set it
+            if getattr(result, 'type', None) is None:
+                try:
+                    result.type = model_info.get('type')
+                except Exception:
+                    pass
+
             # Cache successful results
             if result.status == 'FOUND' and use_cache and config.search.enable_cache:
                 self._cache_result(result)
@@ -578,6 +621,7 @@ class ModelSearch:
         )
 
     def search_multiple_models(self, models: List[Dict[str, Any]],
+                             backends: Optional[List[str]] = None,
                              use_cache: bool = True) -> List[SearchResult]:
         """
         Search for multiple models.
@@ -590,15 +634,20 @@ class ModelSearch:
         Returns:
             List of SearchResult objects
         """
-        results = []
-        for model in models:
-            result = self.search_model(model, use_cache)
-            results.append(result)
+        original_order = list(config.search.backend_order)
+        try:
+            if backends:
+                config.search.backend_order = backends
 
-            # Small delay to be respectful to APIs
-            time.sleep(0.5)
-
-        return results
+            results = []
+            for model in models:
+                result = self.search_model(model, use_cache)
+                results.append(result)
+                time.sleep(0.5)
+            return results
+        finally:
+            # Restore original order to avoid side-effects
+            config.search.backend_order = original_order
 
     def _get_cached_result(self, filename: str) -> Optional[SearchResult]:
         """Get cached search result."""
