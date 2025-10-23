@@ -109,6 +109,11 @@ class Config:
         self._set_default_backend_order()
         self._ensure_dirs()
 
+    @property
+    def state_dir(self) -> Path:
+        """Provide backward compatibility for state_dir access."""
+        return Path(self.state.json_path)
+
     def _load_from_toml(self):
         """Load configuration from default.toml if exists."""
         config_file = Path("config") / "default.toml"

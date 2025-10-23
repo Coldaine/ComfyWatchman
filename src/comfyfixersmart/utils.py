@@ -148,6 +148,138 @@ def validate_url(url: str) -> bool:
         return False
 
 
+def validate_civitai_response(response_data: Dict[str, Any],
+                              requested_id: Optional[int] = None,
+                              endpoint_type: str = 'model') -> Dict[str, Any]:
+    """
+    Validate Civitai API response and check for ID mismatches.
+
+    CRITICAL: Civitai API has a quirk where /api/v1/images?ids={id} may return
+    a different image if the requested ID doesn't exist, instead of returning 404.
+    This function validates the response matches what was requested.
+
+    Args:
+        response_data: Parsed JSON response from Civitai API
+        requested_id: The ID that was requested (model ID or image ID)
+        endpoint_type: Type of endpoint ('model', 'image', 'images')
+
+    Returns:
+        Dictionary with validation results:
+        {
+            'valid': bool,
+            'error_message': Optional[str],
+            'warning_message': Optional[str],
+            'data': The validated data or None
+        }
+
+    Raises:
+        ValueError: If validation fails critically
+    """
+    result = {
+        'valid': True,
+        'error_message': None,
+        'warning_message': None,
+        'data': response_data
+    }
+
+    # Check for empty response
+    if not response_data:
+        result['valid'] = False
+        result['error_message'] = "API returned empty response"
+        result['data'] = None
+        return result
+
+    # Validate based on endpoint type
+    if endpoint_type == 'images':
+        # /api/v1/images?ids=... returns {'items': [...]}
+        items = response_data.get('items', [])
+
+        if not items:
+            result['valid'] = False
+            result['error_message'] = f"Image {requested_id} not found (empty items array)"
+            result['data'] = None
+            return result
+
+        # CRITICAL: Validate returned ID matches requested ID
+        if requested_id is not None:
+            returned_item = items[0]
+            returned_id = returned_item.get('id')
+
+            if returned_id != requested_id:
+                result['valid'] = False
+                result['error_message'] = (
+                    f"API returned wrong image. "
+                    f"Requested: {requested_id}, Got: {returned_id}. "
+                    f"This image may have been deleted or is restricted."
+                )
+                result['data'] = None
+                return result
+
+    elif endpoint_type == 'model':
+        # /api/v1/models/{id} returns model object directly
+        if requested_id is not None:
+            returned_id = response_data.get('id')
+
+            if returned_id != requested_id:
+                result['valid'] = False
+                result['error_message'] = (
+                    f"API returned wrong model. "
+                    f"Requested: {requested_id}, Got: {returned_id}"
+                )
+                result['data'] = None
+                return result
+
+    return result
+
+
+def fetch_civitai_image(image_id: int, api_key: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Fetch image metadata from Civitai with validation.
+
+    This function implements defensive programming against Civitai API quirks
+    where requesting a non-existent image may return a different image instead
+    of a 404 error.
+
+    Args:
+        image_id: Civitai image ID to fetch
+        api_key: Civitai API key (uses environment if not provided)
+
+    Returns:
+        Image metadata dictionary
+
+    Raises:
+        ValueError: If image not found or API returns wrong image
+        requests.RequestException: If API request fails
+    """
+    import requests
+
+    if api_key is None:
+        api_key = get_api_key()
+
+    # Use /api/v1/images?ids={id} endpoint
+    url = f"https://civitai.com/api/v1/images"
+    params = {'ids': image_id}
+    headers = {'Authorization': f'Bearer {api_key}'}
+
+    response = requests.get(url, params=params, headers=headers, timeout=30)
+
+    if response.status_code != 200:
+        raise ValueError(
+            f"Civitai API error: HTTP {response.status_code} for image {image_id}"
+        )
+
+    data = response.json()
+
+    # Validate response
+    validation = validate_civitai_response(data, requested_id=image_id, endpoint_type='images')
+
+    if not validation['valid']:
+        raise ValueError(validation['error_message'])
+
+    # Return the first (and validated) item
+    return data['items'][0]
+
+
 def safe_path_join(base_path: Union[str, Path], *paths: Union[str, Path]) -> Path:
     """
     Safely join paths without allowing directory traversal.

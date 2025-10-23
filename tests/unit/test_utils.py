@@ -17,7 +17,8 @@ from comfyfixersmart.utils import (
     get_file_checksum, validate_url, safe_path_join, ensure_directory,
     find_files_by_pattern, get_file_size, validate_json_file, load_json_file,
     save_json_file, build_local_inventory, extract_models_from_workflow,
-    _is_model_filename, format_file_size, sanitize_filename, get_relative_path
+    _is_model_filename, format_file_size, sanitize_filename, get_relative_path,
+    validate_civitai_response, fetch_civitai_image
 )
 
 
@@ -629,3 +630,245 @@ class TestFormattingFunctions:
         path = tmp_path / "file.txt"
         relative = get_relative_path(path, tmp_path)
         assert relative == "file.txt"
+
+
+class TestCivitaiAPIValidation:
+    """Test Civitai API response validation functions.
+
+    These tests cover the incident from docs/reports/civitai-api-wrong-metadata-incident.md
+    where the API returned a different image ID than requested.
+    """
+
+    def test_validate_civitai_response_model_endpoint_valid(self):
+        """Test validation of valid model endpoint response."""
+        response_data = {
+            'id': 12345,
+            'name': 'Test Model',
+            'type': 'Checkpoint'
+        }
+
+        result = validate_civitai_response(
+            response_data,
+            requested_id=12345,
+            endpoint_type='model'
+        )
+
+        assert result['valid'] is True
+        assert result['error_message'] is None
+        assert result['data'] == response_data
+
+    def test_validate_civitai_response_model_endpoint_wrong_id(self):
+        """Test validation of model endpoint with wrong ID (the incident scenario)."""
+        response_data = {
+            'id': 67890,  # Different from requested
+            'name': 'Wrong Model',
+            'type': 'Checkpoint'
+        }
+
+        result = validate_civitai_response(
+            response_data,
+            requested_id=12345,
+            endpoint_type='model'
+        )
+
+        assert result['valid'] is False
+        assert 'wrong model' in result['error_message'].lower()
+        assert 'Requested: 12345' in result['error_message']
+        assert 'Got: 67890' in result['error_message']
+        assert result['data'] is None
+
+    def test_validate_civitai_response_images_endpoint_valid(self):
+        """Test validation of valid images endpoint response."""
+        response_data = {
+            'items': [
+                {
+                    'id': 96712457,
+                    'url': 'https://example.com/image.png',
+                    'meta': {'prompt': 'test'}
+                }
+            ]
+        }
+
+        result = validate_civitai_response(
+            response_data,
+            requested_id=96712457,
+            endpoint_type='images'
+        )
+
+        assert result['valid'] is True
+        assert result['error_message'] is None
+        assert result['data'] == response_data
+
+    def test_validate_civitai_response_images_endpoint_wrong_id(self):
+        """Test validation of images endpoint with wrong ID.
+
+        This is the exact scenario from the incident report:
+        - Requested image ID: 96712457
+        - API returned image ID: 9173928
+        """
+        response_data = {
+            'items': [
+                {
+                    'id': 9173928,  # Wrong ID returned by API
+                    'url': 'https://example.com/wrong-image.png',
+                    'meta': {'prompt': 'wrong prompt'}
+                }
+            ]
+        }
+
+        result = validate_civitai_response(
+            response_data,
+            requested_id=96712457,
+            endpoint_type='images'
+        )
+
+        assert result['valid'] is False
+        assert 'wrong image' in result['error_message'].lower()
+        assert 'Requested: 96712457' in result['error_message']
+        assert 'Got: 9173928' in result['error_message']
+        assert 'deleted or is restricted' in result['error_message']
+        assert result['data'] is None
+
+    def test_validate_civitai_response_images_endpoint_empty_items(self):
+        """Test validation of images endpoint with empty items array."""
+        response_data = {
+            'items': []
+        }
+
+        result = validate_civitai_response(
+            response_data,
+            requested_id=96712457,
+            endpoint_type='images'
+        )
+
+        assert result['valid'] is False
+        assert 'not found' in result['error_message'].lower()
+        assert '96712457' in result['error_message']
+        assert result['data'] is None
+
+    def test_validate_civitai_response_empty_response(self):
+        """Test validation of empty API response."""
+        result = validate_civitai_response(
+            {},
+            requested_id=12345,
+            endpoint_type='model'
+        )
+
+        assert result['valid'] is False
+        assert 'empty response' in result['error_message'].lower()
+        assert result['data'] is None
+
+    def test_validate_civitai_response_none_response(self):
+        """Test validation of None API response."""
+        result = validate_civitai_response(
+            None,
+            requested_id=12345,
+            endpoint_type='model'
+        )
+
+        assert result['valid'] is False
+        assert 'empty response' in result['error_message'].lower()
+        assert result['data'] is None
+
+    def test_validate_civitai_response_no_requested_id(self):
+        """Test validation without requested ID (should pass)."""
+        response_data = {
+            'id': 12345,
+            'name': 'Test Model'
+        }
+
+        result = validate_civitai_response(
+            response_data,
+            requested_id=None,
+            endpoint_type='model'
+        )
+
+        assert result['valid'] is True
+        assert result['data'] == response_data
+
+    @patch('requests.get')
+    @patch('comfyfixersmart.utils.get_api_key')
+    def test_fetch_civitai_image_success(self, mock_get_api_key, mock_requests_get):
+        """Test successful image fetching with validation."""
+        mock_get_api_key.return_value = 'test_api_key'
+
+        mock_response = mock_requests_get.return_value
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'items': [
+                {
+                    'id': 96712457,
+                    'url': 'https://example.com/image.png',
+                    'meta': {'prompt': 'correct prompt'}
+                }
+            ]
+        }
+
+        result = fetch_civitai_image(96712457)
+
+        assert result['id'] == 96712457
+        assert result['url'] == 'https://example.com/image.png'
+        mock_requests_get.assert_called_once()
+
+    @patch('requests.get')
+    @patch('comfyfixersmart.utils.get_api_key')
+    def test_fetch_civitai_image_wrong_id_returned(self, mock_get_api_key, mock_requests_get):
+        """Test image fetching when API returns wrong ID.
+
+        This recreates the incident from the report.
+        """
+        mock_get_api_key.return_value = 'test_api_key'
+
+        mock_response = mock_requests_get.return_value
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'items': [
+                {
+                    'id': 9173928,  # Wrong ID
+                    'url': 'https://example.com/wrong-image.png',
+                    'meta': {}
+                }
+            ]
+        }
+
+        with pytest.raises(ValueError) as exc_info:
+            fetch_civitai_image(96712457)
+
+        error_msg = str(exc_info.value)
+        assert 'wrong image' in error_msg.lower()
+        assert 'Requested: 96712457' in error_msg
+        assert 'Got: 9173928' in error_msg
+
+    @patch('requests.get')
+    @patch('comfyfixersmart.utils.get_api_key')
+    def test_fetch_civitai_image_http_error(self, mock_get_api_key, mock_requests_get):
+        """Test image fetching with HTTP error."""
+        mock_get_api_key.return_value = 'test_api_key'
+
+        mock_response = mock_requests_get.return_value
+        mock_response.status_code = 404
+
+        with pytest.raises(ValueError) as exc_info:
+            fetch_civitai_image(96712457)
+
+        error_msg = str(exc_info.value)
+        assert '404' in error_msg
+        assert '96712457' in error_msg
+
+    @patch('requests.get')
+    @patch('comfyfixersmart.utils.get_api_key')
+    def test_fetch_civitai_image_empty_items(self, mock_get_api_key, mock_requests_get):
+        """Test image fetching when API returns empty items (image deleted)."""
+        mock_get_api_key.return_value = 'test_api_key'
+
+        mock_response = mock_requests_get.return_value
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'items': []
+        }
+
+        with pytest.raises(ValueError) as exc_info:
+            fetch_civitai_image(96712457)
+
+        error_msg = str(exc_info.value)
+        assert 'not found' in error_msg.lower()

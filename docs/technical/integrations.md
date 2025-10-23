@@ -295,6 +295,194 @@ def download_and_register_loras(missing_loras):
             lora_manager.register_lora(lora.save_path, lora.metadata)
 ```
 
+## Civitai API Integration
+
+### API Quirks and Validation
+
+ComfyFixerSmart integrates with the Civitai API for model discovery and metadata. However, the Civitai API has some undocumented behaviors that require defensive programming.
+
+#### Known API Quirks
+
+**1. Image Endpoint ID Mismatch**
+
+The `/api/v1/images?ids={id}` endpoint may return a different image instead of returning a 404 when the requested image ID doesn't exist.
+
+```python
+# WRONG - May return wrong image
+response = requests.get(f"https://civitai.com/api/v1/images?ids={image_id}")
+data = response.json()
+result = data['items'][0]  # Could be wrong image!
+
+# CORRECT - Validate returned ID
+from comfyfixersmart.utils import validate_civitai_response
+
+response = requests.get(f"https://civitai.com/api/v1/images?ids={image_id}")
+data = response.json()
+
+validation = validate_civitai_response(data, requested_id=image_id, endpoint_type='images')
+if not validation['valid']:
+    raise ValueError(validation['error_message'])
+
+result = data['items'][0]  # Now guaranteed to be correct
+```
+
+**Real Incident:**
+- Requested image ID: `96712457`
+- API returned image ID: `9173928` (different image!)
+- Result: Downloaded wrong models, created wrong workflow
+- See: `docs/reports/civitai-api-wrong-metadata-incident.md`
+
+**2. Endpoint Comparison**
+
+| Endpoint | Missing ID Behavior | Recommended |
+|----------|---------------------|-------------|
+| `/api/v1/images/{id}` | Returns 404 | ✅ Use for single image |
+| `/api/v1/images?ids={id}` | Returns different image | ⚠️ Requires validation |
+| `/api/v1/models/{id}` | Returns 404 | ✅ Safe to use |
+
+#### Validation Utilities
+
+**validate_civitai_response()**
+
+Validates that API responses match requested IDs:
+
+```python
+from comfyfixersmart.utils import validate_civitai_response
+
+# Validate model endpoint response
+response_data = api.get(f"/models/{model_id}").json()
+validation = validate_civitai_response(
+    response_data,
+    requested_id=model_id,
+    endpoint_type='model'
+)
+
+if not validation['valid']:
+    print(f"Error: {validation['error_message']}")
+    # Handle mismatch
+
+# Validate images endpoint response
+response_data = api.get(f"/images?ids={image_id}").json()
+validation = validate_civitai_response(
+    response_data,
+    requested_id=image_id,
+    endpoint_type='images'
+)
+
+if not validation['valid']:
+    print(f"Error: {validation['error_message']}")
+    # Handle mismatch (deleted/restricted image)
+```
+
+**fetch_civitai_image()**
+
+Safe image fetching with built-in validation:
+
+```python
+from comfyfixersmart.utils import fetch_civitai_image
+
+try:
+    image_data = fetch_civitai_image(96712457)
+    print(f"Prompt: {image_data['meta']['prompt']}")
+    print(f"URL: {image_data['url']}")
+except ValueError as e:
+    print(f"Image fetch failed: {e}")
+    # Image may be deleted or restricted
+```
+
+#### Error Messages
+
+The validation utilities provide detailed error messages:
+
+```
+API returned wrong image. Requested: 96712457, Got: 9173928.
+This image may have been deleted or is restricted.
+```
+
+```
+API returned wrong model. Requested: 12345, Got: 67890
+```
+
+```
+Image 96712457 not found (empty items array)
+```
+
+#### Best Practices for Civitai API
+
+1. **Always Validate IDs:**
+   - Never trust that returned ID matches requested ID
+   - Use `validate_civitai_response()` for all API calls
+
+2. **Handle Missing Resources:**
+   ```python
+   try:
+       image = fetch_civitai_image(image_id)
+   except ValueError as e:
+       if "not found" in str(e).lower():
+           # Resource deleted or restricted
+           log_warning(f"Image {image_id} unavailable: {e}")
+       else:
+           # ID mismatch or other error
+           log_error(f"Unexpected error: {e}")
+           raise
+   ```
+
+3. **Log API Interactions:**
+   ```python
+   logger.debug(f"Requested image ID: {image_id}")
+   logger.debug(f"Received image ID: {result['id']}")
+   logger.debug(f"Image URL: {result.get('url')}")
+   ```
+
+4. **Implement Retry Logic:**
+   ```python
+   from tenacity import retry, stop_after_attempt, wait_exponential
+
+   @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+   def safe_fetch_model(model_id):
+       response = requests.get(f"https://civitai.com/api/v1/models/{model_id}")
+       data = response.json()
+
+       validation = validate_civitai_response(data, requested_id=model_id, endpoint_type='model')
+       if not validation['valid']:
+           raise ValueError(validation['error_message'])
+
+       return data
+   ```
+
+5. **Cache Validated Responses:**
+   ```python
+   from functools import lru_cache
+
+   @lru_cache(maxsize=1000)
+   def cached_fetch_image(image_id):
+       return fetch_civitai_image(image_id)
+   ```
+
+#### Testing Validation
+
+The test suite includes comprehensive validation tests:
+
+```bash
+# Run Civitai API validation tests
+pytest tests/unit/test_utils.py::TestCivitaiAPIValidation -v
+```
+
+Tests cover:
+- Valid responses (IDs match)
+- ID mismatches (the incident scenario)
+- Empty responses (deleted resources)
+- HTTP errors (404, 500, etc.)
+
+See `tests/unit/test_utils.py` for complete test cases.
+
+#### Related Documentation
+
+- **Incident Report:** `docs/reports/civitai-api-wrong-metadata-incident.md`
+- **Utility Functions:** `src/comfyfixersmart/utils.py`
+- **Test Cases:** `tests/unit/test_utils.py::TestCivitaiAPIValidation`
+- **Search Implementation:** `src/comfyfixersmart/search.py`
+
 ## Workflow Management
 
 ### Integration with Git
@@ -543,6 +731,17 @@ audit.log_operation('complete_analysis', os.getenv('USER'), {
     'models_downloaded': result.models_resolved
 })
 ```
+
+## Civitai API Safeguards
+
+The incident documented in `docs/reports/civitai-api-wrong-metadata-incident.md` is now part of our baseline operating procedures. All integrations that call `https://civitai.com/api/v1/images` **must**:
+
+1. Validate that the returned `items[0].id` exactly matches the requested image ID. If it does not, raise an explicit error instead of using the response.
+2. Treat empty `items` arrays or mismatched IDs as hard failures and surface a clear `NOT_FOUND / possibly deleted` message to the caller.
+3. Log the requested ID, returned ID, and any URLs at DEBUG level so future mismatches are traceable.
+4. Use a shared helper (to be added under `src/comfyfixersmart/utils.py`) such as `validate_civitai_image_response(image_id, payload)` to centralise the guardrails.
+
+Until this helper ships, do **not** build new features that rely on the Civitai Images endpoint.
 
 ## Best Practices
 

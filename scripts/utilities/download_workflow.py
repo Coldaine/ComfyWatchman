@@ -28,6 +28,10 @@ from urllib.parse import urlparse, parse_qs
 
 import requests
 
+# Add ComfyFixerSmart source to path for validation utilities
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
+from comfyfixersmart.utils import validate_civitai_response
+
 # Configuration
 COMFYUI_ROOT = "/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable"
 WORKFLOW_DIR = f"{COMFYUI_ROOT}/user/default/workflows"
@@ -87,7 +91,7 @@ def parse_civitai_url(url):
 
 
 def get_model_info(model_id):
-    """Fetch model information from Civitai API"""
+    """Fetch model information from Civitai API with validation"""
     api_key = get_api_key()
 
     log(f"Fetching model info for ID: {model_id}")
@@ -104,6 +108,22 @@ def get_model_info(model_id):
             return None
 
         data = response.json()
+
+        # CRITICAL: Validate that API returned the correct model
+        # See: docs/reports/civitai-api-wrong-metadata-incident.md
+        validation = validate_civitai_response(
+            data,
+            requested_id=int(model_id),
+            endpoint_type='model'
+        )
+
+        if not validation['valid']:
+            log(f"API validation failed: {validation['error_message']}", "ERROR")
+            log(f"  Requested model ID: {model_id}", "ERROR")
+            log(f"  Returned model ID: {data.get('id', 'Unknown')}", "ERROR")
+            log("This model may have been deleted or is restricted", "ERROR")
+            return None
+
         log(f"  Model: {data.get('name', 'Unknown')}")
         log(f"  Type: {data.get('type', 'Unknown')}")
         log(f"  Versions: {len(data.get('modelVersions', []))}")

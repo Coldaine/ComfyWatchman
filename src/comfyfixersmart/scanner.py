@@ -17,6 +17,7 @@ Functions:
 import json
 import glob
 import os
+import re
 from pathlib import Path
 from typing import List, Dict, Optional, Set, Any
 from dataclasses import dataclass
@@ -213,7 +214,14 @@ class WorkflowScanner:
                 # Check widgets_values for model filenames
                 for i, value in enumerate(node.get('widgets_values', [])):
                     if isinstance(value, str) and _is_model_filename(value):
-                        filename = os.path.basename(value)
+                        # Normalize filename from either POSIX or Windows-style paths
+                        # os.path.basename does not treat backslashes as separators on POSIX
+                        # so split on both separators to robustly obtain the basename
+                        try:
+                            parts = re.split(r"[\\/]+", value)
+                            filename = parts[-1] if parts else value
+                        except Exception:
+                            filename = os.path.basename(value)
                         model_type = determine_model_type(node_type)
 
                         model_ref = ModelReference(

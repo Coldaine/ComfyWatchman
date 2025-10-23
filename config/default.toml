@@ -9,9 +9,10 @@ workflow_dirs = [
 ]
 output_dir = "output"
 log_dir = "log"
-state_dir = "state"
 search_log_file = "qwen_search_history.log"
 download_counter_file = "download_counter.txt"
+
+# Note: state_dir is now accessed via state.json_path (see State Management section below)
 
 # API Settings
 civitai_api_base = "https://civitai.com/api/v1"
