@@ -45,6 +45,20 @@ comfywatchman inspect /path/to/models --recursive
 - Outputs are deterministic: traversal and JSON key ordering are stable, and
   no timestamps are included.
 
+## Exit codes
+
+The CLI returns exit code `0` on success and `1` if any inspected file
+produces warnings (e.g., unrecognized format, read failures, metadata parsing
+errors). This allows scripts to detect potential issues:
+
+```bash
+if comfywatchman inspect model.safetensors --format json; then
+    echo "Clean inspection"
+else
+    echo "Inspection completed with warnings"
+fi
+```
+
 ## Example commands
 
 ```bash
