@@ -1,277 +1,140 @@
-# AGENTS.md
+# AI Agent Development and Usage Guide
 
-This file provides project context and instructions for AI coding agents working with this repository.
+This guide provides comprehensive instructions for AI agents, covering both development on the `ComfyWatchman` codebase and autonomous use of its command-line tools.
 
-## Project Overview
+---
 
-**ComfyWatchman** (package name: `comfywatchman`, project name: ComfyFixerSmart) is an intelligent Python tool that analyzes ComfyUI workflows, identifies missing models and custom nodes, searches for them on Civitai and HuggingFace, and automates the download process.
+## 1. Critical Project Context
 
-**Target Use Case**: Video generation workflows (WAN 2.2, etc.) and general ComfyUI model management
+### 1.1. Project Overview & Philosophy
+*   **Name:** `ComfyWatchman` (repository name: `ComfyFixerSmart`, package name: `comfywatchman`)
+*   **Purpose:** An intelligent Python tool that analyzes ComfyUI workflows, identifies missing models and custom nodes, searches for them on Civitai and HuggingFace, and automates the download process.
+*   **Development Philosophy:** This is a solo developer project. Favor practical solutions, reuse existing code patterns, and avoid unnecessary enterprise-level abstractions.
 
-**Development Philosophy**: Solo developer project - favor practical solutions over enterprise patterns, reuse existing code patterns, avoid unnecessary abstractions.
+### 1.2. Relationship to ComfyUI-Copilot
+This project is designed to **complement and integrate with** [ComfyUI-Copilot](https://github.com/AIDC-AI/ComfyUI-Copilot), not compete with it.
 
-**COMFYUI_ROOT** must point to `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable`. Every download belongs inside `${COMFYUI_ROOT}/models/<type>/`; the repository itself should never contain `.safetensors`, `.ckpt`, `.pt`, `.pth`, `.bin`, `.onnx`, `.npz`, or other large binaries.
+*   **ComfyWatchman's Strengths:** Superior dependency resolution, multi-backend search (Civitai, HuggingFace, Qwen), offline-first operation, and a robust CLI for automation.
+*   **Copilot's Strengths:** Workflow generation from text, interactive debugging, and deep UI integration.
+*   **Integration Strategy:** `ComfyWatchman` provides its powerful dependency management as a standalone tool that can also be integrated into Copilot's workflow via an adapter layer.
 
-**Configuration guardrails** live in `config/default.toml`, which now pins `comfyui_root` and `workflow_dirs` to the paths above. Temporary overrides can export `COMFYUI_ROOT="/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable"`, but clear them before finishing work so the default remains authoritative.
+### 1.3. Core File Paths & Environment
+*   **ComfyUI Root:** The tool operates on a ComfyUI installation located at `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/`. All model downloads are placed within this directory structure.
+*   **API Keys:** The tool requires API keys which are stored in `~/.secrets` and loaded into the environment.
+    *   `CIVITAI_API_KEY`: Required for Civitai API search.
+    *   `TAVILY_API_KEY`: Required for the Qwen agent's web search fallback.
+    *   `HF_TOKEN`: Optional for accessing private models on HuggingFace.
 
-**Failure-first policy**: abort immediately if `config.models_dir` is missing or cannot be resolved. Generated download scripts must refuse to run without a valid models directory and should never embed raw model binaries.
+---
 
-**Git hygiene**: run `git status` before and after changes. The pre-commit hook blocks files ≥ 90 MB, and `.gitignore` already excludes weights, archives, partial downloads, and generated scripts—leave those defenses intact.
+## 2. Guide for Developing on the Codebase
 
-**Escalation protocol**: any scope changes for Phase 1 or Phase 2 (see `docs/vision.md`) require explicit owner approval. Surface uncertainties instead of guessing about download destinations or behavior.
+This section is for AI agents contributing to the `ComfyWatchman` source code.
 
-## Critical Paths
+### 2.1. Architecture Overview
+The codebase follows a clean, modular architecture with a clear separation of concerns.
 
-### ComfyUI Installation
-- **Root**: `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/`
-- **Workflows**: `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/user/default/workflows/`
-- **Models**: `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/models/`
-- **Custom Nodes**: `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/custom_nodes/`
+*   `src/comfyfixersmart/`:
+    *   `cli.py`: Main CLI entry point (`comfywatchman` command).
+    *   `core.py`: The `ComfyFixerCore` orchestrator class.
+    *   `scanner.py`: Handles workflow parsing and model extraction.
+    *   `inventory.py`: Builds the local model inventory.
+    *   `search.py`: Manages multi-backend model search (Qwen, Civitai, etc.).
+    *   `download.py`: Manages model downloads and script generation.
+    *   `state_manager.py`: Handles state tracking and caching.
+    *   `inspector/`: The model metadata inspection subsystem.
+    *   `adapters/`: The integration layer for external tools like ComfyUI-Copilot.
 
-### API Keys
-API keys are in `~/.secrets`, auto-loaded via `~/.bashrc`:
-- `CIVITAI_API_KEY` - Required for Civitai downloads
-- `HF_TOKEN` - Optional for HuggingFace private models
+### 2.2. Development Workflow & Commands
+1.  **Installation:**
+    ```bash
+    # Install in editable mode with all development dependencies
+    pip install -e .[dev,full]
+    ```
+2.  **Code Quality:**
+    ```bash
+    # Format code
+    black src/ tests/
 
-## Setup and Installation
+    # Lint code
+    flake8 src/ tests/
 
+    # Type checking
+    mypy src/
+    ```
+3.  **Testing:**
+    ```bash
+    # Run all tests
+    pytest
+
+    # Run with coverage report
+    pytest --cov=comfywatchman --cov-report=html
+    ```
+
+### 2.3. Common Development Tasks
+
+*   **Adding a New Search Backend:**
+    1.  Create a new class in `search.py` that inherits from `SearchBackend`.
+    2.  Implement the `search()` and `get_name()` methods.
+    3.  Register the new backend in the `ModelSearch` class.
+
+*   **Adding a New Adapter:**
+    1.  Create a new file in `adapters/` inheriting from `BaseAdapter`.
+    2.  Implement the required methods (`get_name`, `is_available`, etc.).
+    3.  Add an optional dependency group to `pyproject.toml` if needed.
+
+---
+
+## 3. Guide for Using the Tool Autonomously
+
+This section is for AI agents using the compiled `comfywatchman` tool to manage workflows.
+
+### 3.1. Basic Usage
 ```bash
-# Development installation
-pip install -e .
+# Run the full analysis and download pipeline automatically
+comfywatchman --auto
 
-# With dev dependencies
-pip install -e .[dev]
+# Monitor the progress of a run
+comfywatchman --status
+
+# Resume an interrupted run
+comfywatchman --resume
 ```
 
-## Running the Tool
+### 3.2. Monitoring a Run
+The tool's status is written to `status.json`. Agents should monitor this file to track progress.
 
-```bash
-# Basic usage (analyzes configured workflow directories)
-comfywatchman
+*   **Status Phases:** `idle`, `scanning`, `resolving`, `downloading`, `complete`, `error`.
+*   **Example Monitoring Logic:**
+    ```python
+    import json
+    import time
 
-# Analyze specific workflow
-comfywatchman path/to/workflow.json
+    while True:
+        try:
+            with open('status.json') as f:
+                status = json.load(f)
+            
+            phase = status.get('phase', 'idle')
+            print(f"Current phase: {phase}")
 
-# Analyze directory
-comfywatchman --dir /path/to/workflows
+            if phase in ['complete', 'error']:
+                break
+        except FileNotFoundError:
+            print("Waiting for run to start...")
+        
+        time.sleep(5)
+    ```
 
-# Search backends
-comfywatchman --search civitai,huggingface
+### 3.3. Understanding the Output
+All outputs are placed in the `output/` directory.
 
-# V1 mode (incremental, Qwen search)
-comfywatchman --v1
+*   `missing_models.json`: A list of models that were not found locally.
+*   `resolutions.json`: The search results from Civitai/HuggingFace for the missing models.
+*   `summary_report.md`: A human-readable summary of the run.
 
-# V2 mode (batch, default)
-comfywatchman --v2
-```
-
-## Configuration
-
-**Priority order** (highest to lowest):
-1. Command-line arguments
-2. Environment variables (`COMFYUI_ROOT`, `OUTPUT_DIR`, etc.)
-3. Config file (`config/default.toml` or via `--config`)
-4. Built-in defaults
-
-**Required**: `comfyui_root` must be configured (no default path)
-
-Create `config/default.toml` from `config-example.toml`:
-```toml
-comfyui_root = "/path/to/ComfyUI"
-workflow_dirs = ["user/default/workflows"]
-```
-
-## Architecture
-
-### Module Structure
-```
-src/comfyfixersmart/
-├── cli.py              # CLI entry point
-├── core.py             # ComfyFixerCore orchestrator
-├── config.py           # TOML + env var configuration
-├── scanner.py          # Workflow scanning & model extraction
-├── inventory.py        # Local model/node inventory
-├── search.py           # Multi-backend search (Civitai, HF, Qwen)
-├── download.py         # Download management
-├── state_manager.py    # State tracking & caching
-├── logging.py          # Structured logging
-└── utils.py            # Shared utilities
-```
-
-### Key Classes
-- **ComfyFixerCore**: Main orchestrator (`run_workflow_analysis()`)
-- **WorkflowScanner**: Parse workflows, extract models
-- **ModelInventory**: Build local model inventory
-- **ModelSearch**: Unified search with multiple backends
-- **StateManager**: Track downloads, prevent duplicates
-- **Config**: TOML + env var configuration manager
-
-## Development Commands
-
-```bash
-# Run tests
-pytest
-
-# Coverage report
-pytest --cov=comfywatchman --cov-report=html
-
-# Format code
-black src/ tests/
-
-# Lint
-flake8 src/ tests/
-
-# Type check
-mypy src/
-```
-
-## Coding Standards
-
-### Python Style
-- Use Python 3.7+ compatible syntax
-- Follow existing code patterns in the module
-- Type hints for function signatures
-- Docstrings for public APIs
-
-### Module Organization
-- One class per file when classes are substantial
-- Related utilities grouped together
-- Clear separation of concerns (scanning, searching, downloading)
-
-### Configuration Management
-- All configurable values go through `config.py`
-- Support both TOML files and environment variables
-- Command-line args override everything
-
-### State and Caching
-- Use `StateManager` for download tracking
-- Cache search results to minimize API calls
-- Persist state to `state_dir/download_state.json`
-
-## Important Patterns
-
-### Model Type Mapping
-ComfyUI node types map to model directories via `config.model_type_mapping`:
-```python
-{
-    'CheckpointLoaderSimple': 'checkpoints',
-    'LoraLoader': 'loras',
-    'VAELoader': 'vae',
-    'ControlNetLoader': 'controlnet',
-    'UpscaleModelLoader': 'upscale_models',
-    # ... see config.py for complete mapping
-}
-```
-
-### Workflow JSON Structure
-ComfyUI workflows have this structure:
-```json
-{
-  "nodes": [
-    {
-      "id": "1",
-      "type": "CheckpointLoaderSimple",
-      "widgets_values": ["model_name.safetensors", ...]
-    }
-  ]
-}
-```
-
-Model references are in `widgets_values` arrays. Scanner looks for strings ending in: `.safetensors`, `.ckpt`, `.pt`, `.bin`, `.pth`
-
-### Search Results
-- Return `SearchResult` objects with download URLs
-- Support multiple backends: Civitai (primary), HuggingFace, Qwen
-- Cache results in `temp_dir/search_cache/`
-
-### Logging
-- Console: INFO level, user-friendly
-- File: DEBUG level, in `log/run_YYYYMMDD_HHMMSS.log`
-- Use `from comfyfixersmart.logging import get_logger`
-
-## Test Strategy
-
-### Test Structure
-- `tests/unit/` - Individual module tests
-- `tests/integration/` - Module interaction tests
-- `tests/functional/` - End-to-end tests
-- `tests/fixtures/` - Shared fixtures
-- `tests/test_data/` - Sample workflow files
-
-### Testing Patterns
-- Mock external APIs (Civitai, HuggingFace)
-- Use sample workflow JSON files
-- Test state persistence and recovery
-- Verify file operations without actual downloads
-
-## Common Tasks
-
-### Adding New Search Backend
-1. Create class inheriting from `SearchBackend` in `search.py`
-2. Implement `search()` returning `SearchResult`
-3. Implement `get_name()` returning identifier
-4. Register in `ModelSearch.__init__()` backends dict
-
-### Adding Model Type Support
-1. Update `model_type_mapping` in `config.py`
-2. Add type filter in `CivitaiSearch._get_type_filter()`
-3. Update documentation
-
-### Extending CLI
-1. Add argument in `cli.create_parser()`
-2. Update `cli.update_config_from_args()` if needed
-3. Pass through to `core.run_workflow_analysis()`
-
-## Output Files
-
-**Results** (in `output_dir`, default `./output/`):
-- `missing_models_RUNID.json` - Models not found locally
-- `resolutions_RUNID.json` - Search results with URLs
-- `download_missing_RUNID.sh` - Generated download script
-- `found_models_cache.json` - Cached inventory
-
-**Logs** (in `log_dir`, default `./log/`):
-- `run_RUNID.log` - Main execution log
-- `structured.log` - Structured output
-- `qwen_search_history.log` - Qwen operations
-
-**State** (in `state_dir`, default `./state/`):
-- `download_state.json` - Download tracking
-
-## Key Files
-
-- `pyproject.toml` - Package metadata, dependencies, build config
-- `REQUIREMENTS.md` - Original requirements (historical)
-- `INSTALL.md` - User installation guide
-- `config-example.toml` - Configuration template
-- `CLAUDE.md` - Claude Code specific instructions
-- `legacy/` - Previous implementations (reference)
-- `archives/` - Historical tools (ScanTool, etc.)
-- `docs/planning/RIGHT_SIZED_PLAN.md` - Core architecture
-- `docs/planning/AGENT_GUIDE.md` - AI agent usage guide
-- `docs/research/` - Related systems research
-
-## Strategic Context
-
-This project is at a strategic crossroads regarding integration with ComfyUI-Copilot and similar tools:
-- `docs/CROSSROADS.md` - Strategic decision framework
-- `docs/research/EXISTING_SYSTEMS.md` - Analysis of related tools
-- `docs/vision.md` - Long-term vision with LLM integration
-
-**Owner Directive**: Phase 1 and Phase 2 requirements in Vision and Architecture docs require explicit owner consent to modify.
-
-## Package Information
-
-- **Package name**: `comfywatchman` (PyPI)
-- **Project name**: ComfyFixerSmart (repository)
-- **Entry point**: `comfywatchman` command
-- **Version**: 2.0.0 (development, not yet on PyPI)
-- **License**: MIT
-
-## Development Notes
-
-- Solo developer project - no enterprise overhead
-- Reuse existing patterns from codebase
-- Practical solutions over complex abstractions
-- Video generation workflows are primary but tool is general-purpose
-- Legacy code in `legacy/` and `archives/` for reference only
+### 3.4. Error Handling and Recovery
+*   If `status.json` shows `phase: "error"`, check the `errors` array for details.
+*   Consult the log files in the `log/` directory for detailed stack traces.
+*   For most transient errors (network issues, timeouts), a run can be recovered by executing `comfywatchman --resume`.
+*   If an API key is invalid (`401 Unauthorized`), the agent should notify the user to check their `~/.secrets` file.
