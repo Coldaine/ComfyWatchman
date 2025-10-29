@@ -12,9 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-from comfyfixersmart.core import (
-    ComfyFixerCore, WorkflowRun, run_comfy_fixer
-)
+from comfyfixersmart.core import ComfyFixerCore, WorkflowRun, run_comfy_fixer
 
 
 class TestWorkflowRun:
@@ -23,6 +21,7 @@ class TestWorkflowRun:
     def test_workflow_run_creation(self):
         """Test creating a WorkflowRun instance."""
         from datetime import datetime
+
         start_time = datetime.now()
 
         run = WorkflowRun(
@@ -33,7 +32,7 @@ class TestWorkflowRun:
             models_found=10,
             models_missing=3,
             models_resolved=7,
-            downloads_generated=7
+            downloads_generated=7,
         )
 
         assert run.run_id == "test_run_123"
@@ -70,17 +69,18 @@ class TestComfyFixerCore:
         """Test ComfyFixerCore initialization."""
         core = ComfyFixerCore()
         assert core.logger is not None
-        assert hasattr(core, 'scanner')
-        assert hasattr(core, 'search')
-        assert hasattr(core, 'inventory')
-        assert hasattr(core, 'downloader')
+        assert hasattr(core, "scanner")
+        assert hasattr(core, "search")
+        assert hasattr(core, "inventory")
+        assert hasattr(core, "downloader")
 
-    @patch('comfyfixersmart.core.WorkflowScanner')
-    @patch('comfyfixersmart.core.ModelSearch')
-    @patch('comfyfixersmart.core.ModelInventory')
-    @patch('comfyfixersmart.core.DownloadManager')
-    def test_core_initialization_with_mocks(self, mock_download, mock_inventory,
-                                           mock_search, mock_scanner):
+    @patch("comfyfixersmart.core.WorkflowScanner")
+    @patch("comfyfixersmart.core.ModelSearch")
+    @patch("comfyfixersmart.core.ModelInventory")
+    @patch("comfyfixersmart.core.DownloadManager")
+    def test_core_initialization_with_mocks(
+        self, mock_download, mock_inventory, mock_search, mock_scanner
+    ):
         """Test ComfyFixerCore initialization with mocked dependencies."""
         core = ComfyFixerCore()
 
@@ -102,7 +102,7 @@ class TestComfyFixerCore:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["model.safetensors"]
+                    "widgets_values": ["model.safetensors"],
                 }
             ]
         }
@@ -117,7 +117,7 @@ class TestComfyFixerCore:
         core.search.search_model.return_value = {
             "status": "FOUND",
             "filename": "model.safetensors",
-            "download_url": "https://example.com/model"
+            "download_url": "https://example.com/model",
         }
         core.inventory.build_inventory.return_value = {}
         core.downloader.create_download_tasks.return_value = []
@@ -143,7 +143,7 @@ class TestComfyFixerCore:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["missing_model.safetensors"]
+                    "widgets_values": ["missing_model.safetensors"],
                 }
             ]
         }
@@ -162,7 +162,7 @@ class TestComfyFixerCore:
             "status": "FOUND",
             "filename": "missing_model.safetensors",
             "download_url": "https://example.com/model",
-            "type": "checkpoints"
+            "type": "checkpoints",
         }
 
         # Mock inventory - model not in local inventory
@@ -194,7 +194,7 @@ class TestComfyFixerCore:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["existing_model.safetensors"]
+                    "widgets_values": ["existing_model.safetensors"],
                 }
             ]
         }
@@ -220,7 +220,7 @@ class TestComfyFixerCore:
                 filename="existing_model.safetensors",
                 path=str(model_file),
                 size=2_000_000,
-                is_valid=True
+                is_valid=True,
             )
         }
 
@@ -257,7 +257,7 @@ class TestComfyFixerCore:
             "models_resolved": 7,
             "downloads_generated": 7,
             "start_time": "2023-01-01T12:00:00",
-            "end_time": "2023-01-01T12:05:00"
+            "end_time": "2023-01-01T12:05:00",
         }
 
         report_path = core._generate_run_report(run_result, str(tmp_path))
@@ -266,7 +266,7 @@ class TestComfyFixerCore:
         assert Path(report_path).exists()
 
         # Verify report content
-        with open(report_path, 'r') as f:
+        with open(report_path, "r") as f:
             content = f.read()
 
         assert "test_run_123" in content
@@ -297,13 +297,13 @@ class TestCoreIntegrationWorkflow:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["missing_model.safetensors"]
+                    "widgets_values": ["missing_model.safetensors"],
                 },
                 {
                     "id": "2",
                     "type": "LoraLoader",
-                    "widgets_values": ["existing_lora.safetensors", 1.0]
-                }
+                    "widgets_values": ["existing_lora.safetensors", 1.0],
+                },
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
@@ -322,7 +322,7 @@ class TestCoreIntegrationWorkflow:
                     "filename": "missing_model.safetensors",
                     "download_url": "https://example.com/missing_model",
                     "type": "checkpoints",
-                    "civitai_id": 12345
+                    "civitai_id": 12345,
                 }
             return {"status": "NOT_FOUND", "filename": model_info["filename"]}
 
@@ -333,7 +333,7 @@ class TestCoreIntegrationWorkflow:
             workflow_dirs=[str(workflows_dir)],
             models_dir=str(models_dir),
             output_dir=str(output_dir),
-            generate_scripts=True
+            generate_scripts=True,
         )
 
         assert result is not None
@@ -351,18 +351,10 @@ class TestCoreIntegrationWorkflow:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["checkpoint1.safetensors"]
+                    "widgets_values": ["checkpoint1.safetensors"],
                 },
-                {
-                    "id": "2",
-                    "type": "VAELoader",
-                    "widgets_values": ["vae1.safetensors"]
-                },
-                {
-                    "id": "3",
-                    "type": "LoraLoader",
-                    "widgets_values": ["lora1.safetensors", 1.0]
-                }
+                {"id": "2", "type": "VAELoader", "widgets_values": ["vae1.safetensors"]},
+                {"id": "3", "type": "LoraLoader", "widgets_values": ["lora1.safetensors", 1.0]},
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
@@ -378,30 +370,28 @@ class TestCoreIntegrationWorkflow:
                 "status": "FOUND",
                 "filename": "checkpoint1.safetensors",
                 "download_url": "https://example.com/checkpoint1",
-                "type": "checkpoints"
+                "type": "checkpoints",
             },
             "vae1.safetensors": {
                 "status": "FOUND",
                 "filename": "vae1.safetensors",
                 "download_url": "https://example.com/vae1",
-                "type": "vae"
+                "type": "vae",
             },
-            "lora1.safetensors": {
-                "status": "NOT_FOUND",
-                "filename": "lora1.safetensors"
-            }
+            "lora1.safetensors": {"status": "NOT_FOUND", "filename": "lora1.safetensors"},
         }
 
         def mock_search_model(model_info, **kwargs):
-            return search_results.get(model_info["filename"],
-                                    {"status": "NOT_FOUND", "filename": model_info["filename"]})
+            return search_results.get(
+                model_info["filename"], {"status": "NOT_FOUND", "filename": model_info["filename"]}
+            )
 
         core.search.search_model = mock_search_model
 
         # Mock download task creation
         core.downloader.create_download_tasks.return_value = [
             Mock(filename="checkpoint1.safetensors"),
-            Mock(filename="vae1.safetensors")
+            Mock(filename="vae1.safetensors"),
         ]
 
         result = core.run(workflow_dirs=[str(tmp_path)], generate_scripts=True)
@@ -420,7 +410,7 @@ class TestCoreIntegrationWorkflow:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["existing_checkpoint.safetensors"]
+                    "widgets_values": ["existing_checkpoint.safetensors"],
                 }
             ]
         }
@@ -440,7 +430,7 @@ class TestCoreIntegrationWorkflow:
                 filename="existing_checkpoint.safetensors",
                 path=str(model_file),
                 size=2_000_000,
-                is_valid=True
+                is_valid=True,
             )
         }
 
@@ -457,7 +447,7 @@ class TestCoreIntegrationWorkflow:
 class TestConvenienceFunctions:
     """Test convenience functions for running ComfyFixerSmart."""
 
-    @patch('comfyfixersmart.core.ComfyFixerCore')
+    @patch("comfyfixersmart.core.ComfyFixerCore")
     def test_run_comfy_fixer_function(self, mock_core_class):
         """Test run_comfy_fixer convenience function."""
         mock_core = Mock()
@@ -473,5 +463,5 @@ class TestConvenienceFunctions:
             models_dir=None,
             output_dir=None,
             search_backends=None,
-            generate_scripts=False
+            generate_scripts=False,
         )

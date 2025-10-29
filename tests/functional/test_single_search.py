@@ -24,20 +24,20 @@ class TestSingleModelSearch:
     def test_search_single_model_civitai_backend(self, model_search):
         """Test searching single model with Civitai backend."""
         model_info = {
-            'filename': 'realisticVisionV60B1_v60B1VAE.safetensors',
-            'type': 'checkpoints',
-            'node_type': 'CheckpointLoaderSimple'
+            "filename": "realisticVisionV60B1_v60B1VAE.safetensors",
+            "type": "checkpoints",
+            "node_type": "CheckpointLoaderSimple",
         }
 
         # Mock Civitai search
-        with patch.object(model_search.backends['civitai'], 'search') as mock_civitai:
+        with patch.object(model_search.backends["civitai"], "search") as mock_civitai:
             mock_civitai.return_value = SearchResult(
                 status="FOUND",
                 filename="realisticVisionV60B1_v60B1VAE.safetensors",
                 source="civitai",
                 civitai_id=12345,
                 download_url="https://civitai.com/api/download/models/12345",
-                confidence="exact"
+                confidence="exact",
             )
 
             result = model_search.search_model(model_info, backends=["civitai"])
@@ -50,17 +50,17 @@ class TestSingleModelSearch:
     def test_search_single_model_huggingface_backend(self, model_search):
         """Test searching single model with HuggingFace backend."""
         model_info = {
-            'filename': 'rife49.pth',
-            'type': 'upscale_models',
-            'node_type': 'UpscaleModelLoader'
+            "filename": "rife49.pth",
+            "type": "upscale_models",
+            "node_type": "UpscaleModelLoader",
         }
 
         # Mock HuggingFace search (currently returns NOT_FOUND)
-        with patch.object(model_search.backends['huggingface'], 'search') as mock_hf:
+        with patch.object(model_search.backends["huggingface"], "search") as mock_hf:
             mock_hf.return_value = SearchResult(
                 status="NOT_FOUND",
                 filename="rife49.pth",
-                metadata={"reason": "HuggingFace search not implemented yet"}
+                metadata={"reason": "HuggingFace search not implemented yet"},
             )
 
             result = model_search.search_model(model_info, backends=["huggingface"])
@@ -71,17 +71,14 @@ class TestSingleModelSearch:
 
     def test_search_single_model_qwen_backend(self, model_search):
         """Test searching single model with Qwen backend."""
-        model_info = {
-            'filename': 'some_model.safetensors',
-            'type': 'checkpoints'
-        }
+        model_info = {"filename": "some_model.safetensors", "type": "checkpoints"}
 
         # Mock Qwen search (currently returns NOT_FOUND)
-        with patch.object(model_search.backends['qwen'], 'search') as mock_qwen:
+        with patch.object(model_search.backends["qwen"], "search") as mock_qwen:
             mock_qwen.return_value = SearchResult(
                 status="NOT_FOUND",
                 filename="some_model.safetensors",
-                metadata={"reason": "Qwen integration not implemented yet"}
+                metadata={"reason": "Qwen integration not implemented yet"},
             )
 
             result = model_search.search_model(model_info, backends=["qwen"])
@@ -92,21 +89,21 @@ class TestSingleModelSearch:
 
     def test_search_single_model_multiple_backends_priority(self, model_search):
         """Test searching with multiple backends - should try in order until success."""
-        model_info = {'filename': 'test_model.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "test_model.safetensors", "type": "checkpoints"}
 
         # Mock backends: Civitai fails, Qwen succeeds
-        with patch.object(model_search.backends['civitai'], 'search') as mock_civitai, \
-             patch.object(model_search.backends['qwen'], 'search') as mock_qwen:
+        with patch.object(model_search.backends["civitai"], "search") as mock_civitai, patch.object(
+            model_search.backends["qwen"], "search"
+        ) as mock_qwen:
 
             mock_civitai.return_value = SearchResult(
-                status="NOT_FOUND",
-                filename="test_model.safetensors"
+                status="NOT_FOUND", filename="test_model.safetensors"
             )
             mock_qwen.return_value = SearchResult(
                 status="FOUND",
                 filename="test_model.safetensors",
                 source="qwen",
-                download_url="https://example.com/qwen_model"
+                download_url="https://example.com/qwen_model",
             )
 
             result = model_search.search_model(model_info, backends=["civitai", "qwen"])
@@ -118,18 +115,26 @@ class TestSingleModelSearch:
 
     def test_search_single_model_all_backends_fail(self, model_search):
         """Test searching when all backends fail."""
-        model_info = {'filename': 'test_model.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "test_model.safetensors", "type": "checkpoints"}
 
         # Mock all backends to fail
-        with patch.object(model_search.backends['civitai'], 'search') as mock_civitai, \
-             patch.object(model_search.backends['qwen'], 'search') as mock_qwen, \
-             patch.object(model_search.backends['huggingface'], 'search') as mock_hf:
+        with patch.object(model_search.backends["civitai"], "search") as mock_civitai, patch.object(
+            model_search.backends["qwen"], "search"
+        ) as mock_qwen, patch.object(model_search.backends["huggingface"], "search") as mock_hf:
 
-            mock_civitai.return_value = SearchResult(status="NOT_FOUND", filename="test_model.safetensors")
-            mock_qwen.return_value = SearchResult(status="NOT_FOUND", filename="test_model.safetensors")
-            mock_hf.return_value = SearchResult(status="NOT_FOUND", filename="test_model.safetensors")
+            mock_civitai.return_value = SearchResult(
+                status="NOT_FOUND", filename="test_model.safetensors"
+            )
+            mock_qwen.return_value = SearchResult(
+                status="NOT_FOUND", filename="test_model.safetensors"
+            )
+            mock_hf.return_value = SearchResult(
+                status="NOT_FOUND", filename="test_model.safetensors"
+            )
 
-            result = model_search.search_model(model_info, backends=["civitai", "qwen", "huggingface"])
+            result = model_search.search_model(
+                model_info, backends=["civitai", "qwen", "huggingface"]
+            )
 
             assert result.status == "NOT_FOUND"
             assert "backends_tried" in result.metadata
@@ -137,15 +142,15 @@ class TestSingleModelSearch:
 
     def test_search_single_model_with_caching(self, model_search, tmp_path):
         """Test that search results are cached and reused."""
-        model_info = {'filename': 'cache_test.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "cache_test.safetensors", "type": "checkpoints"}
 
         # First search - should call backend
-        with patch.object(model_search.backends['civitai'], 'search') as mock_civitai:
+        with patch.object(model_search.backends["civitai"], "search") as mock_civitai:
             mock_civitai.return_value = SearchResult(
                 status="FOUND",
                 filename="cache_test.safetensors",
                 source="civitai",
-                download_url="https://example.com/cached"
+                download_url="https://example.com/cached",
             )
 
             result1 = model_search.search_model(model_info, backends=["civitai"])
@@ -153,7 +158,7 @@ class TestSingleModelSearch:
             assert mock_civitai.call_count == 1
 
         # Second search - should use cache
-        with patch.object(model_search.backends['civitai'], 'search') as mock_civitai:
+        with patch.object(model_search.backends["civitai"], "search") as mock_civitai:
             result2 = model_search.search_model(model_info, backends=["civitai"])
             assert result2.status == "FOUND"
             # Backend should not be called again
@@ -161,13 +166,11 @@ class TestSingleModelSearch:
 
     def test_search_single_model_cache_disabled(self, model_search):
         """Test searching with cache disabled."""
-        model_info = {'filename': 'no_cache_test.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "no_cache_test.safetensors", "type": "checkpoints"}
 
-        with patch.object(model_search.backends['civitai'], 'search') as mock_civitai:
+        with patch.object(model_search.backends["civitai"], "search") as mock_civitai:
             mock_civitai.return_value = SearchResult(
-                status="FOUND",
-                filename="no_cache_test.safetensors",
-                source="civitai"
+                status="FOUND", filename="no_cache_test.safetensors", source="civitai"
             )
 
             # First search with cache disabled
@@ -182,10 +185,10 @@ class TestSingleModelSearch:
 
     def test_search_single_model_error_handling(self, model_search):
         """Test error handling during search."""
-        model_info = {'filename': 'error_test.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "error_test.safetensors", "type": "checkpoints"}
 
         # Mock backend to raise exception
-        with patch.object(model_search.backends['civitai'], 'search') as mock_civitai:
+        with patch.object(model_search.backends["civitai"], "search") as mock_civitai:
             mock_civitai.side_effect = Exception("Network error")
 
             result = model_search.search_model(model_info, backends=["civitai"])
@@ -195,7 +198,7 @@ class TestSingleModelSearch:
 
     def test_search_single_model_invalid_backend(self, model_search):
         """Test searching with invalid backend name."""
-        model_info = {'filename': 'test.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "test.safetensors", "type": "checkpoints"}
 
         result = model_search.search_model(model_info, backends=["invalid_backend", "civitai"])
 
@@ -204,13 +207,11 @@ class TestSingleModelSearch:
 
     def test_search_single_model_default_backends(self, model_search):
         """Test searching with default backends."""
-        model_info = {'filename': 'default_test.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "default_test.safetensors", "type": "checkpoints"}
 
-        with patch.object(model_search.backends['civitai'], 'search') as mock_civitai:
+        with patch.object(model_search.backends["civitai"], "search") as mock_civitai:
             mock_civitai.return_value = SearchResult(
-                status="FOUND",
-                filename="default_test.safetensors",
-                source="civitai"
+                status="FOUND", filename="default_test.safetensors", source="civitai"
             )
 
             # Don't specify backends - should use default (civitai)
@@ -236,19 +237,15 @@ class TestSearchScenarios:
         ]
 
         for filename, model_type, node_type in test_cases:
-            model_info = {
-                'filename': filename,
-                'type': model_type,
-                'node_type': node_type
-            }
+            model_info = {"filename": filename, "type": model_type, "node_type": node_type}
 
             # Mock successful search
-            with patch.object(search.backends['civitai'], 'search') as mock_civitai:
+            with patch.object(search.backends["civitai"], "search") as mock_civitai:
                 mock_civitai.return_value = SearchResult(
                     status="FOUND",
                     filename=filename,
                     source="civitai",
-                    download_url=f"https://example.com/{filename}"
+                    download_url=f"https://example.com/{filename}",
                 )
 
                 result = search.search_model(model_info, backends=["civitai"])
@@ -261,14 +258,14 @@ class TestSearchScenarios:
         state_manager = Mock()
         search = ModelSearch(state_manager=state_manager)
 
-        model_info = {'filename': 'tracked_model.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "tracked_model.safetensors", "type": "checkpoints"}
 
-        with patch.object(search.backends['civitai'], 'search') as mock_civitai:
+        with patch.object(search.backends["civitai"], "search") as mock_civitai:
             mock_civitai.return_value = SearchResult(
                 status="FOUND",
                 filename="tracked_model.safetensors",
                 source="civitai",
-                civitai_id=12345
+                civitai_id=12345,
             )
 
             result = search.search_model(model_info, backends=["civitai"])
@@ -283,15 +280,15 @@ class TestSearchScenarios:
         """Test that search results include proper metadata."""
         search = ModelSearch()
 
-        model_info = {'filename': 'metadata_test.safetensors', 'type': 'checkpoints'}
+        model_info = {"filename": "metadata_test.safetensors", "type": "checkpoints"}
 
-        with patch.object(search.backends['civitai'], 'search') as mock_civitai:
+        with patch.object(search.backends["civitai"], "search") as mock_civitai:
             mock_civitai.return_value = SearchResult(
                 status="FOUND",
                 filename="metadata_test.safetensors",
                 source="civitai",
                 confidence="exact",
-                metadata={"search_attempts": 1, "api_calls": 2}
+                metadata={"search_attempts": 1, "api_calls": 2},
             )
 
             result = search.search_model(model_info, backends=["civitai"])
@@ -310,17 +307,15 @@ class TestSearchScenarios:
             "Model.Safetensors",
             "MODEL.SAFETENSORS",
             "model_v1.0.safetensors",
-            "model-final-version.safetensors"
+            "model-final-version.safetensors",
         ]
 
         for filename in filenames:
-            model_info = {'filename': filename, 'type': 'checkpoints'}
+            model_info = {"filename": filename, "type": "checkpoints"}
 
-            with patch.object(search.backends['civitai'], 'search') as mock_civitai:
+            with patch.object(search.backends["civitai"], "search") as mock_civitai:
                 mock_civitai.return_value = SearchResult(
-                    status="FOUND",
-                    filename=filename,
-                    source="civitai"
+                    status="FOUND", filename=filename, source="civitai"
                 )
 
                 result = search.search_model(model_info, backends=["civitai"])
@@ -335,15 +330,12 @@ class TestSearchPerformance:
         """Test searching multiple models efficiently."""
         search = ModelSearch()
 
-        models = [
-            {'filename': f'model_{i}.safetensors', 'type': 'checkpoints'}
-            for i in range(5)
-        ]
+        models = [{"filename": f"model_{i}.safetensors", "type": "checkpoints"} for i in range(5)]
 
         # Mock successful searches for all models
-        with patch.object(search, 'search_model') as mock_search:
+        with patch.object(search, "search_model") as mock_search:
             mock_search.side_effect = [
-                SearchResult(status="FOUND", filename=f'model_{i}.safetensors', source="civitai")
+                SearchResult(status="FOUND", filename=f"model_{i}.safetensors", source="civitai")
                 for i in range(5)
             ]
 

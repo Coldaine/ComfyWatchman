@@ -13,9 +13,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from comfyfixersmart.inventory import (
-    ModelInventory, ModelInfo, build_local_inventory
-)
+from comfyfixersmart.inventory import ModelInventory, ModelInfo, build_local_inventory
 
 
 class TestModelInfo:
@@ -28,7 +26,7 @@ class TestModelInfo:
             path="/models/checkpoints/model.safetensors",
             size=2097152000,  # 2GB
             is_valid=True,
-            validation_errors=[]
+            validation_errors=[],
         )
 
         assert info.filename == "model.safetensors"
@@ -44,7 +42,7 @@ class TestModelInfo:
             path="/models/invalid.safetensors",
             size=1024,
             is_valid=False,
-            validation_errors=["File too small", "Corrupted"]
+            validation_errors=["File too small", "Corrupted"],
         )
 
         assert info.is_valid is False
@@ -64,7 +62,7 @@ class TestModelInventory:
         assert inventory.state_manager is None
         assert inventory.logger is not None
 
-    @patch('comfyfixersmart.inventory.config')
+    @patch("comfyfixersmart.inventory.config")
     def test_inventory_initialization_from_config(self, mock_config, tmp_path):
         """Test ModelInventory initialization using config."""
         mock_config.models_dir = tmp_path / "config_models"
@@ -72,7 +70,7 @@ class TestModelInventory:
 
         assert inventory.models_dir == tmp_path / "config_models"
 
-    @patch('comfyfixersmart.inventory.config')
+    @patch("comfyfixersmart.inventory.config")
     def test_inventory_initialization_no_models_dir(self, mock_config):
         """Test ModelInventory initialization failure when no models dir."""
         mock_config.models_dir = None
@@ -126,10 +124,7 @@ class TestModelInventory:
         # Mock state manager
         state_manager = Mock()
         state_manager.get_successful_downloads.return_value = {
-            "state_model.safetensors": {
-                "file_path": str(model_file),
-                "file_size": 2_000_000
-            }
+            "state_model.safetensors": {"file_path": str(model_file), "file_size": 2_000_000}
         }
 
         inventory = ModelInventory(models_dir=str(models_dir), state_manager=state_manager)
@@ -200,7 +195,9 @@ class TestModelInventory:
         try:
             os.chmod(unreadable_file, 0o000)
             inventory = ModelInventory(models_dir=str(tmp_path))
-            is_valid, errors = inventory._validate_model_file(str(unreadable_file), 2_000_000, 1_000_000)
+            is_valid, errors = inventory._validate_model_file(
+                str(unreadable_file), 2_000_000, 1_000_000
+            )
 
             # Restore permissions for cleanup
             os.chmod(unreadable_file, 0o644)
@@ -222,22 +219,22 @@ class TestModelInventory:
                 path=str(models_dir / "model1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "model2.ckpt": ModelInfo(
                 filename="model2.ckpt",
                 path=str(models_dir / "model2.ckpt"),
                 size=1_500_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "invalid.safetensors": ModelInfo(
                 filename="invalid.safetensors",
                 path=str(models_dir / "invalid.safetensors"),
                 size=500_000,
                 is_valid=False,
-                validation_errors=["Too small"]
-            )
+                validation_errors=["Too small"],
+            ),
         }
 
         inventory_manager = ModelInventory(models_dir=str(models_dir))
@@ -263,22 +260,22 @@ class TestModelInventory:
                 path=str(models_dir / "existing1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "changed.safetensors": ModelInfo(
                 filename="changed.safetensors",
                 path=str(models_dir / "changed.safetensors"),
                 size=1_000_000,  # Old size
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "removed.safetensors": ModelInfo(
                 filename="removed.safetensors",
                 path=str(models_dir / "removed.safetensors"),
                 size=1_500_000,
                 is_valid=True,
-                validation_errors=[]
-            )
+                validation_errors=[],
+            ),
         }
 
         # New inventory
@@ -288,22 +285,22 @@ class TestModelInventory:
                 path=str(models_dir / "existing1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "changed.safetensors": ModelInfo(
                 filename="changed.safetensors",
                 path=str(models_dir / "changed.safetensors"),
                 size=2_000_000,  # New size
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "added.safetensors": ModelInfo(
                 filename="added.safetensors",
                 path=str(models_dir / "added.safetensors"),
                 size=3_000_000,
                 is_valid=True,
-                validation_errors=[]
-            )
+                validation_errors=[],
+            ),
         }
 
         inventory_manager = ModelInventory(models_dir=str(models_dir))
@@ -325,22 +322,22 @@ class TestModelInventory:
                 path=str(models_dir / "checkpoints" / "model1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "model1_duplicate.safetensors": ModelInfo(
                 filename="model1.safetensors",  # Same filename
                 path=str(models_dir / "loras" / "model1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "unique.safetensors": ModelInfo(
                 filename="unique.safetensors",
                 path=str(models_dir / "checkpoints" / "unique.safetensors"),
                 size=1_500_000,
                 is_valid=True,
-                validation_errors=[]
-            )
+                validation_errors=[],
+            ),
         }
 
         inventory_manager = ModelInventory(models_dir=str(models_dir))
@@ -365,7 +362,7 @@ class TestModelInventory:
                 path=str(model_file),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             )
         }
 
@@ -387,7 +384,7 @@ class TestModelInventory:
                 path=str(models_dir / "missing.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             )
         }
 
@@ -409,15 +406,15 @@ class TestModelInventory:
                 path=str(models_dir / "path1" / "model1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             ),
             "model1_duplicate.safetensors": ModelInfo(
                 filename="model1.safetensors",
                 path=str(models_dir / "path2" / "model1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
-            )
+                validation_errors=[],
+            ),
         }
 
         inventory_manager = ModelInventory(models_dir=str(models_dir))
@@ -439,7 +436,7 @@ class TestModelInventory:
                 path=str(models_dir / "model1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             )
         }
 
@@ -450,7 +447,7 @@ class TestModelInventory:
         assert output_file.exists()
 
         # Verify content
-        with open(output_file, 'r') as f:
+        with open(output_file, "r") as f:
             data = json.load(f)
 
         assert "metadata" in data
@@ -469,7 +466,7 @@ class TestModelInventory:
                 path=str(models_dir / "model1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             )
         }
 
@@ -480,7 +477,7 @@ class TestModelInventory:
         assert output_file.exists()
 
         # Verify content
-        with open(output_file, 'r') as f:
+        with open(output_file, "r") as f:
             reader = csv.reader(f)
             rows = list(reader)
 
@@ -499,7 +496,7 @@ class TestModelInventory:
                 path=str(models_dir / "model1.safetensors"),
                 size=2_000_000,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             )
         }
 
@@ -620,7 +617,7 @@ class TestInventoryIntegration:
         state_manager.get_successful_downloads.return_value = {
             "state_model.safetensors": {
                 "file_path": str(models_dir / "state_model.safetensors"),
-                "file_size": 1_500_000
+                "file_size": 1_500_000,
             }
         }
 
@@ -628,10 +625,7 @@ class TestInventoryIntegration:
         state_model = models_dir / "state_model.safetensors"
         state_model.write_bytes(b"x" * 1_500_000)
 
-        inventory_manager = ModelInventory(
-            models_dir=str(models_dir),
-            state_manager=state_manager
-        )
+        inventory_manager = ModelInventory(models_dir=str(models_dir), state_manager=state_manager)
 
         inventory = inventory_manager.build_inventory(include_state_tracking=True)
 

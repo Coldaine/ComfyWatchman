@@ -14,8 +14,11 @@ from unittest.mock import Mock, patch, MagicMock, mock_open
 import pytest
 
 from comfyfixersmart.download import (
-    DownloadTask, DownloadScriptGenerator, DownloadManager,
-    generate_download_script, verify_download
+    DownloadTask,
+    DownloadScriptGenerator,
+    DownloadManager,
+    generate_download_script,
+    verify_download,
 )
 
 
@@ -32,7 +35,7 @@ class TestDownloadTask:
             civitai_id=12345,
             confidence="exact",
             retry_count=1,
-            max_retries=3
+            max_retries=3,
         )
 
         assert task.filename == "model.safetensors"
@@ -51,7 +54,7 @@ class TestDownloadTask:
             filename="model.safetensors",
             download_url="https://example.com/download",
             target_path="/path/to/model.safetensors",
-            model_type="checkpoints"
+            model_type="checkpoints",
         )
 
         assert task.civitai_id is None
@@ -86,7 +89,7 @@ class TestDownloadScriptGenerator:
                 download_url="https://example.com/model1",
                 target_path="/models/checkpoints/model1.safetensors",
                 model_type="checkpoints",
-                confidence="exact"
+                confidence="exact",
             )
         ]
 
@@ -115,7 +118,7 @@ class TestDownloadScriptGenerator:
                 download_url="https://example.com/model",
                 target_path="/models/checkpoints/model.safetensors",
                 model_type="checkpoints",
-                confidence="fuzzy"
+                confidence="fuzzy",
             )
         ]
 
@@ -133,14 +136,14 @@ class TestDownloadScriptGenerator:
                 filename="model1.safetensors",
                 download_url="https://example.com/model1",
                 target_path="/models/checkpoints/model1.safetensors",
-                model_type="checkpoints"
+                model_type="checkpoints",
             ),
             DownloadTask(
                 filename="lora1.safetensors",
                 download_url="https://example.com/lora1",
                 target_path="/models/loras/lora1.safetensors",
-                model_type="loras"
-            )
+                model_type="loras",
+            ),
         ]
 
         script_path = tmp_path / "download.sh"
@@ -180,7 +183,7 @@ class TestDownloadScriptGenerator:
                 download_url="https://example.com/model",
                 target_path="/models/checkpoints/model.safetensors",
                 model_type="checkpoints",
-                max_retries=5
+                max_retries=5,
             )
         ]
 
@@ -230,18 +233,15 @@ class TestDownloadManager:
                 "type": "checkpoints",
                 "civitai_id": 12345,
                 "version_id": 67890,
-                "confidence": "exact"
+                "confidence": "exact",
             },
-            {
-                "status": "NOT_FOUND",
-                "filename": "model2.safetensors"
-            },
+            {"status": "NOT_FOUND", "filename": "model2.safetensors"},
             {
                 "status": "FOUND",
                 "filename": "model3.safetensors",
                 "download_url": "https://example.com/model3",
-                "type": "loras"
-            }
+                "type": "loras",
+            },
         ]
 
         tasks = manager.create_download_tasks(search_results)
@@ -263,10 +263,7 @@ class TestDownloadManager:
     def test_get_target_path(self):
         """Test getting target file path."""
         manager = DownloadManager()
-        result = {
-            "filename": "model.safetensors",
-            "type": "checkpoints"
-        }
+        result = {"filename": "model.safetensors", "type": "checkpoints"}
 
         target_path = manager._get_target_path(result)
         expected = str(manager.output_dir / "checkpoints" / "model.safetensors")
@@ -280,7 +277,7 @@ class TestDownloadManager:
                 "status": "FOUND",
                 "filename": "model.safetensors",
                 "download_url": "https://example.com/model",
-                "type": "checkpoints"
+                "type": "checkpoints",
             }
         ]
 
@@ -292,14 +289,12 @@ class TestDownloadManager:
     def test_generate_download_script_no_tasks(self):
         """Test download script generation with no valid tasks."""
         manager = DownloadManager()
-        search_results = [
-            {"status": "NOT_FOUND", "filename": "model.safetensors"}
-        ]
+        search_results = [{"status": "NOT_FOUND", "filename": "model.safetensors"}]
 
         script_path = manager.generate_download_script(search_results)
         assert script_path == ""
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_execute_download_script_success(self, mock_run, tmp_path):
         """Test successful download script execution."""
         mock_run.return_value = Mock(returncode=0, stdout="success", stderr="")
@@ -312,7 +307,7 @@ class TestDownloadManager:
         assert result is True
         mock_run.assert_called_once()
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_execute_download_script_failure(self, mock_run, tmp_path):
         """Test failed download script execution."""
         mock_run.return_value = Mock(returncode=1, stdout="", stderr="error")
@@ -324,10 +319,11 @@ class TestDownloadManager:
 
         assert result is False
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_execute_download_script_timeout(self, mock_run, tmp_path):
         """Test download script execution timeout."""
         from subprocess import TimeoutExpired
+
         mock_run.side_effect = TimeoutExpired("timeout", 3600)
 
         manager = DownloadManager()
@@ -350,7 +346,7 @@ class TestDownloadManager:
                 filename="model.safetensors",
                 download_url="https://example.com/model",
                 target_path=str(test_file),
-                model_type="checkpoints"
+                model_type="checkpoints",
             )
         ]
 
@@ -374,7 +370,7 @@ class TestDownloadManager:
                 filename="missing.safetensors",
                 download_url="https://example.com/model",
                 target_path=str(tmp_path / "missing.safetensors"),
-                model_type="checkpoints"
+                model_type="checkpoints",
             )
         ]
 
@@ -396,7 +392,7 @@ class TestDownloadManager:
                 filename="small.safetensors",
                 download_url="https://example.com/model",
                 target_path=str(small_file),
-                model_type="checkpoints"
+                model_type="checkpoints",
             )
         ]
 
@@ -424,22 +420,22 @@ class TestDownloadManager:
                 download_url="https://example.com/failed",
                 target_path=str(failed_file),
                 model_type="checkpoints",
-                retry_count=0
+                retry_count=0,
             ),
             DownloadTask(
                 filename="success.safetensors",
                 download_url="https://example.com/success",
                 target_path=str(success_file),
                 model_type="checkpoints",
-                retry_count=0
+                retry_count=0,
             ),
             DownloadTask(
                 filename="max_retries.safetensors",
                 download_url="https://example.com/max",
                 target_path=str(tmp_path / "max.safetensors"),
                 model_type="checkpoints",
-                retry_count=3  # Already at max
-            )
+                retry_count=3,  # Already at max
+            ),
         ]
 
         retry_tasks = manager.retry_failed_downloads(tasks, max_retries=3)
@@ -470,7 +466,7 @@ class TestDownloadManager:
 class TestConvenienceFunctions:
     """Test backward compatibility convenience functions."""
 
-    @patch('comfyfixersmart.download.DownloadManager.generate_download_script')
+    @patch("comfyfixersmart.download.DownloadManager.generate_download_script")
     def test_generate_download_script_function(self, mock_generate):
         """Test generate_download_script convenience function."""
         mock_generate.return_value = "/path/to/script.sh"
@@ -520,15 +516,15 @@ class TestDownloadIntegration:
                 "download_url": "https://example.com/model1",
                 "type": "checkpoints",
                 "civitai_id": 12345,
-                "confidence": "exact"
+                "confidence": "exact",
             },
             {
                 "status": "FOUND",
                 "filename": "lora1.safetensors",
                 "download_url": "https://example.com/lora1",
                 "type": "loras",
-                "confidence": "fuzzy"
-            }
+                "confidence": "fuzzy",
+            },
         ]
 
         # Create download manager
@@ -568,7 +564,7 @@ class TestDownloadIntegration:
                 filename="model-with_special.chars.safetensors",
                 download_url="https://example.com/model",
                 target_path="/models/checkpoints/model-with_special.chars.safetensors",
-                model_type="checkpoints"
+                model_type="checkpoints",
             )
         ]
 
@@ -579,7 +575,7 @@ class TestDownloadIntegration:
         # Should handle special characters properly in bash script
         assert "model-with_special.chars.safetensors" in content
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_script_execution_error_handling(self, mock_run, tmp_path):
         """Test script execution error handling."""
         # Mock subprocess to raise exception

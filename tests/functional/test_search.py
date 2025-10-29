@@ -14,8 +14,13 @@ import pytest
 import requests
 
 from comfyfixersmart.search import (
-    SearchResult, SearchBackend, CivitaiSearch, QwenSearch,
-    HuggingFaceSearch, ModelSearch, search_civitai
+    SearchResult,
+    SearchBackend,
+    CivitaiSearch,
+    QwenSearch,
+    HuggingFaceSearch,
+    ModelSearch,
+    search_civitai,
 )
 
 
@@ -30,7 +35,7 @@ class TestSearchResult:
             source="civitai",
             civitai_id=12345,
             download_url="https://example.com/download",
-            confidence="exact"
+            confidence="exact",
         )
 
         assert result.status == "FOUND"
@@ -64,7 +69,7 @@ class TestCivitaiSearch:
         assert search.base_url == "https://civitai.com/api/v1"
         assert search.get_name() == "civitai"
 
-    @patch('comfyfixersmart.search.get_api_key')
+    @patch("comfyfixersmart.search.get_api_key")
     def test_civitai_search_default_api_key(self, mock_get_key):
         """Test CivitaiSearch uses default API key when none provided."""
         mock_get_key.return_value = "default_key"
@@ -92,13 +97,13 @@ class TestCivitaiSearch:
             ("upscale_models", "Upscaler"),
             ("clip", "TextualInversion"),
             ("unet", "Checkpoint"),
-            ("unknown", None)
+            ("unknown", None),
         ]
 
         for model_type, expected in test_cases:
             assert search._get_type_filter(model_type) == expected
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_search_success_exact_match(self, mock_get):
         """Test successful search with exact match."""
         # Mock API response
@@ -116,11 +121,11 @@ class TestCivitaiSearch:
                             "files": [
                                 {
                                     "name": "exact_match.safetensors",
-                                    "downloadUrl": "https://civitai.com/api/download/models/67890"
+                                    "downloadUrl": "https://civitai.com/api/download/models/67890",
                                 }
-                            ]
+                            ],
                         }
-                    ]
+                    ],
                 }
             ]
         }
@@ -138,7 +143,7 @@ class TestCivitaiSearch:
         assert result.download_url == "https://civitai.com/api/download/models/67890"
         assert result.confidence == "exact"
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_search_success_fuzzy_match(self, mock_get):
         """Test successful search with fuzzy match."""
         # Mock API response with no exact match
@@ -156,11 +161,11 @@ class TestCivitaiSearch:
                             "files": [
                                 {
                                     "name": "different_name.safetensors",
-                                    "downloadUrl": "https://civitai.com/api/download/models/67890"
+                                    "downloadUrl": "https://civitai.com/api/download/models/67890",
                                 }
-                            ]
+                            ],
                         }
-                    ]
+                    ],
                 }
             ]
         }
@@ -173,7 +178,7 @@ class TestCivitaiSearch:
         assert result.filename == "target_model.safetensors"
         assert result.confidence == "fuzzy"
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_search_not_found(self, mock_get):
         """Test search when no results found."""
         mock_response = Mock()
@@ -187,7 +192,7 @@ class TestCivitaiSearch:
         assert result.status == "NOT_FOUND"
         assert result.filename == "nonexistent.safetensors"
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_search_api_error(self, mock_get):
         """Test search when API returns error."""
         mock_response = Mock()
@@ -200,7 +205,7 @@ class TestCivitaiSearch:
         assert result.status == "ERROR"
         assert "API error: 500" in result.error_message
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_search_request_exception(self, mock_get):
         """Test search when request raises exception."""
         mock_get.side_effect = requests.RequestException("Network error")
@@ -218,12 +223,7 @@ class TestCivitaiSearch:
         match = {
             "id": 12345,
             "name": "Test Model",
-            "modelVersions": [
-                {
-                    "id": 67890,
-                    "name": "v1.0"
-                }
-            ]
+            "modelVersions": [{"id": 67890, "name": "v1.0"}],
         }
 
         result = search._create_result_from_match(match, "model.safetensors", "exact")
@@ -310,14 +310,14 @@ class TestModelSearch:
         assert search.cache_dir == cache_dir
         assert cache_dir.exists()
 
-    @patch('comfyfixersmart.search.CivitaiSearch.search')
+    @patch("comfyfixersmart.search.CivitaiSearch.search")
     def test_search_model_found(self, mock_civitai_search):
         """Test successful model search."""
         mock_result = SearchResult(
             status="FOUND",
             filename="model.safetensors",
             source="civitai",
-            download_url="https://example.com/download"
+            download_url="https://example.com/download",
         )
         mock_civitai_search.return_value = mock_result
 
@@ -328,12 +328,11 @@ class TestModelSearch:
         assert result.filename == "model.safetensors"
         mock_civitai_search.assert_called_once()
 
-    @patch('comfyfixersmart.search.CivitaiSearch.search')
+    @patch("comfyfixersmart.search.CivitaiSearch.search")
     def test_search_model_not_found(self, mock_civitai_search):
         """Test model search when not found."""
         mock_civitai_search.return_value = SearchResult(
-            status="NOT_FOUND",
-            filename="model.safetensors"
+            status="NOT_FOUND", filename="model.safetensors"
         )
 
         search = ModelSearch()
@@ -341,25 +340,23 @@ class TestModelSearch:
 
         assert result.status == "NOT_FOUND"
 
-    @patch('comfyfixersmart.search.CivitaiSearch.search')
+    @patch("comfyfixersmart.search.CivitaiSearch.search")
     def test_search_model_with_multiple_backends(self, mock_civitai_search):
         """Test model search with multiple backends."""
         # First backend fails, second succeeds
         mock_civitai_search.return_value = SearchResult(
-            status="NOT_FOUND",
-            filename="model.safetensors"
+            status="NOT_FOUND", filename="model.safetensors"
         )
 
         search = ModelSearch()
         result = search.search_model(
-            {"filename": "model.safetensors"},
-            backends=["civitai", "qwen"]
+            {"filename": "model.safetensors"}, backends=["civitai", "qwen"]
         )
 
         # Should try Civitai first, then Qwen
         assert mock_civitai_search.call_count == 2
 
-    @patch('comfyfixersmart.search.CivitaiSearch.search')
+    @patch("comfyfixersmart.search.CivitaiSearch.search")
     def test_search_model_uses_cache(self, mock_civitai_search, tmp_path):
         """Test that search uses cached results."""
         # Create a cached result
@@ -367,14 +364,12 @@ class TestModelSearch:
         search = ModelSearch(cache_dir=str(cache_dir))
 
         cached_result = SearchResult(
-            status="FOUND",
-            filename="cached_model.safetensors",
-            source="civitai"
+            status="FOUND", filename="cached_model.safetensors", source="civitai"
         )
 
         # Manually create cache file
         cache_file = cache_dir / "cached_model.safetensors.json"
-        with open(cache_file, 'w') as f:
+        with open(cache_file, "w") as f:
             json.dump(cached_result.__dict__, f)
 
         # Search should return cached result without calling backend
@@ -384,13 +379,11 @@ class TestModelSearch:
         assert result.filename == "cached_model.safetensors"
         mock_civitai_search.assert_not_called()
 
-    @patch('comfyfixersmart.search.CivitaiSearch.search')
+    @patch("comfyfixersmart.search.CivitaiSearch.search")
     def test_search_model_caches_results(self, mock_civitai_search, tmp_path):
         """Test that search caches successful results."""
         mock_civitai_search.return_value = SearchResult(
-            status="FOUND",
-            filename="model.safetensors",
-            source="civitai"
+            status="FOUND", filename="model.safetensors", source="civitai"
         )
 
         cache_dir = tmp_path / "cache"
@@ -403,7 +396,7 @@ class TestModelSearch:
         cache_file = cache_dir / "model.safetensors.json"
         assert cache_file.exists()
 
-        with open(cache_file, 'r') as f:
+        with open(cache_file, "r") as f:
             cached_data = json.load(f)
 
         assert cached_data["status"] == "FOUND"
@@ -415,14 +408,14 @@ class TestModelSearch:
 
         models = [
             {"filename": "model1.safetensors", "type": "checkpoints"},
-            {"filename": "model2.safetensors", "type": "loras"}
+            {"filename": "model2.safetensors", "type": "loras"},
         ]
 
         # Mock the search_model method
-        with patch.object(search, 'search_model') as mock_search:
+        with patch.object(search, "search_model") as mock_search:
             mock_search.side_effect = [
                 SearchResult(status="FOUND", filename="model1.safetensors"),
-                SearchResult(status="NOT_FOUND", filename="model2.safetensors")
+                SearchResult(status="NOT_FOUND", filename="model2.safetensors"),
             ]
 
             results = search.search_multiple_models(models)
@@ -481,13 +474,10 @@ class TestModelSearch:
 class TestConvenienceFunctions:
     """Test backward compatibility convenience functions."""
 
-    @patch('comfyfixersmart.search.CivitaiSearch.search')
+    @patch("comfyfixersmart.search.CivitaiSearch.search")
     def test_search_civitai_function(self, mock_search):
         """Test search_civitai convenience function."""
-        mock_search.return_value = SearchResult(
-            status="FOUND",
-            filename="model.safetensors"
-        )
+        mock_search.return_value = SearchResult(status="FOUND", filename="model.safetensors")
 
         result = search_civitai({"filename": "model.safetensors"})
 
@@ -498,7 +488,7 @@ class TestConvenienceFunctions:
 class TestSearchIntegration:
     """Integration tests for search functionality."""
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_full_search_workflow(self, mock_get):
         """Test complete search workflow with caching and state management."""
         # Mock successful API response
@@ -516,11 +506,11 @@ class TestSearchIntegration:
                             "files": [
                                 {
                                     "name": "test_model.safetensors",
-                                    "downloadUrl": "https://civitai.com/api/download/models/67890"
+                                    "downloadUrl": "https://civitai.com/api/download/models/67890",
                                 }
-                            ]
+                            ],
                         }
-                    ]
+                    ],
                 }
             ]
         }
@@ -533,7 +523,7 @@ class TestSearchIntegration:
         model_info = {
             "filename": "test_model.safetensors",
             "type": "checkpoints",
-            "node_type": "CheckpointLoaderSimple"
+            "node_type": "CheckpointLoaderSimple",
         }
 
         # Perform search
@@ -566,24 +556,20 @@ class TestSearchIntegration:
 
         # Test with invalid backend
         result = search.search_model(
-            {"filename": "model.safetensors"},
-            backends=["invalid_backend"]
+            {"filename": "model.safetensors"}, backends=["invalid_backend"]
         )
 
         assert result.status == "NOT_FOUND"
         assert "backends_tried" in result.metadata
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_search_multiple_models_delay(self, mock_sleep):
         """Test that searching multiple models includes delays."""
         search = ModelSearch()
 
-        models = [
-            {"filename": "model1.safetensors"},
-            {"filename": "model2.safetensors"}
-        ]
+        models = [{"filename": "model1.safetensors"}, {"filename": "model2.safetensors"}]
 
-        with patch.object(search, 'search_model') as mock_search:
+        with patch.object(search, "search_model") as mock_search:
             mock_search.return_value = SearchResult(status="NOT_FOUND", filename="dummy")
 
             search.search_multiple_models(models)

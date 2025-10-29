@@ -40,10 +40,10 @@ class TestConfig:
         assert ".pth" in config.model_extensions
 
         # Test model type mapping
-        assert config.model_type_mapping['CheckpointLoaderSimple'] == 'checkpoints'
-        assert config.model_type_mapping['LoraLoader'] == 'loras'
-        assert config.model_type_mapping['VAELoader'] == 'vae'
-        assert config.model_type_mapping['ControlNetLoader'] == 'controlnet'
+        assert config.model_type_mapping["CheckpointLoaderSimple"] == "checkpoints"
+        assert config.model_type_mapping["LoraLoader"] == "loras"
+        assert config.model_type_mapping["VAELoader"] == "vae"
+        assert config.model_type_mapping["ControlNetLoader"] == "controlnet"
 
         # Test state management
         assert config.state_file == "download_state.json"
@@ -58,7 +58,7 @@ class TestConfig:
             comfyui_root=Path("/custom/comfyui"),
             output_dir=Path("/custom/output"),
             civitai_api_timeout=60,
-            min_model_size=2_000_000
+            min_model_size=2_000_000,
         )
 
         assert custom_config.comfyui_root == Path("/custom/comfyui")
@@ -167,7 +167,7 @@ class TestConfig:
         """Test that invalid environment variables are ignored."""
         config = Config()
         # Should not have any attribute for invalid env var
-        assert not hasattr(config, 'invalid_env_var')
+        assert not hasattr(config, "invalid_env_var")
 
     @patch.dict(os.environ, {"CIVITAI_API_TIMEOUT": "invalid"}, clear=True)
     def test_env_override_invalid_value(self, capsys):
@@ -202,7 +202,7 @@ min_model_size = 3000000
         config_file.write_text(toml_content)
 
         # Change to the temp directory so config loading works
-        with patch('pathlib.Path.cwd', return_value=tmp_path):
+        with patch("pathlib.Path.cwd", return_value=tmp_path):
             config = Config()
 
         assert config.comfyui_root == Path("/toml/comfyui")
@@ -225,7 +225,7 @@ min_model_size = 3000000
         # Write invalid TOML
         config_file.write_text("invalid toml content [")
 
-        with patch('pathlib.Path.cwd', return_value=tmp_path):
+        with patch("pathlib.Path.cwd", return_value=tmp_path):
             config = Config()
 
         # Should print warning but continue with defaults
@@ -241,10 +241,7 @@ min_model_size = 3000000
         temp_dir = tmp_path / "temp"
 
         config = Config(
-            output_dir=output_dir,
-            log_dir=log_dir,
-            state_dir=state_dir,
-            temp_dir=temp_dir
+            output_dir=output_dir, log_dir=log_dir, state_dir=state_dir, temp_dir=temp_dir
         )
 
         assert output_dir.exists()
@@ -333,7 +330,7 @@ min_model_size = 3000000
         data = {
             "civitai_api_timeout": 45,
             "min_model_size": 2000000,
-            "enable_claude_verification": True
+            "enable_claude_verification": True,
         }
 
         config._update_from_dict(data)
@@ -348,7 +345,7 @@ min_model_size = 3000000
         data = {
             "comfyui_root": str(tmp_path / "comfyui"),
             "output_dir": str(tmp_path / "output"),
-            "workflow_dirs": [str(tmp_path / "workflows")]
+            "workflow_dirs": [str(tmp_path / "workflows")],
         }
 
         config._update_from_dict(data)
@@ -362,7 +359,7 @@ min_model_size = 3000000
         config = Config()
         data = {
             "model_extensions": [".safetensors", ".custom"],
-            "model_type_mapping": {"CustomLoader": "custom"}
+            "model_type_mapping": {"CustomLoader": "custom"},
         }
 
         config._update_from_dict(data)
@@ -380,4 +377,4 @@ min_model_size = 3000000
 
         # Should not change anything
         assert config.civitai_api_timeout == original_timeout
-        assert not hasattr(config, 'invalid_key')
+        assert not hasattr(config, "invalid_key")

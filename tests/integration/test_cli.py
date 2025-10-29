@@ -115,13 +115,13 @@ class TestArgumentParsing:
 class TestCLIMainFunction:
     """Test the main CLI function."""
 
-    @patch('comfyfixersmart.cli.run_comfy_fixer')
+    @patch("comfyfixersmart.cli.run_comfy_fixer")
     def test_main_with_workflow_files(self, mock_run_comfy_fixer):
         """Test main function with workflow file arguments."""
         mock_run_comfy_fixer.return_value = {"success": True}
 
         test_args = ["comfyfixer", "workflow1.json", "workflow2.json"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
@@ -131,114 +131,114 @@ class TestCLIMainFunction:
         call_args = mock_run_comfy_fixer.call_args
         assert call_args[1]["specific_workflows"] == ["workflow1.json", "workflow2.json"]
 
-    @patch('comfyfixersmart.cli.run_comfy_fixer')
+    @patch("comfyfixersmart.cli.run_comfy_fixer")
     def test_main_with_workflow_dirs(self, mock_run_comfy_fixer):
         """Test main function with workflow directory arguments."""
         mock_run_comfy_fixer.return_value = {"success": True}
 
         test_args = ["comfyfixer", "--dir", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
         call_args = mock_run_comfy_fixer.call_args
         assert "/workflows" in call_args[1]["workflow_dirs"]
 
-    @patch('comfyfixersmart.cli.run_comfy_fixer')
+    @patch("comfyfixersmart.cli.run_comfy_fixer")
     def test_main_with_scan_only(self, mock_run_comfy_fixer):
         """Test main function with scan-only flag."""
         mock_run_comfy_fixer.return_value = {"success": True}
 
         test_args = ["comfyfixer", "--scan-only", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
         call_args = mock_run_comfy_fixer.call_args
         assert call_args[1]["scan_only"] is True
 
-    @patch('comfyfixersmart.cli.run_comfy_fixer')
+    @patch("comfyfixersmart.cli.run_comfy_fixer")
     def test_main_with_generate_scripts(self, mock_run_comfy_fixer):
         """Test main function with generate-scripts flag."""
         mock_run_comfy_fixer.return_value = {"success": True}
 
         test_args = ["comfyfixer", "--generate-scripts", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
         call_args = mock_run_comfy_fixer.call_args
         assert call_args[1]["generate_scripts"] is True
 
-    @patch('comfyfixersmart.cli.run_comfy_fixer')
+    @patch("comfyfixersmart.cli.run_comfy_fixer")
     def test_main_with_search_backends(self, mock_run_comfy_fixer):
         """Test main function with search backend specification."""
         mock_run_comfy_fixer.return_value = {"success": True}
 
         test_args = ["comfyfixer", "--search", "civitai,huggingface", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
         call_args = mock_run_comfy_fixer.call_args
         assert call_args[1]["search_backends"] == ["civitai", "huggingface"]
 
-    @patch('comfyfixersmart.cli.run_comfy_fixer')
+    @patch("comfyfixersmart.cli.run_comfy_fixer")
     def test_main_with_v1_mode(self, mock_run_comfy_fixer):
         """Test main function with v1 compatibility mode."""
         mock_run_comfy_fixer.return_value = {"success": True}
 
         test_args = ["comfyfixer", "--v1", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
         call_args = mock_run_comfy_fixer.call_args
         assert call_args[1]["v1_mode"] is True
 
-    @patch('comfyfixersmart.cli.run_comfy_fixer')
+    @patch("comfyfixersmart.cli.run_comfy_fixer")
     def test_main_with_v2_mode(self, mock_run_comfy_fixer):
         """Test main function with v2 mode."""
         mock_run_comfy_fixer.return_value = {"success": True}
 
         test_args = ["comfyfixer", "--v2", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
         call_args = mock_run_comfy_fixer.call_args
         assert call_args[1]["v2_mode"] is True
 
-    @patch('comfyfixersmart.cli.run_comfy_fixer')
+    @patch("comfyfixersmart.cli.run_comfy_fixer")
     def test_main_error_handling(self, mock_run_comfy_fixer):
         """Test main function error handling."""
         mock_run_comfy_fixer.side_effect = Exception("Test error")
 
         test_args = ["comfyfixer", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 1  # Should return error code
 
-    @patch('comfyfixersmart.cli.run_v1_compatibility_mode')
+    @patch("comfyfixersmart.cli.run_v1_compatibility_mode")
     def test_main_v1_mode_execution(self, mock_v1_mode):
         """Test that v1 mode calls the correct function."""
         mock_v1_mode.return_value = {"success": True}
 
         test_args = ["comfyfixer", "--v1", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
         mock_v1_mode.assert_called_once()
 
-    @patch('comfyfixersmart.cli.run_v2_compatibility_mode')
+    @patch("comfyfixersmart.cli.run_v2_compatibility_mode")
     def test_main_v2_mode_execution(self, mock_v2_mode):
         """Test that v2 mode calls the correct function."""
         mock_v2_mode.return_value = {"success": True}
 
         test_args = ["comfyfixer", "--v2", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
@@ -248,7 +248,7 @@ class TestCLIMainFunction:
 class TestCLIIntegration:
     """Integration tests for CLI with core functionality."""
 
-    @patch('comfyfixersmart.cli.ComfyFixerCore')
+    @patch("comfyfixersmart.cli.ComfyFixerCore")
     def test_cli_core_integration(self, mock_core_class):
         """Test CLI integration with ComfyFixerCore."""
         mock_core = Mock()
@@ -257,18 +257,18 @@ class TestCLIIntegration:
             "workflows_scanned": 5,
             "models_found": 10,
             "models_resolved": 8,
-            "downloads_generated": 2
+            "downloads_generated": 2,
         }
         mock_core_class.return_value = mock_core
 
         test_args = ["comfyfixer", "--scan-only", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
         mock_core.run.assert_called_once()
 
-    @patch('comfyfixersmart.cli.ComfyFixerCore')
+    @patch("comfyfixersmart.cli.ComfyFixerCore")
     def test_cli_with_multiple_directories(self, mock_core_class):
         """Test CLI with multiple workflow directories."""
         mock_core = Mock()
@@ -277,11 +277,14 @@ class TestCLIIntegration:
 
         test_args = [
             "comfyfixer",
-            "--dir", "/workflows1",
-            "--dir", "/workflows2",
-            "--workflow-dir", "/workflows3"
+            "--dir",
+            "/workflows1",
+            "--dir",
+            "/workflows2",
+            "--workflow-dir",
+            "/workflows3",
         ]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
@@ -292,7 +295,7 @@ class TestCLIIntegration:
         assert "/workflows2" in workflow_dirs
         assert "/workflows3" in workflow_dirs
 
-    @patch('comfyfixersmart.cli.ComfyFixerCore')
+    @patch("comfyfixersmart.cli.ComfyFixerCore")
     def test_cli_with_custom_output_dir(self, mock_core_class):
         """Test CLI with custom output directory."""
         mock_core = Mock()
@@ -300,7 +303,7 @@ class TestCLIIntegration:
         mock_core_class.return_value = mock_core
 
         test_args = ["comfyfixer", "--output-dir", "/custom/output", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
@@ -308,7 +311,7 @@ class TestCLIIntegration:
         call_args = mock_core.run.call_args
         assert call_args[1]["output_dir"] == "/custom/output"
 
-    @patch('comfyfixersmart.cli.ComfyFixerCore')
+    @patch("comfyfixersmart.cli.ComfyFixerCore")
     def test_cli_with_custom_models_dir(self, mock_core_class):
         """Test CLI with custom models directory."""
         mock_core = Mock()
@@ -316,7 +319,7 @@ class TestCLIIntegration:
         mock_core_class.return_value = mock_core
 
         test_args = ["comfyfixer", "--models-dir", "/custom/models", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
@@ -324,7 +327,7 @@ class TestCLIIntegration:
         call_args = mock_core.run.call_args
         assert call_args[1]["models_dir"] == "/custom/models"
 
-    @patch('comfyfixersmart.cli.ComfyFixerCore')
+    @patch("comfyfixersmart.cli.ComfyFixerCore")
     def test_cli_verbose_output(self, mock_core_class, capsys):
         """Test CLI verbose output."""
         mock_core = Mock()
@@ -332,12 +335,12 @@ class TestCLIIntegration:
             "run_id": "verbose_test_123",
             "workflows_scanned": 3,
             "models_found": 7,
-            "models_resolved": 5
+            "models_resolved": 5,
         }
         mock_core_class.return_value = mock_core
 
         test_args = ["comfyfixer", "--verbose", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 0
@@ -352,7 +355,7 @@ class TestCLIIntegration:
     def test_cli_invalid_arguments(self):
         """Test CLI with invalid arguments."""
         test_args = ["comfyfixer", "--invalid-flag"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
@@ -363,7 +366,7 @@ class TestCLIIntegration:
 class TestCLIScriptEntryPoints:
     """Test CLI script entry points."""
 
-    @patch('comfyfixersmart.cli.main')
+    @patch("comfyfixersmart.cli.main")
     def test_comfyfixer_script_entry(self, mock_main):
         """Test comfyfixer script entry point."""
         mock_main.return_value = 0
@@ -371,11 +374,12 @@ class TestCLIScriptEntryPoints:
         # Import should work (this tests that the entry point is properly configured)
         try:
             import comfyfixersmart.cli
-            assert hasattr(comfyfixersmart.cli, 'main')
+
+            assert hasattr(comfyfixersmart.cli, "main")
         except ImportError:
             pytest.skip("CLI module not properly installed")
 
-    @patch('comfyfixersmart.cli.main')
+    @patch("comfyfixersmart.cli.main")
     def test_comfy_fixer_smart_script_entry(self, mock_main):
         """Test comfy-fixer-smart script entry point."""
         mock_main.return_value = 0
@@ -383,6 +387,7 @@ class TestCLIScriptEntryPoints:
         # This would be tested by the actual entry point configuration
         # For now, just verify the main function exists
         from comfyfixersmart.cli import main as cli_main
+
         assert callable(cli_main)
 
 
@@ -392,25 +397,25 @@ class TestCLIErrorScenarios:
     def test_cli_no_arguments_shows_help(self):
         """Test that running CLI with no arguments shows help."""
         test_args = ["comfyfixer"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
             # Should exit with code 2 (argparse error for required arguments)
             assert exc_info.value.code == 2
 
-    @patch('comfyfixersmart.cli.ComfyFixerCore')
+    @patch("comfyfixersmart.cli.ComfyFixerCore")
     def test_cli_core_initialization_failure(self, mock_core_class):
         """Test CLI when core initialization fails."""
         mock_core_class.side_effect = Exception("Core init failed")
 
         test_args = ["comfyfixer", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         assert exit_code == 1
 
-    @patch('comfyfixersmart.cli.ComfyFixerCore')
+    @patch("comfyfixersmart.cli.ComfyFixerCore")
     def test_cli_run_returns_error(self, mock_core_class):
         """Test CLI when core run returns error."""
         mock_core = Mock()
@@ -418,7 +423,7 @@ class TestCLIErrorScenarios:
         mock_core_class.return_value = mock_core
 
         test_args = ["comfyfixer", "/workflows"]
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             exit_code = main()
 
         # Should still return 0 since the run completed (even with error result)

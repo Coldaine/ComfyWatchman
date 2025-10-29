@@ -15,11 +15,22 @@ from datetime import datetime, timedelta
 import pytest
 
 from comfyfixersmart.state_manager import (
-    StateManager, StateData, DownloadAttempt, DownloadStatus,
-    ensure_state_dir, load_state, save_state, mark_download_attempted,
-    mark_download_success, mark_download_failed, get_download_status,
-    get_successful_downloads, get_failed_downloads, was_recently_attempted,
-    get_stats, clear_failed
+    StateManager,
+    StateData,
+    DownloadAttempt,
+    DownloadStatus,
+    ensure_state_dir,
+    load_state,
+    save_state,
+    mark_download_attempted,
+    mark_download_success,
+    mark_download_failed,
+    get_download_status,
+    get_successful_downloads,
+    get_failed_downloads,
+    was_recently_attempted,
+    get_stats,
+    clear_failed,
 )
 
 
@@ -46,7 +57,7 @@ class TestDownloadAttempt:
             model_type="checkpoints",
             node_type="CheckpointLoaderSimple",
             civitai_id=12345,
-            download_url="https://example.com/download"
+            download_url="https://example.com/download",
         )
 
         assert attempt.timestamp == "2023-01-01T12:00:00"
@@ -60,9 +71,7 @@ class TestDownloadAttempt:
     def test_download_attempt_defaults(self):
         """Test DownloadAttempt default values."""
         attempt = DownloadAttempt(
-            timestamp="2023-01-01T12:00:00",
-            filename="model.safetensors",
-            status="attempted"
+            timestamp="2023-01-01T12:00:00", filename="model.safetensors", status="attempted"
         )
 
         assert attempt.model_type is None
@@ -88,7 +97,7 @@ class TestStateData:
             version="2.0",
             downloads={"model1.safetensors": []},
             history=[],
-            metadata={"test": "value"}
+            metadata={"test": "value"},
         )
 
         assert state.version == "2.0"
@@ -156,22 +165,26 @@ class TestStateManagerLoading:
         state_data = {
             "version": "2.0",
             "downloads": {
-                "model1.safetensors": [{
+                "model1.safetensors": [
+                    {
+                        "timestamp": "2023-01-01T12:00:00",
+                        "filename": "model1.safetensors",
+                        "status": "success",
+                    }
+                ]
+            },
+            "history": [
+                {
                     "timestamp": "2023-01-01T12:00:00",
                     "filename": "model1.safetensors",
-                    "status": "success"
-                }]
-            },
-            "history": [{
-                "timestamp": "2023-01-01T12:00:00",
-                "filename": "model1.safetensors",
-                "status": "success"
-            }],
-            "metadata": {"test": "value"}
+                    "status": "success",
+                }
+            ],
+            "metadata": {"test": "value"},
         }
 
         state_dir.mkdir()
-        with open(state_file, 'w') as f:
+        with open(state_file, "w") as f:
             json.dump(state_data, f)
 
         manager = StateManager(state_dir)
@@ -188,21 +201,25 @@ class TestStateManagerLoading:
 
         v1_data = {
             "downloads": {
-                "model1.safetensors": [{
+                "model1.safetensors": [
+                    {
+                        "timestamp": "2023-01-01T12:00:00",
+                        "filename": "model1.safetensors",
+                        "status": "success",
+                    }
+                ]
+            },
+            "history": [
+                {
                     "timestamp": "2023-01-01T12:00:00",
                     "filename": "model1.safetensors",
-                    "status": "success"
-                }]
-            },
-            "history": [{
-                "timestamp": "2023-01-01T12:00:00",
-                "filename": "model1.safetensors",
-                "status": "success"
-            }]
+                    "status": "success",
+                }
+            ],
         }
 
         state_dir.mkdir()
-        with open(state_file, 'w') as f:
+        with open(state_file, "w") as f:
             json.dump(v1_data, f)
 
         manager = StateManager(state_dir)
@@ -217,7 +234,7 @@ class TestStateManagerLoading:
         state_file = state_dir / "download_state.json"
 
         state_dir.mkdir()
-        with open(state_file, 'w') as f:
+        with open(state_file, "w") as f:
             f.write("invalid json content")
 
         manager = StateManager(state_dir)
@@ -244,7 +261,7 @@ class TestStateManagerOperations:
             "civitai_id": 12345,
             "civitai_name": "Test Model",
             "version_id": 67890,
-            "download_url": "https://example.com/download"
+            "download_url": "https://example.com/download",
         }
 
         manager.mark_download_attempted("model.safetensors", model_info, civitai_info)
@@ -272,7 +289,9 @@ class TestStateManagerOperations:
         manager.mark_download_attempted("model.safetensors", {"type": "checkpoints"})
 
         # Then mark as success
-        manager.mark_download_success("model.safetensors", "/path/to/model.safetensors", 1048576, "checksum123")
+        manager.mark_download_success(
+            "model.safetensors", "/path/to/model.safetensors", 1048576, "checksum123"
+        )
 
         attempt = manager.state.downloads["model.safetensors"][0]
         assert attempt.status == "success"
@@ -408,7 +427,9 @@ class TestStateManagerValidation:
 
         # Add successful download with non-existent file
         manager.mark_download_attempted("model.safetensors", {"type": "checkpoints"})
-        manager.mark_download_success("model.safetensors", "/nonexistent/path/model.safetensors", 1024)
+        manager.mark_download_success(
+            "model.safetensors", "/nonexistent/path/model.safetensors", 1024
+        )
 
         issues = manager.validate_state()
         assert len(issues) == 1
@@ -444,7 +465,9 @@ class TestStateManagerCleanup:
         # Add recent failed download
         recent_time = datetime.now().isoformat()
         manager.state.downloads["recent_failed.safetensors"] = [
-            DownloadAttempt(recent_time, "recent_failed.safetensors", "failed", failed_at=recent_time)
+            DownloadAttempt(
+                recent_time, "recent_failed.safetensors", "failed", failed_at=recent_time
+            )
         ]
 
         stats = manager.cleanup_state(remove_failed_older_than_days=30)
@@ -459,12 +482,27 @@ class TestStateManagerCleanup:
 
         # Add multiple successful attempts
         attempts = [
-            DownloadAttempt("2023-01-01T10:00:00", "model.safetensors", "success",
-                          completed_at="2023-01-01T10:00:00", file_path="/path/1"),
-            DownloadAttempt("2023-01-01T11:00:00", "model.safetensors", "success",
-                          completed_at="2023-01-01T11:00:00", file_path="/path/2"),
-            DownloadAttempt("2023-01-01T12:00:00", "model.safetensors", "success",
-                          completed_at="2023-01-01T12:00:00", file_path="/path/3")
+            DownloadAttempt(
+                "2023-01-01T10:00:00",
+                "model.safetensors",
+                "success",
+                completed_at="2023-01-01T10:00:00",
+                file_path="/path/1",
+            ),
+            DownloadAttempt(
+                "2023-01-01T11:00:00",
+                "model.safetensors",
+                "success",
+                completed_at="2023-01-01T11:00:00",
+                file_path="/path/2",
+            ),
+            DownloadAttempt(
+                "2023-01-01T12:00:00",
+                "model.safetensors",
+                "success",
+                completed_at="2023-01-01T12:00:00",
+                file_path="/path/3",
+            ),
         ]
         manager.state.downloads["model.safetensors"] = attempts
 
@@ -494,7 +532,7 @@ class TestStateManagerImportExport:
         assert export_path.exists()
 
         # Verify content
-        with open(export_path, 'r') as f:
+        with open(export_path, "r") as f:
             data = json.load(f)
 
         assert data["version"] == "2.0"
@@ -508,22 +546,26 @@ class TestStateManagerImportExport:
         import_data = {
             "version": "2.0",
             "downloads": {
-                "imported_model.safetensors": [{
+                "imported_model.safetensors": [
+                    {
+                        "timestamp": "2023-01-01T12:00:00",
+                        "filename": "imported_model.safetensors",
+                        "status": "success",
+                    }
+                ]
+            },
+            "history": [
+                {
                     "timestamp": "2023-01-01T12:00:00",
                     "filename": "imported_model.safetensors",
-                    "status": "success"
-                }]
-            },
-            "history": [{
-                "timestamp": "2023-01-01T12:00:00",
-                "filename": "imported_model.safetensors",
-                "status": "success"
-            }],
-            "metadata": {"imported": True}
+                    "status": "success",
+                }
+            ],
+            "metadata": {"imported": True},
         }
 
         import_file = tmp_path / "import.json"
-        with open(import_file, 'w') as f:
+        with open(import_file, "w") as f:
             json.dump(import_data, f)
 
         result = manager.import_state(import_file, merge=False)
@@ -543,22 +585,26 @@ class TestStateManagerImportExport:
         import_data = {
             "version": "2.0",
             "downloads": {
-                "imported_model.safetensors": [{
+                "imported_model.safetensors": [
+                    {
+                        "timestamp": "2023-01-01T12:00:00",
+                        "filename": "imported_model.safetensors",
+                        "status": "success",
+                    }
+                ]
+            },
+            "history": [
+                {
                     "timestamp": "2023-01-01T12:00:00",
                     "filename": "imported_model.safetensors",
-                    "status": "success"
-                }]
-            },
-            "history": [{
-                "timestamp": "2023-01-01T12:00:00",
-                "filename": "imported_model.safetensors",
-                "status": "success"
-            }],
-            "metadata": {"imported": True}
+                    "status": "success",
+                }
+            ],
+            "metadata": {"imported": True},
         }
 
         import_file = tmp_path / "import.json"
-        with open(import_file, 'w') as f:
+        with open(import_file, "w") as f:
             json.dump(import_data, f)
 
         result = manager.import_state(import_file, merge=True)

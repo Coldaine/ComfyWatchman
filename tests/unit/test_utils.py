@@ -13,12 +13,27 @@ from pathlib import Path
 from unittest.mock import patch, mock_open
 
 from comfyfixersmart.utils import (
-    get_api_key, validate_api_key, determine_model_type, validate_model_filename,
-    get_file_checksum, validate_url, safe_path_join, ensure_directory,
-    find_files_by_pattern, get_file_size, validate_json_file, load_json_file,
-    save_json_file, build_local_inventory, extract_models_from_workflow,
-    _is_model_filename, format_file_size, sanitize_filename, get_relative_path,
-    validate_civitai_response, fetch_civitai_image
+    get_api_key,
+    validate_api_key,
+    determine_model_type,
+    validate_model_filename,
+    get_file_checksum,
+    validate_url,
+    safe_path_join,
+    ensure_directory,
+    find_files_by_pattern,
+    get_file_size,
+    validate_json_file,
+    load_json_file,
+    save_json_file,
+    build_local_inventory,
+    extract_models_from_workflow,
+    _is_model_filename,
+    format_file_size,
+    sanitize_filename,
+    get_relative_path,
+    validate_civitai_response,
+    fetch_civitai_image,
 )
 
 
@@ -67,17 +82,17 @@ class TestModelTypeFunctions:
     def test_determine_model_type_known_types(self):
         """Test model type determination for known node types."""
         test_cases = [
-            ('CheckpointLoaderSimple', 'checkpoints'),
-            ('CheckpointLoader', 'checkpoints'),
-            ('LoraLoader', 'loras'),
-            ('VAELoader', 'vae'),
-            ('CLIPLoader', 'clip'),
-            ('ControlNetLoader', 'controlnet'),
-            ('UpscaleModelLoader', 'upscale_models'),
-            ('CLIPVisionLoader', 'clip_vision'),
-            ('UNETLoader', 'unet'),
-            ('SAMLoader', 'sams'),
-            ('GroundingDinoModelLoader', 'grounding-dino'),
+            ("CheckpointLoaderSimple", "checkpoints"),
+            ("CheckpointLoader", "checkpoints"),
+            ("LoraLoader", "loras"),
+            ("VAELoader", "vae"),
+            ("CLIPLoader", "clip"),
+            ("ControlNetLoader", "controlnet"),
+            ("UpscaleModelLoader", "upscale_models"),
+            ("CLIPVisionLoader", "clip_vision"),
+            ("UNETLoader", "unet"),
+            ("SAMLoader", "sams"),
+            ("GroundingDinoModelLoader", "grounding-dino"),
         ]
 
         for node_type, expected in test_cases:
@@ -85,22 +100,19 @@ class TestModelTypeFunctions:
 
     def test_determine_model_type_unknown_type(self):
         """Test model type determination for unknown node types."""
-        assert determine_model_type('UnknownLoader') == 'checkpoints'  # default
+        assert determine_model_type("UnknownLoader") == "checkpoints"  # default
 
     def test_determine_model_type_custom_mapping(self):
         """Test model type determination with custom mapping."""
-        custom_mapping = {
-            'CustomLoader': 'custom_models',
-            'AnotherLoader': 'another_type'
-        }
+        custom_mapping = {"CustomLoader": "custom_models", "AnotherLoader": "another_type"}
 
-        assert determine_model_type('CustomLoader', custom_mapping) == 'custom_models'
-        assert determine_model_type('AnotherLoader', custom_mapping) == 'another_type'
-        assert determine_model_type('UnknownLoader', custom_mapping) == 'checkpoints'  # default
+        assert determine_model_type("CustomLoader", custom_mapping) == "custom_models"
+        assert determine_model_type("AnotherLoader", custom_mapping) == "another_type"
+        assert determine_model_type("UnknownLoader", custom_mapping) == "checkpoints"  # default
 
     def test_determine_model_type_empty_custom_mapping(self):
         """Test model type determination with empty custom mapping."""
-        assert determine_model_type('CheckpointLoader', {}) == 'checkpoints'  # default
+        assert determine_model_type("CheckpointLoader", {}) == "checkpoints"  # default
 
 
 class TestFilenameValidation:
@@ -109,13 +121,13 @@ class TestFilenameValidation:
     def test_validate_model_filename_valid(self):
         """Test validation of valid model filenames."""
         valid_filenames = [
-            'model.safetensors',
-            'checkpoint.ckpt',
-            'network.pt',
-            'weights.bin',
-            'model.pth',
-            'MODEL.SAFETENSORS',  # uppercase
-            'path/to/model.safetensors'
+            "model.safetensors",
+            "checkpoint.ckpt",
+            "network.pt",
+            "weights.bin",
+            "model.pth",
+            "MODEL.SAFETENSORS",  # uppercase
+            "path/to/model.safetensors",
         ]
 
         for filename in valid_filenames:
@@ -123,35 +135,30 @@ class TestFilenameValidation:
 
     def test_validate_model_filename_invalid_extension(self):
         """Test validation of filenames with invalid extensions."""
-        invalid_filenames = [
-            'model.txt',
-            'model.jpg',
-            'model.zip',
-            'model'
-        ]
+        invalid_filenames = ["model.txt", "model.jpg", "model.zip", "model"]
 
         for filename in invalid_filenames:
             assert validate_model_filename(filename) is False
 
     def test_validate_model_filename_too_short(self):
         """Test validation of filenames that are too short."""
-        assert validate_model_filename('a.pt') is False
+        assert validate_model_filename("a.pt") is False
 
     def test_validate_model_filename_too_long(self):
         """Test validation of filenames that are too long."""
-        long_name = 'a' * 256 + '.safetensors'
+        long_name = "a" * 256 + ".safetensors"
         assert validate_model_filename(long_name) is False
 
     def test_validate_model_filename_suspicious_chars(self):
         """Test validation of filenames with suspicious characters."""
         suspicious_names = [
-            'model<.safetensors',
-            'model>.safetensors',
-            'model:.safetensors',
+            "model<.safetensors",
+            "model>.safetensors",
+            "model:.safetensors",
             'model".safetensors',
-            'model|.safetensors',
-            'model?.safetensors',
-            'model*.safetensors'
+            "model|.safetensors",
+            "model?.safetensors",
+            "model*.safetensors",
         ]
 
         for filename in suspicious_names:
@@ -159,7 +166,7 @@ class TestFilenameValidation:
 
     def test_validate_model_filename_empty(self):
         """Test validation of empty filename."""
-        assert validate_model_filename('') is False
+        assert validate_model_filename("") is False
 
     def test_validate_model_filename_none(self):
         """Test validation of None filename."""
@@ -167,25 +174,14 @@ class TestFilenameValidation:
 
     def test_is_model_filename_valid(self):
         """Test _is_model_filename function with valid filenames."""
-        valid_filenames = [
-            'model.safetensors',
-            'model.ckpt',
-            'model.pt',
-            'model.bin',
-            'model.pth'
-        ]
+        valid_filenames = ["model.safetensors", "model.ckpt", "model.pt", "model.bin", "model.pth"]
 
         for filename in valid_filenames:
             assert _is_model_filename(filename) is True
 
     def test_is_model_filename_invalid(self):
         """Test _is_model_filename function with invalid filenames."""
-        invalid_filenames = [
-            'model.txt',
-            'model',
-            '',
-            None
-        ]
+        invalid_filenames = ["model.txt", "model", "", None]
 
         for filename in invalid_filenames:
             assert _is_model_filename(filename) is False
@@ -248,10 +244,10 @@ class TestURLValidation:
     def test_validate_url_valid(self):
         """Test validation of valid URLs."""
         valid_urls = [
-            'https://example.com',
-            'http://example.com/path',
-            'https://example.com:8080/path?query=value',
-            'ftp://example.com/file.txt'
+            "https://example.com",
+            "http://example.com/path",
+            "https://example.com:8080/path?query=value",
+            "ftp://example.com/file.txt",
         ]
 
         for url in valid_urls:
@@ -259,13 +255,7 @@ class TestURLValidation:
 
     def test_validate_url_invalid(self):
         """Test validation of invalid URLs."""
-        invalid_urls = [
-            'not-a-url',
-            'example.com',
-            '://example.com',
-            '',
-            None
-        ]
+        invalid_urls = ["not-a-url", "example.com", "://example.com", "", None]
 
         for url in invalid_urls:
             assert validate_url(url) is False
@@ -397,7 +387,7 @@ class TestJSONOperations:
     def test_load_json_file_invalid(self, tmp_path):
         """Test JSON file loading with invalid JSON."""
         json_file = tmp_path / "invalid.json"
-        json_file.write_text('invalid json')
+        json_file.write_text("invalid json")
 
         result = load_json_file(json_file, default="fallback")
         assert result == "fallback"
@@ -495,18 +485,9 @@ class TestWorkflowExtraction:
 
         workflow_data = {
             "nodes": [
-                {
-                    "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["model.safetensors"]
-                },
-                {
-                    "type": "LoraLoader",
-                    "widgets_values": ["lora1.safetensors", 1.0]
-                },
-                {
-                    "type": "VAELoader",
-                    "widgets_values": ["vae.safetensors"]
-                }
+                {"type": "CheckpointLoaderSimple", "widgets_values": ["model.safetensors"]},
+                {"type": "LoraLoader", "widgets_values": ["lora1.safetensors", 1.0]},
+                {"type": "VAELoader", "widgets_values": ["vae.safetensors"]},
             ]
         }
 
@@ -516,23 +497,23 @@ class TestWorkflowExtraction:
 
         expected = [
             {
-                'filename': 'model.safetensors',
-                'type': 'checkpoints',
-                'node_type': 'CheckpointLoaderSimple',
-                'workflow_path': str(workflow_file)
+                "filename": "model.safetensors",
+                "type": "checkpoints",
+                "node_type": "CheckpointLoaderSimple",
+                "workflow_path": str(workflow_file),
             },
             {
-                'filename': 'lora1.safetensors',
-                'type': 'loras',
-                'node_type': 'LoraLoader',
-                'workflow_path': str(workflow_file)
+                "filename": "lora1.safetensors",
+                "type": "loras",
+                "node_type": "LoraLoader",
+                "workflow_path": str(workflow_file),
             },
             {
-                'filename': 'vae.safetensors',
-                'type': 'vae',
-                'node_type': 'VAELoader',
-                'workflow_path': str(workflow_file)
-            }
+                "filename": "vae.safetensors",
+                "type": "vae",
+                "node_type": "VAELoader",
+                "workflow_path": str(workflow_file),
+            },
         ]
 
         assert models == expected
@@ -540,7 +521,7 @@ class TestWorkflowExtraction:
     def test_extract_models_from_workflow_invalid_json(self, tmp_path):
         """Test model extraction from invalid JSON workflow."""
         workflow_file = tmp_path / "invalid.json"
-        workflow_file.write_text('invalid json')
+        workflow_file.write_text("invalid json")
 
         with pytest.raises(ValueError, match="Failed to parse workflow"):
             extract_models_from_workflow(workflow_file)
@@ -554,14 +535,7 @@ class TestWorkflowExtraction:
         """Test model extraction from workflow with no models."""
         workflow_file = tmp_path / "no_models.json"
 
-        workflow_data = {
-            "nodes": [
-                {
-                    "type": "CLIPTextEncode",
-                    "widgets_values": ["some text"]
-                }
-            ]
-        }
+        workflow_data = {"nodes": [{"type": "CLIPTextEncode", "widgets_values": ["some text"]}]}
 
         workflow_file.write_text(json.dumps(workflow_data))
 
@@ -599,11 +573,11 @@ class TestFormattingFunctions:
 
     def test_sanitize_filename_invalid_chars(self):
         """Test filename sanitization with invalid characters."""
-        assert sanitize_filename('file<>:|?*.txt') == 'file_______ .txt'
+        assert sanitize_filename("file<>:|?*.txt") == "file_______ .txt"
 
     def test_sanitize_filename_leading_trailing_spaces(self):
         """Test filename sanitization with leading/trailing spaces and dots."""
-        assert sanitize_filename('  .file.txt.  ') == 'file.txt'
+        assert sanitize_filename("  .file.txt.  ") == "file.txt"
 
     def test_sanitize_filename_empty_after_sanitization(self):
         """Test filename sanitization that results in empty string."""
@@ -641,63 +615,45 @@ class TestCivitaiAPIValidation:
 
     def test_validate_civitai_response_model_endpoint_valid(self):
         """Test validation of valid model endpoint response."""
-        response_data = {
-            'id': 12345,
-            'name': 'Test Model',
-            'type': 'Checkpoint'
-        }
+        response_data = {"id": 12345, "name": "Test Model", "type": "Checkpoint"}
 
-        result = validate_civitai_response(
-            response_data,
-            requested_id=12345,
-            endpoint_type='model'
-        )
+        result = validate_civitai_response(response_data, requested_id=12345, endpoint_type="model")
 
-        assert result['valid'] is True
-        assert result['error_message'] is None
-        assert result['data'] == response_data
+        assert result["valid"] is True
+        assert result["error_message"] is None
+        assert result["data"] == response_data
 
     def test_validate_civitai_response_model_endpoint_wrong_id(self):
         """Test validation of model endpoint with wrong ID (the incident scenario)."""
         response_data = {
-            'id': 67890,  # Different from requested
-            'name': 'Wrong Model',
-            'type': 'Checkpoint'
+            "id": 67890,  # Different from requested
+            "name": "Wrong Model",
+            "type": "Checkpoint",
         }
 
-        result = validate_civitai_response(
-            response_data,
-            requested_id=12345,
-            endpoint_type='model'
-        )
+        result = validate_civitai_response(response_data, requested_id=12345, endpoint_type="model")
 
-        assert result['valid'] is False
-        assert 'wrong model' in result['error_message'].lower()
-        assert 'Requested: 12345' in result['error_message']
-        assert 'Got: 67890' in result['error_message']
-        assert result['data'] is None
+        assert result["valid"] is False
+        assert "wrong model" in result["error_message"].lower()
+        assert "Requested: 12345" in result["error_message"]
+        assert "Got: 67890" in result["error_message"]
+        assert result["data"] is None
 
     def test_validate_civitai_response_images_endpoint_valid(self):
         """Test validation of valid images endpoint response."""
         response_data = {
-            'items': [
-                {
-                    'id': 96712457,
-                    'url': 'https://example.com/image.png',
-                    'meta': {'prompt': 'test'}
-                }
+            "items": [
+                {"id": 96712457, "url": "https://example.com/image.png", "meta": {"prompt": "test"}}
             ]
         }
 
         result = validate_civitai_response(
-            response_data,
-            requested_id=96712457,
-            endpoint_type='images'
+            response_data, requested_id=96712457, endpoint_type="images"
         )
 
-        assert result['valid'] is True
-        assert result['error_message'] is None
-        assert result['data'] == response_data
+        assert result["valid"] is True
+        assert result["error_message"] is None
+        assert result["data"] == response_data
 
     def test_validate_civitai_response_images_endpoint_wrong_id(self):
         """Test validation of images endpoint with wrong ID.
@@ -707,126 +663,105 @@ class TestCivitaiAPIValidation:
         - API returned image ID: 9173928
         """
         response_data = {
-            'items': [
+            "items": [
                 {
-                    'id': 9173928,  # Wrong ID returned by API
-                    'url': 'https://example.com/wrong-image.png',
-                    'meta': {'prompt': 'wrong prompt'}
+                    "id": 9173928,  # Wrong ID returned by API
+                    "url": "https://example.com/wrong-image.png",
+                    "meta": {"prompt": "wrong prompt"},
                 }
             ]
         }
 
         result = validate_civitai_response(
-            response_data,
-            requested_id=96712457,
-            endpoint_type='images'
+            response_data, requested_id=96712457, endpoint_type="images"
         )
 
-        assert result['valid'] is False
-        assert 'wrong image' in result['error_message'].lower()
-        assert 'Requested: 96712457' in result['error_message']
-        assert 'Got: 9173928' in result['error_message']
-        assert 'deleted or is restricted' in result['error_message']
-        assert result['data'] is None
+        assert result["valid"] is False
+        assert "wrong image" in result["error_message"].lower()
+        assert "Requested: 96712457" in result["error_message"]
+        assert "Got: 9173928" in result["error_message"]
+        assert "deleted or is restricted" in result["error_message"]
+        assert result["data"] is None
 
     def test_validate_civitai_response_images_endpoint_empty_items(self):
         """Test validation of images endpoint with empty items array."""
-        response_data = {
-            'items': []
-        }
+        response_data = {"items": []}
 
         result = validate_civitai_response(
-            response_data,
-            requested_id=96712457,
-            endpoint_type='images'
+            response_data, requested_id=96712457, endpoint_type="images"
         )
 
-        assert result['valid'] is False
-        assert 'not found' in result['error_message'].lower()
-        assert '96712457' in result['error_message']
-        assert result['data'] is None
+        assert result["valid"] is False
+        assert "not found" in result["error_message"].lower()
+        assert "96712457" in result["error_message"]
+        assert result["data"] is None
 
     def test_validate_civitai_response_empty_response(self):
         """Test validation of empty API response."""
-        result = validate_civitai_response(
-            {},
-            requested_id=12345,
-            endpoint_type='model'
-        )
+        result = validate_civitai_response({}, requested_id=12345, endpoint_type="model")
 
-        assert result['valid'] is False
-        assert 'empty response' in result['error_message'].lower()
-        assert result['data'] is None
+        assert result["valid"] is False
+        assert "empty response" in result["error_message"].lower()
+        assert result["data"] is None
 
     def test_validate_civitai_response_none_response(self):
         """Test validation of None API response."""
-        result = validate_civitai_response(
-            None,
-            requested_id=12345,
-            endpoint_type='model'
-        )
+        result = validate_civitai_response(None, requested_id=12345, endpoint_type="model")
 
-        assert result['valid'] is False
-        assert 'empty response' in result['error_message'].lower()
-        assert result['data'] is None
+        assert result["valid"] is False
+        assert "empty response" in result["error_message"].lower()
+        assert result["data"] is None
 
     def test_validate_civitai_response_no_requested_id(self):
         """Test validation without requested ID (should pass)."""
-        response_data = {
-            'id': 12345,
-            'name': 'Test Model'
-        }
+        response_data = {"id": 12345, "name": "Test Model"}
 
-        result = validate_civitai_response(
-            response_data,
-            requested_id=None,
-            endpoint_type='model'
-        )
+        result = validate_civitai_response(response_data, requested_id=None, endpoint_type="model")
 
-        assert result['valid'] is True
-        assert result['data'] == response_data
+        assert result["valid"] is True
+        assert result["data"] == response_data
 
-    @patch('requests.get')
-    @patch('comfyfixersmart.utils.get_api_key')
+    @patch("requests.get")
+    @patch("comfyfixersmart.utils.get_api_key")
     def test_fetch_civitai_image_success(self, mock_get_api_key, mock_requests_get):
         """Test successful image fetching with validation."""
-        mock_get_api_key.return_value = 'test_api_key'
+        mock_get_api_key.return_value = "test_api_key"
 
         mock_response = mock_requests_get.return_value
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            'items': [
+            "items": [
                 {
-                    'id': 96712457,
-                    'url': 'https://example.com/image.png',
-                    'meta': {'prompt': 'correct prompt'}
+                    "id": 96712457,
+                    "url": "https://example.com/image.png",
+                    "meta": {"prompt": "correct prompt"},
                 }
             ]
         }
 
         result = fetch_civitai_image(96712457)
 
-        assert result['id'] == 96712457
-        assert result['url'] == 'https://example.com/image.png'
+        assert result["id"] == 96712457
+        assert result["url"] == "https://example.com/image.png"
         mock_requests_get.assert_called_once()
 
-    @patch('requests.get')
-    @patch('comfyfixersmart.utils.get_api_key')
+    @patch("requests.get")
+    @patch("comfyfixersmart.utils.get_api_key")
     def test_fetch_civitai_image_wrong_id_returned(self, mock_get_api_key, mock_requests_get):
         """Test image fetching when API returns wrong ID.
 
         This recreates the incident from the report.
         """
-        mock_get_api_key.return_value = 'test_api_key'
+        mock_get_api_key.return_value = "test_api_key"
 
         mock_response = mock_requests_get.return_value
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            'items': [
+            "items": [
                 {
-                    'id': 9173928,  # Wrong ID
-                    'url': 'https://example.com/wrong-image.png',
-                    'meta': {}
+                    "id": 9173928,  # Wrong ID
+                    "url": "https://example.com/wrong-image.png",
+                    "meta": {},
                 }
             ]
         }
@@ -835,15 +770,15 @@ class TestCivitaiAPIValidation:
             fetch_civitai_image(96712457)
 
         error_msg = str(exc_info.value)
-        assert 'wrong image' in error_msg.lower()
-        assert 'Requested: 96712457' in error_msg
-        assert 'Got: 9173928' in error_msg
+        assert "wrong image" in error_msg.lower()
+        assert "Requested: 96712457" in error_msg
+        assert "Got: 9173928" in error_msg
 
-    @patch('requests.get')
-    @patch('comfyfixersmart.utils.get_api_key')
+    @patch("requests.get")
+    @patch("comfyfixersmart.utils.get_api_key")
     def test_fetch_civitai_image_http_error(self, mock_get_api_key, mock_requests_get):
         """Test image fetching with HTTP error."""
-        mock_get_api_key.return_value = 'test_api_key'
+        mock_get_api_key.return_value = "test_api_key"
 
         mock_response = mock_requests_get.return_value
         mock_response.status_code = 404
@@ -852,23 +787,21 @@ class TestCivitaiAPIValidation:
             fetch_civitai_image(96712457)
 
         error_msg = str(exc_info.value)
-        assert '404' in error_msg
-        assert '96712457' in error_msg
+        assert "404" in error_msg
+        assert "96712457" in error_msg
 
-    @patch('requests.get')
-    @patch('comfyfixersmart.utils.get_api_key')
+    @patch("requests.get")
+    @patch("comfyfixersmart.utils.get_api_key")
     def test_fetch_civitai_image_empty_items(self, mock_get_api_key, mock_requests_get):
         """Test image fetching when API returns empty items (image deleted)."""
-        mock_get_api_key.return_value = 'test_api_key'
+        mock_get_api_key.return_value = "test_api_key"
 
         mock_response = mock_requests_get.return_value
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'items': []
-        }
+        mock_response.json.return_value = {"items": []}
 
         with pytest.raises(ValueError) as exc_info:
             fetch_civitai_image(96712457)
 
         error_msg = str(exc_info.value)
-        assert 'not found' in error_msg.lower()
+        assert "not found" in error_msg.lower()
