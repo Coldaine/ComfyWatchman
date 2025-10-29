@@ -41,8 +41,7 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
-    "black>=22.0.0",
-    "flake8>=4.0.0",
+    "ruff>=0.1.0",  # Unified linter and formatter (replaces Black + flake8)
     "mypy>=0.950",
     "sphinx>=4.0.0",
     "sphinx-rtd-theme>=1.0.0",
@@ -102,24 +101,6 @@ exclude = ["tests*", "docs*"]
 [tool.setuptools.package-data]
 comfyfixersmart = ["config/*.toml", "templates/*"]
 
-[tool.black]
-line-length = 100
-target-version = ['py37']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-
 [tool.mypy]
 python_version = "3.7"
 warn_return_any = true
@@ -151,16 +132,57 @@ python_functions = "test_*"
 source = ["src/comfyfixersmart"]
 omit = ["*/tests/*", "*/test_*.py"]
 
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
+# Ruff - Unified linter and formatter (replaces Black, flake8, isort, pyupgrade)
+[tool.ruff]
+line-length = 100
+target-version = "py37"
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "env",
+    "build",
+    "dist",
+    "*.egg-info",
+    "scripts",
+    "src/copilot_backend",  # External submodule - do not format
+    "setup.py",
+    "usage_examples.py",
+    "tests",
+    "docs",
 ]
+
+[tool.ruff.lint]
+# Enable pycodestyle (E/W), pyflakes (F), isort (I), and pyupgrade (UP)
+select = ["E", "F", "W", "I", "UP"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "UP006", # non-pep585-annotation (not valid for py37 target)
+    "UP045", # non-pep604-annotation-optional (not valid for py37 target)
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+# Allow unused imports in package namespace initializers
+"src/comfyfixersmart/__init__.py" = ["F401"]
+"src/comfyfixersmart/**/__init__.py" = ["F401"]
+# Allow long lines in complex prompt strings and JSON formatting
+"src/comfyfixersmart/search.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["comfyfixersmart"]
+
+[tool.ruff.format]
+# Use Black-compatible formatting
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true

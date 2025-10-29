@@ -37,13 +37,9 @@ class TestEndToEndWorkflow:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["missing_checkpoint.safetensors"]
+                    "widgets_values": ["missing_checkpoint.safetensors"],
                 },
-                {
-                    "id": "2",
-                    "type": "VAELoader",
-                    "widgets_values": ["missing_vae.safetensors"]
-                }
+                {"id": "2", "type": "VAELoader", "widgets_values": ["missing_vae.safetensors"]},
             ]
         }
         workflow1.write_text(json.dumps(workflow_data1))
@@ -54,13 +50,13 @@ class TestEndToEndWorkflow:
                 {
                     "id": "1",
                     "type": "LoraLoader",
-                    "widgets_values": ["existing_lora.safetensors", 1.0]
+                    "widgets_values": ["existing_lora.safetensors", 1.0],
                 },
                 {
                     "id": "2",
                     "type": "ControlNetLoader",
-                    "widgets_values": ["missing_controlnet.pth"]
-                }
+                    "widgets_values": ["missing_controlnet.pth"],
+                },
             ]
         }
         workflow2.write_text(json.dumps(workflow_data2))
@@ -80,7 +76,7 @@ class TestEndToEndWorkflow:
                 "download_url": "https://civitai.com/api/download/models/12345",
                 "type": "checkpoints",
                 "civitai_id": 12345,
-                "confidence": "exact"
+                "confidence": "exact",
             },
             "missing_vae.safetensors": {
                 "status": "FOUND",
@@ -88,7 +84,7 @@ class TestEndToEndWorkflow:
                 "download_url": "https://civitai.com/api/download/models/67890",
                 "type": "vae",
                 "civitai_id": 67890,
-                "confidence": "exact"
+                "confidence": "exact",
             },
             "missing_controlnet.pth": {
                 "status": "FOUND",
@@ -96,13 +92,14 @@ class TestEndToEndWorkflow:
                 "download_url": "https://civitai.com/api/download/models/11111",
                 "type": "controlnet",
                 "civitai_id": 11111,
-                "confidence": "fuzzy"
-            }
+                "confidence": "fuzzy",
+            },
         }
 
         def mock_search_model(model_info, **kwargs):
-            return search_results.get(model_info["filename"],
-                                    {"status": "NOT_FOUND", "filename": model_info["filename"]})
+            return search_results.get(
+                model_info["filename"], {"status": "NOT_FOUND", "filename": model_info["filename"]}
+            )
 
         core.search.search_model = mock_search_model
 
@@ -111,7 +108,7 @@ class TestEndToEndWorkflow:
             workflow_dirs=[str(workflows_dir)],
             models_dir=str(models_dir),
             output_dir=str(output_dir),
-            generate_scripts=True
+            generate_scripts=True,
         )
 
         # Verify results
@@ -153,13 +150,13 @@ class TestEndToEndWorkflow:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["existing_checkpoint.safetensors"]
+                    "widgets_values": ["existing_checkpoint.safetensors"],
                 },
                 {
                     "id": "2",
                     "type": "LoraLoader",
-                    "widgets_values": ["existing_lora.safetensors", 1.0]
-                }
+                    "widgets_values": ["existing_lora.safetensors", 1.0],
+                },
             ]
         }
         workflow.write_text(json.dumps(workflow_data))
@@ -178,7 +175,7 @@ class TestEndToEndWorkflow:
         result = core.run(
             workflow_dirs=[str(workflows_dir)],
             models_dir=str(models_dir),
-            scan_only=True  # Only scan, don't search or download
+            scan_only=True,  # Only scan, don't search or download
         )
 
         # Verify results
@@ -209,18 +206,18 @@ class TestEndToEndWorkflow:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["existing_checkpoint.safetensors"]
+                    "widgets_values": ["existing_checkpoint.safetensors"],
                 },
                 {
                     "id": "2",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["missing_checkpoint.safetensors"]
+                    "widgets_values": ["missing_checkpoint.safetensors"],
                 },
                 {
                     "id": "3",
                     "type": "VAELoader",
-                    "widgets_values": ["small_vae.safetensors"]  # Will be too small
-                }
+                    "widgets_values": ["small_vae.safetensors"],  # Will be too small
+                },
             ]
         }
         workflow.write_text(json.dumps(workflow_data))
@@ -243,7 +240,7 @@ class TestEndToEndWorkflow:
                     "status": "FOUND",
                     "filename": "missing_checkpoint.safetensors",
                     "download_url": "https://example.com/missing",
-                    "type": "checkpoints"
+                    "type": "checkpoints",
                 }
             return {"status": "NOT_FOUND", "filename": model_info["filename"]}
 
@@ -251,9 +248,7 @@ class TestEndToEndWorkflow:
 
         # Run workflow
         result = core.run(
-            workflow_dirs=[str(workflows_dir)],
-            models_dir=str(models_dir),
-            generate_scripts=True
+            workflow_dirs=[str(workflows_dir)], models_dir=str(models_dir), generate_scripts=True
         )
 
         # Verify results
@@ -281,7 +276,7 @@ class TestEndToEndWorkflow:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["model1.safetensors"]
+                    "widgets_values": ["model1.safetensors"],
                 }
             ]
         }
@@ -289,13 +284,7 @@ class TestEndToEndWorkflow:
 
         workflow2 = workflows2_dir / "workflow2.json"
         workflow2_data = {
-            "nodes": [
-                {
-                    "id": "1",
-                    "type": "VAELoader",
-                    "widgets_values": ["model2.safetensors"]
-                }
-            ]
+            "nodes": [{"id": "1", "type": "VAELoader", "widgets_values": ["model2.safetensors"]}]
         }
         workflow2.write_text(json.dumps(workflow2_data))
 
@@ -308,7 +297,7 @@ class TestEndToEndWorkflow:
                 "status": "FOUND",
                 "filename": model_info["filename"],
                 "download_url": f"https://example.com/{model_info['filename']}",
-                "type": "checkpoints" if "model1" in model_info["filename"] else "vae"
+                "type": "checkpoints" if "model1" in model_info["filename"] else "vae",
             }
 
         core.search.search_model = mock_search_model
@@ -317,7 +306,7 @@ class TestEndToEndWorkflow:
         result = core.run(
             workflow_dirs=[str(workflows1_dir), str(workflows2_dir)],
             models_dir=str(models_dir),
-            generate_scripts=True
+            generate_scripts=True,
         )
 
         # Verify results
@@ -337,19 +326,25 @@ class TestEndToEndWorkflow:
 
         # Create valid workflow
         valid_workflow = workflows_dir / "valid.json"
-        valid_workflow.write_text(json.dumps({
-            "nodes": [
+        valid_workflow.write_text(
+            json.dumps(
                 {
-                    "id": "1",
-                    "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["valid_model.safetensors"]
+                    "nodes": [
+                        {
+                            "id": "1",
+                            "type": "CheckpointLoaderSimple",
+                            "widgets_values": ["valid_model.safetensors"],
+                        }
+                    ]
                 }
-            ]
-        }))
+            )
+        )
 
         # Create invalid workflow (malformed JSON)
         invalid_workflow = workflows_dir / "invalid.json"
-        invalid_workflow.write_text('{"nodes": [{"type": "CheckpointLoaderSimple", "widgets_values": ["model.safetensors"]')
+        invalid_workflow.write_text(
+            '{"nodes": [{"type": "CheckpointLoaderSimple", "widgets_values": ["model.safetensors"]'
+        )
 
         # Create empty workflow
         empty_workflow = workflows_dir / "empty.json"
@@ -363,14 +358,12 @@ class TestEndToEndWorkflow:
             "status": "FOUND",
             "filename": "valid_model.safetensors",
             "download_url": "https://example.com/valid",
-            "type": "checkpoints"
+            "type": "checkpoints",
         }
 
         # Run workflow processing
         result = core.run(
-            workflow_dirs=[str(workflows_dir)],
-            models_dir=str(models_dir),
-            generate_scripts=True
+            workflow_dirs=[str(workflows_dir)], models_dir=str(models_dir), generate_scripts=True
         )
 
         # Should handle errors gracefully
@@ -399,11 +392,15 @@ class TestEndToEndWorkflow:
         for i in range(model_count):
             node_type = ["CheckpointLoaderSimple", "VAELoader", "LoraLoader"][i % 3]
             model_name = f"model_{i}.safetensors"
-            nodes.append({
-                "id": str(i + 1),
-                "type": node_type,
-                "widgets_values": [model_name] if node_type != "LoraLoader" else [model_name, 1.0]
-            })
+            nodes.append(
+                {
+                    "id": str(i + 1),
+                    "type": node_type,
+                    "widgets_values": (
+                        [model_name] if node_type != "LoraLoader" else [model_name, 1.0]
+                    ),
+                }
+            )
 
         workflow_data = {"nodes": nodes}
         workflow.write_text(json.dumps(workflow_data))
@@ -417,16 +414,14 @@ class TestEndToEndWorkflow:
                 "status": "FOUND",
                 "filename": model_info["filename"],
                 "download_url": f"https://example.com/{model_info['filename']}",
-                "type": "checkpoints"  # Simplified
+                "type": "checkpoints",  # Simplified
             }
 
         core.search.search_model = mock_search_model
 
         # Run workflow
         result = core.run(
-            workflow_dirs=[str(workflows_dir)],
-            models_dir=str(models_dir),
-            generate_scripts=True
+            workflow_dirs=[str(workflows_dir)], models_dir=str(models_dir), generate_scripts=True
         )
 
         # Verify results
@@ -449,15 +444,19 @@ class TestEndToEndWorkflow:
 
         # Create workflow
         workflow = workflows_dir / "test.json"
-        workflow.write_text(json.dumps({
-            "nodes": [
+        workflow.write_text(
+            json.dumps(
                 {
-                    "id": "1",
-                    "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["test_model.safetensors"]
+                    "nodes": [
+                        {
+                            "id": "1",
+                            "type": "CheckpointLoaderSimple",
+                            "widgets_values": ["test_model.safetensors"],
+                        }
+                    ]
                 }
-            ]
-        }))
+            )
+        )
 
         # Initialize core
         core = ComfyFixerCore()
@@ -467,7 +466,7 @@ class TestEndToEndWorkflow:
             "status": "FOUND",
             "filename": "test_model.safetensors",
             "download_url": "https://example.com/test",
-            "type": "checkpoints"
+            "type": "checkpoints",
         }
 
         # Run workflow
@@ -475,7 +474,7 @@ class TestEndToEndWorkflow:
             workflow_dirs=[str(workflows_dir)],
             models_dir=str(models_dir),
             output_dir=str(output_dir),
-            generate_scripts=True
+            generate_scripts=True,
         )
 
         # Check that output files were created
@@ -517,20 +516,24 @@ class TestEndToEndErrorRecovery:
 
         # Create workflow
         workflow = workflows_dir / "test.json"
-        workflow.write_text(json.dumps({
-            "nodes": [
+        workflow.write_text(
+            json.dumps(
                 {
-                    "id": "1",
-                    "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["good_model.safetensors"]
-                },
-                {
-                    "id": "2",
-                    "type": "VAELoader",
-                    "widgets_values": ["bad_model.safetensors"]
+                    "nodes": [
+                        {
+                            "id": "1",
+                            "type": "CheckpointLoaderSimple",
+                            "widgets_values": ["good_model.safetensors"],
+                        },
+                        {
+                            "id": "2",
+                            "type": "VAELoader",
+                            "widgets_values": ["bad_model.safetensors"],
+                        },
+                    ]
                 }
-            ]
-        }))
+            )
+        )
 
         # Initialize core
         core = ComfyFixerCore()
@@ -542,22 +545,20 @@ class TestEndToEndErrorRecovery:
                     "status": "FOUND",
                     "filename": model_info["filename"],
                     "download_url": "https://example.com/good",
-                    "type": "checkpoints"
+                    "type": "checkpoints",
                 }
             else:
                 return {
                     "status": "ERROR",
                     "filename": model_info["filename"],
-                    "error_message": "Search failed"
+                    "error_message": "Search failed",
                 }
 
         core.search.search_model = mock_search_model
 
         # Run workflow
         result = core.run(
-            workflow_dirs=[str(workflows_dir)],
-            models_dir=str(models_dir),
-            generate_scripts=True
+            workflow_dirs=[str(workflows_dir)], models_dir=str(models_dir), generate_scripts=True
         )
 
         # Should still generate results even with partial failure
@@ -576,15 +577,19 @@ class TestEndToEndErrorRecovery:
 
         # Create workflow
         workflow = workflows_dir / "test.json"
-        workflow.write_text(json.dumps({
-            "nodes": [
+        workflow.write_text(
+            json.dumps(
                 {
-                    "id": "1",
-                    "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["network_model.safetensors"]
+                    "nodes": [
+                        {
+                            "id": "1",
+                            "type": "CheckpointLoaderSimple",
+                            "widgets_values": ["network_model.safetensors"],
+                        }
+                    ]
                 }
-            ]
-        }))
+            )
+        )
 
         # Initialize core
         core = ComfyFixerCore()
@@ -596,7 +601,7 @@ class TestEndToEndErrorRecovery:
         result = core.run(
             workflow_dirs=[str(workflows_dir)],
             models_dir=str(models_dir),
-            generate_scripts=False  # Don't generate scripts on error
+            generate_scripts=False,  # Don't generate scripts on error
         )
 
         # Should still return results, but with errors noted

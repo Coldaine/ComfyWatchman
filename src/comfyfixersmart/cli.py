@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from .config import config
+from .core import run_v1_compatibility_mode, run_v2_compatibility_mode
 from .logging import get_logger
-from .core import run_comfy_fixer, run_v1_compatibility_mode, run_v2_compatibility_mode
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -207,8 +207,6 @@ def setup_logging(log_level: str, quiet: bool) -> None:
 
 def update_config_from_args(args: argparse.Namespace) -> None:
     """Update global config from command line arguments."""
-    global config
-
     if getattr(args, "config", None) and args.config.exists():
         config.load_from_file(args.config)
 
@@ -247,7 +245,15 @@ def _run_inspect_command(args: argparse.Namespace) -> int:
         )
 
     items = json_results if isinstance(json_results, list) else [json_results]
-    exit_code = 1 if any((item.get("warnings") for item in items if isinstance(item, dict) and item.get("warnings"))) else 0
+    exit_code = (
+        1
+        if any(
+            item.get("warnings")
+            for item in items
+            if isinstance(item, dict) and item.get("warnings")
+        )
+        else 0
+    )
 
     if args.format == "json":
         payload: object
@@ -284,7 +290,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         update_config_from_args(args)
 
-        search_backends = [b.strip() for b in args.search.split(",")] if args.search else ["civitai"]
+        search_backends = (
+            [b.strip() for b in args.search.split(",")] if args.search else ["civitai"]
+        )
 
         workflow_dirs = args.workflow_dirs or [str(d) for d in config.workflow_dirs]
 

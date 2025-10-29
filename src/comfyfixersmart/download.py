@@ -16,33 +16,32 @@ Functions:
 """
 
 import os
-import json
-import time
 import subprocess
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from .config import config
 from .logging import get_logger
 from .state_manager import StateManager
-from .utils import ensure_directory, get_file_size, validate_url, sanitize_filename
+from .utils import get_file_size, sanitize_filename
 
 
 @dataclass
 class DownloadTask:
     """Represents a single download task."""
+
     filename: str
     download_url: str
     target_path: str
     model_type: str
     civitai_id: Optional[int] = None
     version_id: Optional[int] = None
-    confidence: str = 'exact'
+    confidence: str = "exact"
     retry_count: int = 0
     max_retries: int = 3
-    status: str = 'pending'  # 'pending', 'downloading', 'completed', 'failed'
+    status: str = "pending"  # 'pending', 'downloading', 'completed', 'failed'
 
 
 class DownloadScriptGenerator:
@@ -61,8 +60,9 @@ class DownloadScriptGenerator:
         self.state_manager = state_manager
         self.logger = logger or get_logger("DownloadScriptGenerator")
 
-    def generate_script(self, tasks: List[DownloadTask], output_path: str,
-                       run_id: Optional[str] = None) -> str:
+    def generate_script(
+        self, tasks: List[DownloadTask], output_path: str, run_id: Optional[str] = None
+    ) -> str:
         """
         Generate a bash download script.
 
@@ -75,7 +75,7 @@ class DownloadScriptGenerator:
             Path to the generated script
         """
         if run_id is None:
-            run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+            run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         script_lines = self._build_script_header(run_id)
         script_lines.extend(self._build_script_functions())
@@ -84,8 +84,8 @@ class DownloadScriptGenerator:
 
         # Write script
         script_path = Path(output_path)
-        with open(script_path, 'w') as f:
-            f.write('\n'.join(script_lines))
+        with open(script_path, "w") as f:
+            f.write("\n".join(script_lines))
 
         # Make executable
         script_path.chmod(0o755)
@@ -105,16 +105,16 @@ class DownloadScriptGenerator:
             "",
             f'CONFIG_MODELS_DIR="{str(config.models_dir) if config.models_dir else ""}"',
             "# Resolve MODELS_DIR: prefer config, fallback to COMFYUI_ROOT/models",
-            "if [ -n \"$CONFIG_MODELS_DIR\" ]; then",
-            "  MODELS_DIR=\"$CONFIG_MODELS_DIR\"",
-            "elif [ -n \"$COMFYUI_ROOT\" ]; then",
-            "  MODELS_DIR=\"$COMFYUI_ROOT/models\"",
+            'if [ -n "$CONFIG_MODELS_DIR" ]; then',
+            '  MODELS_DIR="$CONFIG_MODELS_DIR"',
+            'elif [ -n "$COMFYUI_ROOT" ]; then',
+            '  MODELS_DIR="$COMFYUI_ROOT/models"',
             "else",
-            "  MODELS_DIR=\"\"",
+            '  MODELS_DIR=""',
             "fi",
             "",
             "# Validate MODELS_DIR",
-            "if [ -z \"$MODELS_DIR\" ] || [ ! -d \"$MODELS_DIR\" ]; then",
+            'if [ -z "$MODELS_DIR" ] || [ ! -d "$MODELS_DIR" ]; then',
             "  echo 'Error: MODELS_DIR not set or does not exist.'",
             "  echo 'Set COMFYUI_ROOT or configure comfyui_root so downloads go to ComfyUI/models.'",
             "  exit 1",
@@ -127,42 +127,42 @@ class DownloadScriptGenerator:
         return [
             "# Function to verify download",
             "verify_download() {",
-            "  local file=\"$1\"",
-            "  local filename=\"$2\"",
-            "  local expected_size=\"$3\"",
+            '  local file="$1"',
+            '  local filename="$2"',
+            '  local expected_size="$3"',
             "  ",
-            "  if [ ! -f \"$file\" ]; then",
-            "    echo \"  ✗ File not found: $file\"",
+            '  if [ ! -f "$file" ]; then',
+            '    echo "  ✗ File not found: $file"',
             "    return 1",
             "  fi",
             "  ",
-            "  local size=$(stat -c%s \"$file\" 2>/dev/null || stat -f%z \"$file\" 2>/dev/null)",
-            "  if [ \"$size\" -lt 1000000 ]; then",
-            "    echo \"  ⚠️  File too small ($size bytes), likely failed\"",
-            "    rm -f \"$file\"",
+            '  local size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null)',
+            '  if [ "$size" -lt 1000000 ]; then',
+            '    echo "  ⚠️  File too small ($size bytes), likely failed"',
+            '    rm -f "$file"',
             "    return 1",
             "  fi",
             "  ",
-            "  if [ -n \"$expected_size\" ] && [ \"$size\" -ne \"$expected_size\" ]; then",
-            "    echo \"  ⚠️  Size mismatch (expected: $expected_size, got: $size)\"",
+            '  if [ -n "$expected_size" ] && [ "$size" -ne "$expected_size" ]; then',
+            '    echo "  ⚠️  Size mismatch (expected: $expected_size, got: $size)"',
             "  fi",
             "  ",
-            "  echo \"  ✓ Downloaded successfully ($size bytes)\"",
+            '  echo "  ✓ Downloaded successfully ($size bytes)"',
             "  return 0",
             "}",
             "",
             "# Function to update state",
             "update_state() {",
-            "  local filename=\"$1\"",
-            "  local status=\"$2\"",
-            "  local file_path=\"$3\"",
+            '  local filename="$1"',
+            '  local status="$2"',
+            '  local file_path="$3"',
             "  ",
             "  if command -v python3 &> /dev/null; then",
-            "    python3 -c \"",
+            '    python3 -c "',
             "from src.comfyfixersmart.state_manager import StateManager",
             "sm = StateManager()",
             "sm.update_download_status('$filename', '$status', file_path='$file_path')",
-            "\" 2>/dev/null || true",
+            '" 2>/dev/null || true',
             "  fi",
             "}",
             "",
@@ -177,28 +177,32 @@ class DownloadScriptGenerator:
             clean_filename = sanitize_filename(task.filename)
             target_path = f"{target_dir}/{clean_filename}"
 
-            confidence_marker = "⚠️  FUZZY MATCH - VERIFY" if task.confidence == 'fuzzy' else "EXACT MATCH"
+            confidence_marker = (
+                "⚠️  FUZZY MATCH - VERIFY" if task.confidence == "fuzzy" else "EXACT MATCH"
+            )
 
-            lines.extend([
-                f"echo '----------------------------------------'",
-                f"# [{confidence_marker}] {task.filename}",
-                f"echo 'Downloading: {clean_filename}'",
-                f"mkdir -p \"{target_dir}\"",
-                "",
-                f"wget -c --content-disposition \\",
-                f"  --timeout=60 --tries={task.max_retries} \\",
-                f"  -O \"{target_path}\" \\",
-                f"  \"{task.download_url}\"",
-                "",
-                f"if verify_download \"{target_path}\" \"{clean_filename}\"; then",
-                f"  echo '  Marking as successful in state'",
-                f"  update_state \"{task.filename}\" \"success\" \"{target_path}\"",
-                f"else",
-                f"  echo '  Download may have failed'",
-                f"  update_state \"{task.filename}\" \"failed\" \"\"",
-                f"fi",
-                ""
-            ])
+            lines.extend(
+                [
+                    "echo '----------------------------------------'",
+                    f"# [{confidence_marker}] {task.filename}",
+                    f"echo 'Downloading: {clean_filename}'",
+                    f'mkdir -p "{target_dir}"',
+                    "",
+                    "wget -c --content-disposition \\",
+                    f"  --timeout=60 --tries={task.max_retries} \\",
+                    f'  -O "{target_path}" \\',
+                    f'  "{task.download_url}"',
+                    "",
+                    f'if verify_download "{target_path}" "{clean_filename}"; then',
+                    "  echo '  Marking as successful in state'",
+                    f'  update_state "{task.filename}" "success" "{target_path}"',
+                    "else",
+                    "  echo '  Download may have failed'",
+                    f'  update_state "{task.filename}" "failed" ""',
+                    "fi",
+                    "",
+                ]
+            )
 
         return lines
 
@@ -208,7 +212,7 @@ class DownloadScriptGenerator:
             "echo '========================================'",
             "echo 'Download complete! Check state with:'",
             "echo '  python3 -c \"from src.comfyfixersmart.state_manager import StateManager; print(StateManager().get_stats())\"'",
-            ""
+            "",
         ]
 
 
@@ -220,8 +224,12 @@ class DownloadManager:
     and state management integration.
     """
 
-    def __init__(self, state_manager: Optional[StateManager] = None,
-                 output_dir: Optional[str] = None, logger=None):
+    def __init__(
+        self,
+        state_manager: Optional[StateManager] = None,
+        output_dir: Optional[str] = None,
+        logger=None,
+    ):
         """
         Initialize the download manager.
 
@@ -249,17 +257,17 @@ class DownloadManager:
         tasks = []
 
         for result in search_results:
-            if result.get('status') != 'FOUND' or not result.get('download_url'):
+            if result.get("status") != "FOUND" or not result.get("download_url"):
                 continue
 
             task = DownloadTask(
-                filename=result['filename'],
-                download_url=result['download_url'],
+                filename=result["filename"],
+                download_url=result["download_url"],
                 target_path=self._get_target_path(result),
-                model_type=result.get('type', 'checkpoints'),
-                civitai_id=result.get('civitai_id'),
-                version_id=result.get('version_id'),
-                confidence=result.get('confidence', 'exact')
+                model_type=result.get("type", "checkpoints"),
+                civitai_id=result.get("civitai_id"),
+                version_id=result.get("version_id"),
+                confidence=result.get("confidence", "exact"),
             )
             tasks.append(task)
 
@@ -267,8 +275,8 @@ class DownloadManager:
 
     def _get_target_path(self, result: Dict[str, Any]) -> str:
         """Get the target file path for a download."""
-        model_type = result.get('type', 'checkpoints')
-        filename = sanitize_filename(result['filename'])
+        model_type = result.get("type", "checkpoints")
+        filename = sanitize_filename(result["filename"])
         # Ensure we target the actual ComfyUI models directory, not the repo
         models_dir = config.models_dir
         if not models_dir:
@@ -277,8 +285,9 @@ class DownloadManager:
             )
         return str(models_dir / model_type / filename)
 
-    def generate_download_script(self, search_results: List[Dict[str, Any]],
-                               run_id: Optional[str] = None) -> str:
+    def generate_download_script(
+        self, search_results: List[Dict[str, Any]], run_id: Optional[str] = None
+    ) -> str:
         """
         Generate a download script from search results.
 
@@ -317,7 +326,7 @@ class DownloadManager:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd=str(self.output_dir)
+                cwd=str(self.output_dir),
             )
 
             if result.returncode == 0:
@@ -344,60 +353,55 @@ class DownloadManager:
         Returns:
             Dictionary with verification results
         """
-        results = {
-            'total': len(tasks),
-            'successful': 0,
-            'failed': 0,
-            'missing': 0,
-            'details': []
-        }
+        results = {"total": len(tasks), "successful": 0, "failed": 0, "missing": 0, "details": []}
 
         for task in tasks:
             verification = self._verify_single_download(task)
-            results['details'].append(verification)
+            results["details"].append(verification)
 
-            if verification['status'] == 'success':
-                results['successful'] += 1
-            elif verification['status'] == 'missing':
-                results['missing'] += 1
+            if verification["status"] == "success":
+                results["successful"] += 1
+            elif verification["status"] == "missing":
+                results["missing"] += 1
             else:
-                results['failed'] += 1
+                results["failed"] += 1
 
         return results
 
     def _verify_single_download(self, task: DownloadTask) -> Dict[str, Any]:
         """Verify a single download."""
         result = {
-            'filename': task.filename,
-            'target_path': task.target_path,
-            'status': 'unknown',
-            'size': 0,
-            'error': None
+            "filename": task.filename,
+            "target_path": task.target_path,
+            "status": "unknown",
+            "size": 0,
+            "error": None,
         }
 
         if not os.path.exists(task.target_path):
-            result['status'] = 'missing'
-            result['error'] = 'File not found'
+            result["status"] = "missing"
+            result["error"] = "File not found"
             return result
 
         try:
             size = get_file_size(task.target_path)
-            result['size'] = size or 0
+            result["size"] = size or 0
 
             if size and size > 1_000_000:  # At least 1MB
-                result['status'] = 'success'
+                result["status"] = "success"
             else:
-                result['status'] = 'failed'
-                result['error'] = f'File too small: {size} bytes'
+                result["status"] = "failed"
+                result["error"] = f"File too small: {size} bytes"
 
         except Exception as e:
-            result['status'] = 'error'
-            result['error'] = str(e)
+            result["status"] = "error"
+            result["error"] = str(e)
 
         return result
 
-    def retry_failed_downloads(self, tasks: List[DownloadTask],
-                             max_retries: int = 3) -> List[DownloadTask]:
+    def retry_failed_downloads(
+        self, tasks: List[DownloadTask], max_retries: int = 3
+    ) -> List[DownloadTask]:
         """
         Create retry tasks for failed downloads.
 
@@ -430,7 +434,7 @@ class DownloadManager:
                 version_id=task.version_id,
                 confidence=task.confidence,
                 retry_count=task.retry_count + 1,
-                max_retries=max_retries
+                max_retries=max_retries,
             )
             retry_tasks.append(retry_task)
 
@@ -439,7 +443,7 @@ class DownloadManager:
     def get_download_stats(self) -> Dict[str, Any]:
         """Get download statistics from state manager."""
         if not self.state_manager:
-            return {'error': 'No state manager configured'}
+            return {"error": "No state manager configured"}
 
         return self.state_manager.get_stats()
 

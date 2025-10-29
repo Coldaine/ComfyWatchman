@@ -13,8 +13,11 @@ from unittest.mock import Mock, patch
 import pytest
 
 from comfyfixersmart.scanner import (
-    WorkflowScanner, WorkflowInfo, ModelReference,
-    scan_workflows, extract_models_from_workflow
+    WorkflowScanner,
+    WorkflowInfo,
+    ModelReference,
+    scan_workflows,
+    extract_models_from_workflow,
 )
 
 
@@ -30,7 +33,7 @@ class TestWorkflowInfo:
             is_valid=True,
             model_count=5,
             node_count=10,
-            errors=[]
+            errors=[],
         )
 
         assert info.path == "/path/to/workflow.json"
@@ -53,7 +56,7 @@ class TestModelReference:
             node_type="CheckpointLoaderSimple",
             workflow_path="/path/to/workflow.json",
             node_id="1",
-            widget_name="widgets_values[0]"
+            widget_name="widgets_values[0]",
         )
 
         assert ref.filename == "model.safetensors"
@@ -69,7 +72,7 @@ class TestModelReference:
             filename="model.safetensors",
             type="checkpoints",
             node_type="CheckpointLoaderSimple",
-            workflow_path="/path/to/workflow.json"
+            workflow_path="/path/to/workflow.json",
         )
 
         assert ref.node_id is None
@@ -107,7 +110,7 @@ class TestWorkflowScanner:
             str(workflow1),
             str(workflow2),
             str(non_json),  # Should be filtered out
-            "/nonexistent.json"  # Should be filtered out
+            "/nonexistent.json",  # Should be filtered out
         ]
 
         result = scanner.scan_workflows(specific_paths=paths)
@@ -155,7 +158,7 @@ class TestWorkflowScanner:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["model.safetensors"]
+                    "widgets_values": ["model.safetensors"],
                 }
             ]
         }
@@ -181,13 +184,9 @@ class TestWorkflowScanner:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["model.safetensors"]
+                    "widgets_values": ["model.safetensors"],
                 },
-                {
-                    "id": "2",
-                    "type": "CLIPTextEncode",
-                    "widgets_values": ["some text"]
-                }
+                {"id": "2", "type": "CLIPTextEncode", "widgets_values": ["some text"]},
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
@@ -221,23 +220,15 @@ class TestWorkflowScanner:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["model.safetensors"]
+                    "widgets_values": ["model.safetensors"],
                 },
-                {
-                    "id": "2",
-                    "type": "LoraLoader",
-                    "widgets_values": ["lora1.safetensors", 1.0]
-                },
-                {
-                    "id": "3",
-                    "type": "VAELoader",
-                    "widgets_values": ["vae.safetensors"]
-                },
+                {"id": "2", "type": "LoraLoader", "widgets_values": ["lora1.safetensors", 1.0]},
+                {"id": "3", "type": "VAELoader", "widgets_values": ["vae.safetensors"]},
                 {
                     "id": "4",
                     "type": "CLIPTextEncode",
-                    "widgets_values": ["some text"]  # Not a model
-                }
+                    "widgets_values": ["some text"],  # Not a model
+                },
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
@@ -273,8 +264,12 @@ class TestWorkflowScanner:
         workflow_file = tmp_path / "workflow.json"
         workflow_data = {
             "nodes": [
-                {"id": "1", "type": "CheckpointLoaderSimple", "widgets_values": ["model.safetensors"]},
-                {"id": "2", "type": "CLIPTextEncode", "widgets_values": ["text"]}
+                {
+                    "id": "1",
+                    "type": "CheckpointLoaderSimple",
+                    "widgets_values": ["model.safetensors"],
+                },
+                {"id": "2", "type": "CLIPTextEncode", "widgets_values": ["text"]},
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
@@ -301,13 +296,9 @@ class TestWorkflowScanner:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["model.safetensors"]
+                    "widgets_values": ["model.safetensors"],
                 },
-                {
-                    "id": "2",
-                    "type": "CLIPTextEncode",
-                    "widgets_values": ["some text"]
-                }
+                {"id": "2", "type": "CLIPTextEncode", "widgets_values": ["some text"]},
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
@@ -335,12 +326,7 @@ class TestWorkflowScanner:
     def test_validate_workflow_missing_node_type(self, tmp_path):
         """Test validating workflow with missing node type."""
         workflow_file = tmp_path / "workflow.json"
-        workflow_data = {
-            "nodes": [
-                {"id": "1"},  # Missing type
-                {"id": "2", "type": "ValidType"}
-            ]
-        }
+        workflow_data = {"nodes": [{"id": "1"}, {"id": "2", "type": "ValidType"}]}  # Missing type
         workflow_file.write_text(json.dumps(workflow_data))
 
         scanner = WorkflowScanner()
@@ -353,10 +339,7 @@ class TestWorkflowScanner:
         """Test validating workflow with duplicate node IDs."""
         workflow_file = tmp_path / "workflow.json"
         workflow_data = {
-            "nodes": [
-                {"id": "1", "type": "Type1"},
-                {"id": "1", "type": "Type2"}  # Duplicate ID
-            ]
+            "nodes": [{"id": "1", "type": "Type1"}, {"id": "1", "type": "Type2"}]  # Duplicate ID
         }
         workflow_file.write_text(json.dumps(workflow_data))
 
@@ -372,17 +355,19 @@ class TestWorkflowScanner:
         workflow1 = tmp_path / "workflow1.json"
         workflow1_data = {
             "nodes": [
-                {"id": "1", "type": "CheckpointLoaderSimple", "widgets_values": ["model1.safetensors"]},
-                {"id": "2", "type": "LoraLoader", "widgets_values": ["lora1.safetensors", 1.0]}
+                {
+                    "id": "1",
+                    "type": "CheckpointLoaderSimple",
+                    "widgets_values": ["model1.safetensors"],
+                },
+                {"id": "2", "type": "LoraLoader", "widgets_values": ["lora1.safetensors", 1.0]},
             ]
         }
         workflow1.write_text(json.dumps(workflow1_data))
 
         workflow2 = tmp_path / "workflow2.json"
         workflow2_data = {
-            "nodes": [
-                {"id": "1", "type": "VAELoader", "widgets_values": ["vae1.safetensors"]}
-            ]
+            "nodes": [{"id": "1", "type": "VAELoader", "widgets_values": ["vae1.safetensors"]}]
         }
         workflow2.write_text(json.dumps(workflow2_data))
 
@@ -420,7 +405,11 @@ class TestConvenienceFunctions:
         workflow_file = tmp_path / "workflow.json"
         workflow_data = {
             "nodes": [
-                {"id": "1", "type": "CheckpointLoaderSimple", "widgets_values": ["model.safetensors"]}
+                {
+                    "id": "1",
+                    "type": "CheckpointLoaderSimple",
+                    "widgets_values": ["model.safetensors"],
+                }
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
@@ -446,33 +435,25 @@ class TestScannerIntegration:
                 {
                     "id": "1",
                     "type": "CheckpointLoaderSimple",
-                    "widgets_values": ["realisticVisionV60B1_v60B1VAE.safetensors"]
+                    "widgets_values": ["realisticVisionV60B1_v60B1VAE.safetensors"],
                 },
-                {
-                    "id": "2",
-                    "type": "CLIPTextEncode",
-                    "widgets_values": ["a beautiful landscape"]
-                },
+                {"id": "2", "type": "CLIPTextEncode", "widgets_values": ["a beautiful landscape"]},
                 {
                     "id": "3",
                     "type": "VAELoader",
-                    "widgets_values": ["vae-ft-mse-840000-ema-pruned.safetensors"]
+                    "widgets_values": ["vae-ft-mse-840000-ema-pruned.safetensors"],
                 },
                 {
                     "id": "4",
                     "type": "LoraLoader",
-                    "widgets_values": ["epiNoiseoffset_v2.safetensors", 1.0, 1.0]
+                    "widgets_values": ["epiNoiseoffset_v2.safetensors", 1.0, 1.0],
                 },
                 {
                     "id": "5",
                     "type": "ControlNetLoader",
-                    "widgets_values": ["control_v11p_sd15_canny.pth"]
+                    "widgets_values": ["control_v11p_sd15_canny.pth"],
                 },
-                {
-                    "id": "6",
-                    "type": "UpscaleModelLoader",
-                    "widgets_values": ["4x-UltraSharp.pth"]
-                }
+                {"id": "6", "type": "UpscaleModelLoader", "widgets_values": ["4x-UltraSharp.pth"]},
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
@@ -487,7 +468,7 @@ class TestScannerIntegration:
         details = scanner.scan_workflows_detailed(specific_paths=[str(workflow_file)])
         assert len(details) == 1
         assert details[0].model_count == 5  # 5 model references
-        assert details[0].node_count == 6   # 6 total nodes
+        assert details[0].node_count == 6  # 6 total nodes
 
         # Test model extraction
         models = scanner.extract_models_from_workflow(str(workflow_file))
@@ -498,7 +479,7 @@ class TestScannerIntegration:
             ("vae-ft-mse-840000-ema-pruned.safetensors", "vae"),
             ("epiNoiseoffset_v2.safetensors", "loras"),
             ("control_v11p_sd15_canny.pth", "controlnet"),
-            ("4x-UltraSharp.pth", "upscale_models")
+            ("4x-UltraSharp.pth", "upscale_models"),
         ]
 
         for i, (expected_filename, expected_type) in enumerate(expected_models):

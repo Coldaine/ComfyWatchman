@@ -7,7 +7,7 @@ to provide clean boundaries between ComfyFixerSmart and external dependencies.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 
 class BaseAdapter(ABC):
@@ -143,6 +143,7 @@ class CopilotAdapter(BaseAdapter):
         """
         try:
             import comfyui_copilot  # type: ignore
+
             self.copilot_available = True
             return True
         except ImportError:
@@ -175,4 +176,4 @@ class CopilotAdapter(BaseAdapter):
             return []
 
         # Subclasses should override to return actual capabilities
-        return ["copilot_integration"]# Kilo Experiment - Base Adapter Classes
+        return ["copilot_integration"]  # Kilo Experiment - Base Adapter Classes

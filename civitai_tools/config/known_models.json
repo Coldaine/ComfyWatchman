@@ -1,0 +1,22 @@
+{
+  "better detailed pussy and anus": {
+    "model_id": 1091495,
+    "model_name": "Better detailed pussy and anus",
+    "version": "v3.0",
+    "version_id": null,
+    "type": "LORA",
+    "creator": "BoRnNo0b",
+    "url": "https://civitai.com/models/1091495",
+    "notes": "Search API fails for this model due to explicit term filtering"
+  },
+  "eyes high definition": {
+    "model_id": 670378,
+    "model_name": "Eyes High Definition",
+    "version": "V1",
+    "version_id": null,
+    "type": "LORA",
+    "creator": "Awawa",
+    "url": "https://civitai.com/models/670378",
+    "notes": "Query search returns unrelated character OCs instead"
+  }
+}

@@ -13,11 +13,16 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from io import StringIO
 
-import pytest</search>
+import pytest
 
 from comfyfixersmart.logging import (
-    LogConfig, StructuredFormatter, ComfyFixerLogger,
-    get_logger, setup_logging, log, log_with_timestamp
+    LogConfig,
+    StructuredFormatter,
+    ComfyFixerLogger,
+    get_logger,
+    setup_logging,
+    log,
+    log_with_timestamp,
 )
 
 
@@ -45,7 +50,7 @@ class TestLogConfig:
             log_dir=Path("/custom/log"),
             console_level=logging.DEBUG,
             max_bytes=5 * 1024 * 1024,
-            enable_structured=False
+            enable_structured=False,
         )
 
         assert custom_config.log_dir == Path("/custom/log")
@@ -67,7 +72,7 @@ class TestStructuredFormatter:
             lineno=10,
             msg="Test message",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         record.created = 1640995200.0  # 2022-01-01 00:00:00 UTC
 
@@ -92,7 +97,7 @@ class TestStructuredFormatter:
             lineno=10,
             msg="Test message",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         record.extra_data = {"custom_field": "custom_value", "number": 42}
 
@@ -118,7 +123,7 @@ class TestStructuredFormatter:
             lineno=10,
             msg="Error occurred",
             args=(),
-            exc_info=exc_info
+            exc_info=exc_info,
         )
 
         result = formatter.format(record)
@@ -174,7 +179,9 @@ class TestComfyFixerLogger:
     def test_logger_setup_structured_handler(self, tmp_path):
         """Test that structured handler is created when enabled."""
         log_dir = tmp_path / "logs"
-        config = LogConfig(log_dir=log_dir, enable_structured=True, structured_file="structured.log")
+        config = LogConfig(
+            log_dir=log_dir, enable_structured=True, structured_file="structured.log"
+        )
         logger = ComfyFixerLogger(config=config)
 
         # Should have structured handler
@@ -260,7 +267,7 @@ class TestComfyFixerLogger:
 class TestGlobalLoggerFunctions:
     """Test global logger functions."""
 
-    @patch('comfyfixersmart.logging._default_logger', None)
+    @patch("comfyfixersmart.logging._default_logger", None)
     def test_get_logger_creates_new_instance(self):
         """Test get_logger creates new instance when none exists."""
         logger = get_logger("TestLogger")
@@ -268,7 +275,7 @@ class TestGlobalLoggerFunctions:
         assert isinstance(logger, ComfyFixerLogger)
         assert logger.name == "TestLogger"
 
-    @patch('comfyfixersmart.logging._default_logger')
+    @patch("comfyfixersmart.logging._default_logger")
     def test_get_logger_returns_existing_instance(self, mock_logger):
         """Test get_logger returns existing instance."""
         mock_logger.name = "ExistingLogger"
@@ -276,7 +283,7 @@ class TestGlobalLoggerFunctions:
 
         assert logger == mock_logger
 
-    @patch('comfyfixersmart.logging._default_logger', None)
+    @patch("comfyfixersmart.logging._default_logger", None)
     def test_get_logger_with_config(self):
         """Test get_logger with config parameter."""
         config = LogConfig(console_level=logging.DEBUG)
@@ -347,9 +354,7 @@ class TestLoggerFileOutput:
         """Test that structured logging creates JSON log files."""
         log_dir = tmp_path / "logs"
         config = LogConfig(
-            log_dir=log_dir,
-            enable_structured=True,
-            structured_file="structured.log"
+            log_dir=log_dir, enable_structured=True, structured_file="structured.log"
         )
         logger = ComfyFixerLogger(config=config)
 
@@ -362,7 +367,7 @@ class TestLoggerFileOutput:
         # Check that content is valid JSON
         content = structured_file.read_text().strip()
         if content:  # May be empty if buffering
-            lines = content.split('\n')
+            lines = content.split("\n")
             for line in lines:
                 if line.strip():
                     parsed = json.loads(line)
@@ -373,9 +378,7 @@ class TestLoggerFileOutput:
         """Test log file rotation."""
         log_dir = tmp_path / "logs"
         config = LogConfig(
-            log_dir=log_dir,
-            max_bytes=100,  # Small size to trigger rotation
-            backup_count=2
+            log_dir=log_dir, max_bytes=100, backup_count=2  # Small size to trigger rotation
         )
         logger = ComfyFixerLogger(config=config)
 
@@ -394,15 +397,14 @@ class TestLoggerLevels:
     def test_console_level_filtering(self, tmp_path, capsys):
         """Test that console handler respects log level."""
         config = LogConfig(
-            log_dir=tmp_path / "logs",
-            console_level=logging.WARNING  # Only WARNING and above
+            log_dir=tmp_path / "logs", console_level=logging.WARNING  # Only WARNING and above
         )
         logger = ComfyFixerLogger(config=config)
 
         logger.debug("Debug message")  # Should not appear
-        logger.info("Info message")    # Should not appear
+        logger.info("Info message")  # Should not appear
         logger.warning("Warning message")  # Should appear
-        logger.error("Error message")     # Should appear
+        logger.error("Error message")  # Should appear
 
         captured = capsys.readouterr()
         output = captured.out
@@ -417,7 +419,7 @@ class TestLoggerLevels:
         config = LogConfig(
             log_dir=tmp_path / "logs",
             console_level=logging.WARNING,  # Console only shows WARNING+
-            file_level=logging.DEBUG       # File logs everything
+            file_level=logging.DEBUG,  # File logs everything
         )
         logger = ComfyFixerLogger(config=config)
 

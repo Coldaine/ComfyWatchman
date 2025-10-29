@@ -62,8 +62,9 @@ def temp_output_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def sample_config(temp_config_dir: Path, temp_log_dir: Path,
-                 temp_state_dir: Path, temp_output_dir: Path) -> Config:
+def sample_config(
+    temp_config_dir: Path, temp_log_dir: Path, temp_state_dir: Path, temp_output_dir: Path
+) -> Config:
     """Create a sample configuration for testing."""
     return Config(
         comfyui_root=Path("/tmp/comfyui"),
@@ -78,7 +79,7 @@ def sample_config(temp_config_dir: Path, temp_log_dir: Path,
         civitai_download_base="https://civitai.com/api/download/models",
         civitai_api_timeout=10,
         model_extensions=[".safetensors", ".ckpt", ".pt"],
-        state_file="test_state.json"
+        state_file="test_state.json",
     )
 
 
@@ -100,31 +101,24 @@ def sample_workflow_data() -> Dict[str, Any]:
     return {
         "1": {
             "class_type": "CheckpointLoaderSimple",
-            "inputs": {
-                "ckpt_name": "realisticVisionV60B1_v60B1VAE.safetensors"
-            }
+            "inputs": {"ckpt_name": "realisticVisionV60B1_v60B1VAE.safetensors"},
         },
         "2": {
             "class_type": "CLIPTextEncode",
-            "inputs": {
-                "text": "a beautiful landscape",
-                "clip": ["1", 1]
-            }
+            "inputs": {"text": "a beautiful landscape", "clip": ["1", 1]},
         },
         "3": {
             "class_type": "VAELoader",
-            "inputs": {
-                "vae_name": "vae-ft-mse-840000-ema-pruned.safetensors"
-            }
+            "inputs": {"vae_name": "vae-ft-mse-840000-ema-pruned.safetensors"},
         },
         "4": {
             "class_type": "LoraLoader",
             "inputs": {
                 "lora_name": "epiNoiseoffset_v2.safetensors",
                 "strength_model": 1.0,
-                "strength_clip": 1.0
-            }
-        }
+                "strength_clip": 1.0,
+            },
+        },
     }
 
 
@@ -132,7 +126,7 @@ def sample_workflow_data() -> Dict[str, Any]:
 def sample_workflow_file(tmp_path: Path, sample_workflow_data: Dict[str, Any]) -> Path:
     """Create a sample workflow file for testing."""
     workflow_file = tmp_path / "sample_workflow.json"
-    with open(workflow_file, 'w') as f:
+    with open(workflow_file, "w") as f:
         json.dump(sample_workflow_data, f, indent=2)
     return workflow_file
 
@@ -152,11 +146,11 @@ def mock_api_response() -> Dict[str, Any]:
                     {
                         "name": "test_model.safetensors",
                         "downloadUrl": "https://civitai.com/api/download/models/67890",
-                        "sizeKB": 2048000
+                        "sizeKB": 2048000,
                     }
-                ]
+                ],
             }
-        ]
+        ],
     }
 
 
@@ -167,7 +161,7 @@ def mock_huggingface_response() -> Dict[str, Any]:
         "repo": "test/repo",
         "file_path": "models/test_model.safetensors",
         "download_url": "https://huggingface.co/test/repo/resolve/main/models/test_model.safetensors",
-        "size": 2097152000
+        "size": 2097152000,
     }
 
 
@@ -177,7 +171,7 @@ def mock_env_vars():
     env_vars = {
         "CIVITAI_API_KEY": "test_api_key_32_chars_long_12345",
         "COMFYUI_ROOT": "/tmp/comfyui",
-        "PYTHONPATH": "/home/coldaine/StableDiffusionWorkflow/ComfyFixerSmart/src"
+        "PYTHONPATH": "/home/coldaine/StableDiffusionWorkflow/ComfyFixerSmart/src",
     }
     with patch.dict(os.environ, env_vars):
         yield
@@ -186,14 +180,14 @@ def mock_env_vars():
 @pytest.fixture
 def mock_requests_get():
     """Mock requests.get for API testing."""
-    with patch('requests.get') as mock_get:
+    with patch("requests.get") as mock_get:
         yield mock_get
 
 
 @pytest.fixture
 def mock_subprocess_run():
     """Mock subprocess.run for command execution testing."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         yield mock_run
 
 
@@ -204,8 +198,8 @@ class TestHelpers:
     def create_mock_model_file(directory: Path, filename: str, size: int = 1024) -> Path:
         """Create a mock model file with specified size."""
         file_path = directory / filename
-        with open(file_path, 'wb') as f:
-            f.write(b'0' * size)
+        with open(file_path, "wb") as f:
+            f.write(b"0" * size)
         return file_path
 
     @staticmethod
@@ -217,14 +211,12 @@ class TestHelpers:
         for model in models:
             workflow_data[str(node_id)] = {
                 "class_type": model.get("node_type", "CheckpointLoaderSimple"),
-                "inputs": {
-                    model.get("input_key", "ckpt_name"): model["filename"]
-                }
+                "inputs": {model.get("input_key", "ckpt_name"): model["filename"]},
             }
             node_id += 1
 
         workflow_file = directory / f"{name}.json"
-        with open(workflow_file, 'w') as f:
+        with open(workflow_file, "w") as f:
             json.dump(workflow_data, f, indent=2)
 
         return workflow_file

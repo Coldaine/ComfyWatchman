@@ -126,7 +126,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         )
 
     items = json_results if isinstance(json_results, list) else [json_results]
-    exit_code = 1 if any((item.get("warnings") for item in items if isinstance(item, dict) and item.get("warnings"))) else 0
+    exit_code = (
+        1
+        if any(
+            item.get("warnings")
+            for item in items
+            if isinstance(item, dict) and item.get("warnings")
+        )
+        else 0
+    )
 
     if args.format == "json":
         payload: object

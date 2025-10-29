@@ -5,11 +5,12 @@ Provides a state management backend that uses SQLAlchemy, leveraging the
 data access objects (DAO) from the forked ComfyUI-Copilot repository.
 """
 
-from typing import Dict, Any, Optional, List
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ..state_manager import StateManager, StateData, DownloadAttempt, DownloadStatus
 from ..logging import get_logger
+from ..state_manager import DownloadAttempt, StateData, AbstractStateManager
 from . import SQLALCHEMY_AVAILABLE
 
 # Conditionally import from the forked submodule
@@ -23,7 +24,7 @@ else:
     WorkflowDatabase = None
 
 
-class SqlStateManager(StateManager):
+class SqlStateManager(AbstractStateManager):
     """
     A state manager that persists state to a SQLite database using SQLAlchemy.
     This class is an adapter for the DAO layer from the Copilot backend.
@@ -37,7 +38,8 @@ class SqlStateManager(StateManager):
             db_path: The file path to the SQLite database.
             logger: Optional logger instance.
         """
-        # We don't call super().__init__() because we are replacing its functionality.
+        # Call the parent class's __init__ method
+        super().__init__()
         self.logger = logger or get_logger("SqlStateManager")
         self.db_path = db_path
         self._db: Optional[WorkflowDatabase] = None
@@ -73,13 +75,15 @@ class SqlStateManager(StateManager):
         if not self.enabled or not self._db:
             return StateData()
 
-        self.logger.warning("Loading state from SQL is a placeholder and does not fully represent download history.")
-        
+        self.logger.warning(
+            "Loading state from SQL is a placeholder and does not fully represent download history."
+        )
+
         # Placeholder: We can't easily map our DownloadAttempt history to their
         # workflow versioning system. We will return an empty state for now.
         state = StateData()
-        state.metadata['backend'] = 'sql'
-        state.metadata['db_path'] = self.db_path
+        state.metadata["backend"] = "sql"
+        state.metadata["db_path"] = self.db_path
         return state
 
     def _save_state(self):
@@ -93,7 +97,9 @@ class SqlStateManager(StateManager):
         if not self.enabled or not self._db:
             return
 
-        self.logger.warning("Saving state to SQL is a placeholder and does not persist download history.")
+        self.logger.warning(
+            "Saving state to SQL is a placeholder and does not persist download history."
+        )
         # Placeholder: In a real implementation, we would iterate through
         # self.state.history and save relevant information as workflow versions.
         # For example:
@@ -105,21 +111,48 @@ class SqlStateManager(StateManager):
     # We will override all public methods from the base StateManager
     # For now, most will be placeholders that log a warning.
 
-    def mark_download_attempted(self, filename: str, model_info: Dict[str, Any], civitai_info: Optional[Dict[str, Any]] = None):
+    def mark_download_attempted(
+        self,
+        filename: str,
+        model_info: Dict[str, Any],
+        civitai_info: Optional[Dict[str, Any]] = None,
+    ):
         self.logger.info(f"[SQL Backend] Placeholder: Marked download attempted for {filename}")
         # In a real implementation, this might create a new "workflow_version"
         # with a "pending" status attribute.
 
-    def mark_download_success(self, filename: str, file_path: Path, file_size: int, checksum: Optional[str] = None):
+    def mark_download_success(
+        self, filename: str, file_path: Path, file_size: int, checksum: Optional[str] = None
+    ):
         self.logger.info(f"[SQL Backend] Placeholder: Marked download success for {filename}")
 
     def mark_download_failed(self, filename: str, error_message: str):
         self.logger.info(f"[SQL Backend] Placeholder: Marked download failed for {filename}")
 
     def get_download_status(self, filename: str) -> Optional[str]:
-        return None # Placeholder
+        return None  # Placeholder
 
     def get_successful_downloads(self) -> Dict[str, DownloadAttempt]:
-        return {} # Placeholder
+        return {}  # Placeholder
 
-    # ... other methods would also be overridden ...
+    def get_failed_downloads(self) -> List[str]:
+        """Get list of models that failed to download."""
+        return []  # Placeholder
+
+    def was_recently_attempted(self, filename: str, hours: int = 24) -> bool:
+        """Check if a download was attempted recently."""
+        return False  # Placeholder
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get comprehensive statistics about downloads."""
+        return {
+            "version": "2.0",
+            "total_unique_models": 0,
+            "total_attempts": 0,
+            "successful": 0,
+            "failed": 0,
+            "pending": 0,
+            "attempted": 0,
+            "total_downloaded_size": 0,
+            "last_updated": datetime.now().isoformat(),
+        }  # Placeholder
