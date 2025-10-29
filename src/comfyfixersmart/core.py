@@ -34,10 +34,11 @@ from .utils import save_json_file, ensure_directory
 @dataclass
 class WorkflowRun:
     """Represents a complete ComfyFixerSmart run."""
+
     run_id: str
     start_time: datetime
     end_time: Optional[datetime] = None
-    status: str = 'running'  # 'running', 'completed', 'failed'
+    status: str = "running"  # 'running', 'completed', 'failed'
 
     # Statistics
     workflows_scanned: int = 0
@@ -63,21 +64,21 @@ class WorkflowRun:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
-            'run_id': self.run_id,
-            'start_time': self.start_time.isoformat(),
-            'end_time': self.end_time.isoformat() if self.end_time else None,
-            'status': self.status,
-            'workflows_scanned': self.workflows_scanned,
-            'models_found': self.models_found,
-            'models_missing': self.models_missing,
-            'models_resolved': self.models_resolved,
-            'downloads_generated': self.downloads_generated,
-            'output_dir': self.output_dir,
-            'log_file': self.log_file,
-            'missing_file': self.missing_file,
-            'resolutions_file': self.resolutions_file,
-            'download_script': self.download_script,
-            'errors': self.errors
+            "run_id": self.run_id,
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "status": self.status,
+            "workflows_scanned": self.workflows_scanned,
+            "models_found": self.models_found,
+            "models_missing": self.models_missing,
+            "models_resolved": self.models_resolved,
+            "downloads_generated": self.downloads_generated,
+            "output_dir": self.output_dir,
+            "log_file": self.log_file,
+            "missing_file": self.missing_file,
+            "resolutions_file": self.resolutions_file,
+            "download_script": self.download_script,
+            "errors": self.errors,
         }
 
 
@@ -104,16 +105,21 @@ class ComfyFixerCore:
         self.scanner = WorkflowScanner(logger=self.logger)
         self.inventory = ModelInventory(state_manager=self.state_manager, logger=self.logger)
         self.search = ModelSearch(state_manager=self.state_manager, logger=self.logger)
-        self.download_manager = DownloadManager(state_manager=self.state_manager, logger=self.logger)
+        self.download_manager = DownloadManager(
+            state_manager=self.state_manager, logger=self.logger
+        )
 
         # Current run tracking
         self.current_run: Optional[WorkflowRun] = None
 
-    def run_workflow_analysis(self, specific_workflows: Optional[List[str]] = None,
-                            workflow_dirs: Optional[List[str]] = None,
-                            search_backends: Optional[List[str]] = None,
-                            generate_script: bool = True,
-                            verify_urls: bool = False) -> WorkflowRun:
+    def run_workflow_analysis(
+        self,
+        specific_workflows: Optional[List[str]] = None,
+        workflow_dirs: Optional[List[str]] = None,
+        search_backends: Optional[List[str]] = None,
+        generate_script: bool = True,
+        verify_urls: bool = False,
+    ) -> WorkflowRun:
         """
         Run the complete ComfyFixerSmart workflow analysis.
 
@@ -128,11 +134,9 @@ class ComfyFixerCore:
             WorkflowRun object with results
         """
         # Initialize run
-        run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+        run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.current_run = WorkflowRun(
-            run_id=run_id,
-            start_time=datetime.now(),
-            output_dir=str(config.output_dir)
+            run_id=run_id, start_time=datetime.now(), output_dir=str(config.output_dir)
         )
 
         try:
@@ -145,21 +149,21 @@ class ComfyFixerCore:
             workflows = self._scan_workflows(specific_workflows, workflow_dirs)
 
             if not workflows:
-                self._complete_run('completed', "No workflows found")
+                self._complete_run("completed", "No workflows found")
                 return self.current_run
 
             # Step 2: Extract and analyze models
             all_models, local_inventory = self._analyze_models(workflows)
 
             if not all_models:
-                self._complete_run('completed', "No models found in workflows")
+                self._complete_run("completed", "No models found in workflows")
                 return self.current_run
 
             # Step 3: Find missing models
             missing_models = self._find_missing_models(all_models, local_inventory)
 
             if not missing_models:
-                self._complete_run('completed', "All models are available locally")
+                self._complete_run("completed", "All models are available locally")
                 return self.current_run
 
             # Step 4: Search for missing models
@@ -172,16 +176,17 @@ class ComfyFixerCore:
                     self.current_run.download_script = script_path
 
             # Complete successfully
-            self._complete_run('completed')
+            self._complete_run("completed")
 
         except Exception as e:
             self.logger.error(f"Workflow analysis failed: {e}")
-            self._complete_run('failed', str(e))
+            self._complete_run("failed", str(e))
 
         return self.current_run
 
-    def _scan_workflows(self, specific_workflows: Optional[List[str]],
-                       workflow_dirs: Optional[List[str]]) -> List[str]:
+    def _scan_workflows(
+        self, specific_workflows: Optional[List[str]], workflow_dirs: Optional[List[str]]
+    ) -> List[str]:
         """Scan workflows and update run statistics."""
         workflows = self.scanner.scan_workflows(specific_workflows, workflow_dirs)
         self.current_run.workflows_scanned = len(workflows)
@@ -197,12 +202,14 @@ class ComfyFixerCore:
             models = self.scanner.extract_models_from_workflow(workflow)
             # Convert ModelReference objects to dicts for compatibility
             for model in models:
-                all_models.append({
-                    'filename': model.filename,
-                    'type': model.type,
-                    'node_type': model.node_type,
-                    'workflow': os.path.basename(model.workflow_path)
-                })
+                all_models.append(
+                    {
+                        "filename": model.filename,
+                        "type": model.type,
+                        "node_type": model.node_type,
+                        "workflow": os.path.basename(model.workflow_path),
+                    }
+                )
 
         self.current_run.models_found = len(all_models)
 
@@ -211,8 +218,9 @@ class ComfyFixerCore:
 
         return all_models, local_inventory
 
-    def _find_missing_models(self, all_models: List[Dict[str, Any]],
-                           local_inventory: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _find_missing_models(
+        self, all_models: List[Dict[str, Any]], local_inventory: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """Find models that are missing from local inventory."""
         self.logger.info("=== Finding Missing Models ===")
 
@@ -220,7 +228,7 @@ class ComfyFixerCore:
         seen_filenames = set()
 
         for model in all_models:
-            filename = model['filename']
+            filename = model["filename"]
 
             if filename in seen_filenames:
                 continue
@@ -229,11 +237,13 @@ class ComfyFixerCore:
             if filename not in local_inventory:
                 # Check state manager for recent downloads
                 status = self.state_manager.get_download_status(filename)
-                if status == 'success':
+                if status == "success":
                     continue
 
                 # Check for recent failures (optional retry logic)
-                if status == 'failed' and self.state_manager.was_recently_attempted(filename, hours=1):
+                if status == "failed" and self.state_manager.was_recently_attempted(
+                    filename, hours=1
+                ):
                     continue
 
                 missing.append(model)
@@ -249,21 +259,20 @@ class ComfyFixerCore:
 
         return missing
 
-    def _search_missing_models(self, missing_models: List[Dict[str, Any]],
-                             search_backends: Optional[List[str]]) -> List[SearchResult]:
+    def _search_missing_models(
+        self, missing_models: List[Dict[str, Any]], search_backends: Optional[List[str]]
+    ) -> List[SearchResult]:
         """Search for missing models using configured backends."""
         self.logger.info("=== Searching for Missing Models ===")
 
         if search_backends is None:
-            search_backends = ['civitai']  # Default to Civitai
+            search_backends = ["civitai"]  # Default to Civitai
 
         search_results = self.search.search_multiple_models(
-            missing_models,
-            backends=search_backends,
-            use_cache=True
+            missing_models, backends=search_backends, use_cache=True
         )
 
-        resolved_count = sum(1 for result in search_results if result.status == 'FOUND')
+        resolved_count = sum(1 for result in search_results if result.status == "FOUND")
         self.current_run.models_resolved = resolved_count
 
         self.logger.info(f"Resolved {resolved_count}/{len(missing_models)} models")
@@ -285,8 +294,7 @@ class ComfyFixerCore:
         results_dict = [result.__dict__ for result in search_results]
 
         script_path = self.download_manager.generate_download_script(
-            results_dict,
-            run_id=self.current_run.run_id
+            results_dict, run_id=self.current_run.run_id
         )
 
         if script_path:
@@ -306,7 +314,7 @@ class ComfyFixerCore:
         duration = self.current_run.end_time - self.current_run.start_time
         self.logger.info(f"Run {status} in {duration.total_seconds():.1f} seconds")
 
-        if status == 'completed':
+        if status == "completed":
             self._log_completion_summary()
 
     def _log_completion_summary(self):
@@ -371,9 +379,14 @@ class ComfyFixerCore:
 
 
 # Convenience functions for backward compatibility and CLI usage
-def run_comfy_fixer(specific_workflows=None, workflow_dirs=None,
-                   search_backends=None, generate_script=True,
-                   verify_urls=False, logger=None):
+def run_comfy_fixer(
+    specific_workflows=None,
+    workflow_dirs=None,
+    search_backends=None,
+    generate_script=True,
+    verify_urls=False,
+    logger=None,
+):
     """
     Main entry point for running ComfyFixerSmart.
 
@@ -394,7 +407,7 @@ def run_comfy_fixer(specific_workflows=None, workflow_dirs=None,
         workflow_dirs=workflow_dirs,
         search_backends=search_backends,
         generate_script=generate_script,
-        verify_urls=verify_urls
+        verify_urls=verify_urls,
     )
 
 
@@ -411,13 +424,13 @@ def run_v1_compatibility_mode(specific_workflows=None, verify_urls=False, logger
         WorkflowRun object
     """
     # V1 uses Qwen search as optional backend
-    backends = ['qwen'] if verify_urls else ['civitai']
+    backends = ["qwen"] if verify_urls else ["civitai"]
     return run_comfy_fixer(
         specific_workflows=specific_workflows,
         search_backends=backends,
         generate_script=True,
         verify_urls=verify_urls,
-        logger=logger
+        logger=logger,
     )
 
 
@@ -444,5 +457,5 @@ def run_v2_compatibility_mode(specific_workflows=None, retry_failed=False, logge
         specific_workflows=specific_workflows,
         search_backends=None,  # Use config defaults (qwen, civitai) for best results
         generate_script=True,
-        verify_urls=False
+        verify_urls=False,
     )
