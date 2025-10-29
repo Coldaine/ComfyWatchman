@@ -20,17 +20,19 @@ import json
 
 def get_api_key() -> str:
     """Get Civitai API key from environment variables."""
-    key = os.getenv('CIVITAI_API_KEY')
+    key = os.getenv("CIVITAI_API_KEY")
     if not key:
-        raise ValueError("CIVITAI_API_KEY environment variable not found. "
-                        "Please set it in your ~/.secrets file or environment.")
+        raise ValueError(
+            "CIVITAI_API_KEY environment variable not found. "
+            "Please set it in your ~/.secrets file or environment."
+        )
     return key
 
 
 def validate_api_key(api_key: str) -> bool:
     """Validate Civitai API key format."""
     # Civitai API keys are typically 32-character hex strings
-    return bool(re.match(r'^[a-fA-F0-9]{32}$', api_key))
+    return bool(re.match(r"^[a-fA-F0-9]{32}$", api_key))
 
 
 def determine_model_type(node_type: str, custom_mapping: Optional[Dict[str, str]] = None) -> str:
@@ -46,33 +48,33 @@ def determine_model_type(node_type: str, custom_mapping: Optional[Dict[str, str]
     """
     # Default mapping based on common ComfyUI node types
     default_mapping = {
-        'CheckpointLoaderSimple': 'checkpoints',
-        'CheckpointLoader': 'checkpoints',
-        'LoraLoader': 'loras',
-        'LoraLoaderModelOnly': 'loras',
-        'VAELoader': 'vae',
-        'CLIPLoader': 'clip',
-        'DualCLIPLoader': 'clip',
-        'ControlNetLoader': 'controlnet',
-        'ControlNetLoaderAdvanced': 'controlnet',
-        'UpscaleModelLoader': 'upscale_models',
-        'CLIPVisionLoader': 'clip_vision',
-        'UNETLoader': 'unet',
-        'SAMLoader': 'sams',
-        'GroundingDinoModelLoader': 'grounding-dino',
-        'IPAdapterModelLoader': 'ipadapter',
-        'GLIGENLoader': 'gligen',
-        'StyleModelLoader': 'style_models',
-        'CLIPVisionLoaderFromURL': 'clip_vision',
-        'PhotoMakerLoader': 'photomaker',
-        'InstantIDModelLoader': 'instantid',
-        'PulseT5Loader': 'pulset5',
-        'AestheticScoreLoader': 'aesthetic_score',
+        "CheckpointLoaderSimple": "checkpoints",
+        "CheckpointLoader": "checkpoints",
+        "LoraLoader": "loras",
+        "LoraLoaderModelOnly": "loras",
+        "VAELoader": "vae",
+        "CLIPLoader": "clip",
+        "DualCLIPLoader": "clip",
+        "ControlNetLoader": "controlnet",
+        "ControlNetLoaderAdvanced": "controlnet",
+        "UpscaleModelLoader": "upscale_models",
+        "CLIPVisionLoader": "clip_vision",
+        "UNETLoader": "unet",
+        "SAMLoader": "sams",
+        "GroundingDinoModelLoader": "grounding-dino",
+        "IPAdapterModelLoader": "ipadapter",
+        "GLIGENLoader": "gligen",
+        "StyleModelLoader": "style_models",
+        "CLIPVisionLoaderFromURL": "clip_vision",
+        "PhotoMakerLoader": "photomaker",
+        "InstantIDModelLoader": "instantid",
+        "PulseT5Loader": "pulset5",
+        "AestheticScoreLoader": "aesthetic_score",
     }
 
     # Use custom mapping if provided, otherwise use defaults
     mapping = custom_mapping or default_mapping
-    return mapping.get(node_type, 'checkpoints')
+    return mapping.get(node_type, "checkpoints")
 
 
 def validate_model_filename(filename: str) -> bool:
@@ -89,7 +91,7 @@ def validate_model_filename(filename: str) -> bool:
         return False
 
     # Check for valid extensions
-    valid_extensions = {'.safetensors', '.ckpt', '.pt', '.bin', '.pth', '.onnx'}
+    valid_extensions = {".safetensors", ".ckpt", ".pt", ".bin", ".pth", ".onnx"}
     path = Path(filename)
     if path.suffix.lower() not in valid_extensions:
         return False
@@ -99,14 +101,14 @@ def validate_model_filename(filename: str) -> bool:
         return False
 
     # Check for suspicious characters
-    suspicious_chars = ['<', '>', ':', '"', '|', '?', '*']
+    suspicious_chars = ["<", ">", ":", '"', "|", "?", "*"]
     if any(char in filename for char in suspicious_chars):
         return False
 
     return True
 
 
-def get_file_checksum(file_path: Union[str, Path], algorithm: str = 'sha256') -> Optional[str]:
+def get_file_checksum(file_path: Union[str, Path], algorithm: str = "sha256") -> Optional[str]:
     """
     Calculate checksum of a file.
 
@@ -123,8 +125,8 @@ def get_file_checksum(file_path: Union[str, Path], algorithm: str = 'sha256') ->
 
     try:
         hash_func = getattr(hashlib, algorithm)()
-        with open(path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
                 hash_func.update(chunk)
         return hash_func.hexdigest()
     except (OSError, AttributeError):
@@ -148,9 +150,9 @@ def validate_url(url: str) -> bool:
         return False
 
 
-def validate_civitai_response(response_data: Dict[str, Any],
-                              requested_id: Optional[int] = None,
-                              endpoint_type: str = 'model') -> Dict[str, Any]:
+def validate_civitai_response(
+    response_data: Dict[str, Any], requested_id: Optional[int] = None, endpoint_type: str = "model"
+) -> Dict[str, Any]:
     """
     Validate Civitai API response and check for ID mismatches.
 
@@ -175,58 +177,52 @@ def validate_civitai_response(response_data: Dict[str, Any],
     Raises:
         ValueError: If validation fails critically
     """
-    result = {
-        'valid': True,
-        'error_message': None,
-        'warning_message': None,
-        'data': response_data
-    }
+    result = {"valid": True, "error_message": None, "warning_message": None, "data": response_data}
 
     # Check for empty response
     if not response_data:
-        result['valid'] = False
-        result['error_message'] = "API returned empty response"
-        result['data'] = None
+        result["valid"] = False
+        result["error_message"] = "API returned empty response"
+        result["data"] = None
         return result
 
     # Validate based on endpoint type
-    if endpoint_type == 'images':
+    if endpoint_type == "images":
         # /api/v1/images?ids=... returns {'items': [...]}
-        items = response_data.get('items', [])
+        items = response_data.get("items", [])
 
         if not items:
-            result['valid'] = False
-            result['error_message'] = f"Image {requested_id} not found (empty items array)"
-            result['data'] = None
+            result["valid"] = False
+            result["error_message"] = f"Image {requested_id} not found (empty items array)"
+            result["data"] = None
             return result
 
         # CRITICAL: Validate returned ID matches requested ID
         if requested_id is not None:
             returned_item = items[0]
-            returned_id = returned_item.get('id')
+            returned_id = returned_item.get("id")
 
             if returned_id != requested_id:
-                result['valid'] = False
-                result['error_message'] = (
+                result["valid"] = False
+                result["error_message"] = (
                     f"API returned wrong image. "
                     f"Requested: {requested_id}, Got: {returned_id}. "
                     f"This image may have been deleted or is restricted."
                 )
-                result['data'] = None
+                result["data"] = None
                 return result
 
-    elif endpoint_type == 'model':
+    elif endpoint_type == "model":
         # /api/v1/models/{id} returns model object directly
         if requested_id is not None:
-            returned_id = response_data.get('id')
+            returned_id = response_data.get("id")
 
             if returned_id != requested_id:
-                result['valid'] = False
-                result['error_message'] = (
-                    f"API returned wrong model. "
-                    f"Requested: {requested_id}, Got: {returned_id}"
+                result["valid"] = False
+                result["error_message"] = (
+                    f"API returned wrong model. " f"Requested: {requested_id}, Got: {returned_id}"
                 )
-                result['data'] = None
+                result["data"] = None
                 return result
 
     return result
@@ -258,26 +254,24 @@ def fetch_civitai_image(image_id: int, api_key: Optional[str] = None) -> Dict[st
 
     # Use /api/v1/images?ids={id} endpoint
     url = f"https://civitai.com/api/v1/images"
-    params = {'ids': image_id}
-    headers = {'Authorization': f'Bearer {api_key}'}
+    params = {"ids": image_id}
+    headers = {"Authorization": f"Bearer {api_key}"}
 
     response = requests.get(url, params=params, headers=headers, timeout=30)
 
     if response.status_code != 200:
-        raise ValueError(
-            f"Civitai API error: HTTP {response.status_code} for image {image_id}"
-        )
+        raise ValueError(f"Civitai API error: HTTP {response.status_code} for image {image_id}")
 
     data = response.json()
 
     # Validate response
-    validation = validate_civitai_response(data, requested_id=image_id, endpoint_type='images')
+    validation = validate_civitai_response(data, requested_id=image_id, endpoint_type="images")
 
-    if not validation['valid']:
-        raise ValueError(validation['error_message'])
+    if not validation["valid"]:
+        raise ValueError(validation["error_message"])
 
     # Return the first (and validated) item
-    return data['items'][0]
+    return data["items"][0]
 
 
 def safe_path_join(base_path: Union[str, Path], *paths: Union[str, Path]) -> Path:
@@ -300,7 +294,7 @@ def safe_path_join(base_path: Union[str, Path], *paths: Union[str, Path]) -> Pat
     for path in paths:
         path = Path(path)
         # Check for directory traversal attempts
-        if '..' in path.parts or path.is_absolute():
+        if ".." in path.parts or path.is_absolute():
             raise ValueError(f"Unsafe path component: {path}")
         result = result / path
 
@@ -329,8 +323,9 @@ def ensure_directory(path: Union[str, Path], parents: bool = True, exist_ok: boo
     return path
 
 
-def find_files_by_pattern(directory: Union[str, Path], pattern: str = "*",
-                        recursive: bool = True) -> List[Path]:
+def find_files_by_pattern(
+    directory: Union[str, Path], pattern: str = "*", recursive: bool = True
+) -> List[Path]:
     """
     Find files matching a pattern in a directory.
 
@@ -379,7 +374,7 @@ def validate_json_file(file_path: Union[str, Path]) -> bool:
         True if file contains valid JSON
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             json.load(f)
         return True
     except (json.JSONDecodeError, OSError):
@@ -398,7 +393,7 @@ def load_json_file(file_path: Union[str, Path], default: Any = None) -> Any:
         Parsed JSON data or default value
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return default
@@ -420,15 +415,16 @@ def save_json_file(file_path: Union[str, Path], data: Any, indent: int = 2) -> b
         # Ensure parent directory exists
         ensure_directory(file_path.parent)
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=indent, ensure_ascii=False)
         return True
     except (OSError, TypeError):
         return False
 
 
-def build_local_inventory(models_dir: Union[str, Path],
-                         extensions: Optional[List[str]] = None) -> Set[str]:
+def build_local_inventory(
+    models_dir: Union[str, Path], extensions: Optional[List[str]] = None
+) -> Set[str]:
     """
     Build inventory of local model files.
 
@@ -440,7 +436,7 @@ def build_local_inventory(models_dir: Union[str, Path],
         Set of model filenames
     """
     if extensions is None:
-        extensions = ['.safetensors', '.ckpt', '.pt', '.bin', '.pth']
+        extensions = [".safetensors", ".ckpt", ".pt", ".bin", ".pth"]
 
     inventory = set()
     models_path = Path(models_dir)
@@ -468,27 +464,29 @@ def extract_models_from_workflow(workflow_path: Union[str, Path]) -> List[Dict[s
         List of model dictionaries with filename, type, and node_type
     """
     try:
-        with open(workflow_path, 'r', encoding='utf-8') as f:
+        with open(workflow_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         models = []
-        nodes = data.get('nodes', [])
+        nodes = data.get("nodes", [])
 
         for node in nodes:
-            node_type = node.get('type', '')
+            node_type = node.get("type", "")
 
             # Check widgets_values for model filenames
-            for value in node.get('widgets_values', []):
+            for value in node.get("widgets_values", []):
                 if isinstance(value, str) and _is_model_filename(value):
                     filename = os.path.basename(value)
                     model_type = determine_model_type(node_type)
 
-                    models.append({
-                        'filename': filename,
-                        'type': model_type,
-                        'node_type': node_type,
-                        'workflow_path': str(workflow_path)
-                    })
+                    models.append(
+                        {
+                            "filename": filename,
+                            "type": model_type,
+                            "node_type": node_type,
+                            "workflow_path": str(workflow_path),
+                        }
+                    )
 
         return models
 
@@ -502,7 +500,7 @@ def _is_model_filename(filename: str) -> bool:
         return False
 
     # Check for model file extensions
-    model_extensions = {'.safetensors', '.ckpt', '.pt', '.bin', '.pth'}
+    model_extensions = {".safetensors", ".ckpt", ".pt", ".bin", ".pth"}
     path = Path(filename)
 
     return path.suffix.lower() in model_extensions
@@ -550,10 +548,10 @@ def sanitize_filename(filename: str) -> str:
     sanitized = filename
 
     for char in invalid_chars:
-        sanitized = sanitized.replace(char, '_')
+        sanitized = sanitized.replace(char, "_")
 
     # Remove leading/trailing whitespace and dots
-    sanitized = sanitized.strip(' .')
+    sanitized = sanitized.strip(" .")
 
     # Ensure it's not empty
     if not sanitized:

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 @dataclass
 class LogConfig:
     """Configuration for logging setup."""
+
     log_dir: Path = Path("log")
     run_id_format: str = "%Y%m%d_%H%M%S"
     console_level: int = logging.INFO
@@ -50,7 +51,7 @@ class StructuredFormatter(logging.Formatter):
         }
 
         # Add extra fields if present
-        if hasattr(record, 'extra_data'):
+        if hasattr(record, "extra_data"):
             log_entry.update(record.extra_data)
 
         # Add exception info if present
@@ -79,8 +80,7 @@ class ComfyFixerLogger:
 
         # Create formatters
         standard_formatter = logging.Formatter(
-            self.config.format_string,
-            datefmt=self.config.date_format
+            self.config.format_string, datefmt=self.config.date_format
         )
 
         # Console handler
@@ -98,7 +98,7 @@ class ComfyFixerLogger:
             log_file,
             maxBytes=self.config.max_bytes,
             backupCount=self.config.backup_count,
-            encoding='utf-8'
+            encoding="utf-8",
         )
         file_handler.setLevel(self.config.file_level)
         file_handler.setFormatter(standard_formatter)
@@ -111,7 +111,7 @@ class ComfyFixerLogger:
                 structured_file,
                 maxBytes=self.config.max_bytes,
                 backupCount=self.config.backup_count,
-                encoding='utf-8'
+                encoding="utf-8",
             )
             structured_handler.setLevel(logging.DEBUG)
             structured_handler.setFormatter(StructuredFormatter())
@@ -141,7 +141,7 @@ class ComfyFixerLogger:
         """Internal logging method."""
         if extra:
             # Add extra data to the log record
-            extra_data = {'extra_data': extra}
+            extra_data = {"extra_data": extra}
             self.logger.log(level, message, extra=extra_data)
         else:
             self.logger.log(level, message)
@@ -152,15 +152,21 @@ class ComfyFixerLogger:
         extra = {"action": action, **details}
         self._log(level, message, extra)
 
-    def log_model_operation(self, operation: str, model_name: str, model_type: str,
-                          status: str, details: Optional[Dict[str, Any]] = None):
+    def log_model_operation(
+        self,
+        operation: str,
+        model_name: str,
+        model_type: str,
+        status: str,
+        details: Optional[Dict[str, Any]] = None,
+    ):
         """Log model-related operations."""
         message = f"Model {operation}: {model_name} ({model_type}) - {status}"
         extra = {
             "operation": operation,
             "model_name": model_name,
             "model_type": model_type,
-            "status": status
+            "status": status,
         }
         if details:
             extra.update(details)
@@ -176,7 +182,9 @@ class ComfyFixerLogger:
 _default_logger: Optional[ComfyFixerLogger] = None
 
 
-def get_logger(name: str = "ComfyFixerSmart", config: Optional[LogConfig] = None) -> ComfyFixerLogger:
+def get_logger(
+    name: str = "ComfyFixerSmart", config: Optional[LogConfig] = None
+) -> ComfyFixerLogger:
     """Get or create a logger instance."""
     global _default_logger
     if _default_logger is None or (config and config != _default_logger.config):
@@ -184,7 +192,9 @@ def get_logger(name: str = "ComfyFixerSmart", config: Optional[LogConfig] = None
     return _default_logger
 
 
-def setup_logging(name: str = "ComfyFixerSmart", config: Optional[LogConfig] = None) -> ComfyFixerLogger:
+def setup_logging(
+    name: str = "ComfyFixerSmart", config: Optional[LogConfig] = None
+) -> ComfyFixerLogger:
     """Set up and return a configured logger. Alias for get_logger."""
     return get_logger(name, config)
 
@@ -198,7 +208,7 @@ def log(message: str, level: str = "INFO"):
         "INFO": logging.INFO,
         "WARNING": logging.WARNING,
         "ERROR": logging.ERROR,
-        "CRITICAL": logging.CRITICAL
+        "CRITICAL": logging.CRITICAL,
     }
     logger._log(level_map.get(level.upper(), logging.INFO), message)
 
