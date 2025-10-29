@@ -175,6 +175,337 @@ class CivitaiSearch(SearchBackend):
                 error_message=str(e)
             )
 
+    def search_by_id(self, model_id: int) -> Optional[SearchResult]:
+        """
+        Direct lookup bypassing search API.
+        Uses /api/v1/models/{id} endpoint.
+        Returns SearchResult with 100% confidence on success.
+        """
+        self.logger.info(f"Searching by direct ID: {model_id}")
+
+        try:
+            headers = {}
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+
+            response = requests.get(
+                f"{self.base_url}/models/{model_id}",
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                self.logger.error(f"Direct ID lookup failed: {response.status_code}")
+                return None
+
+            model_data = response.json()
+
+            # Get the first version for download (typically the latest)
+            versions = model_data.get('modelVersions', [])
+            if not versions:
+                self.logger.warning(f"No versions found for model ID {model_id}")
+                return None
+
+            # Use latest version
+            latest_version = versions[0]
+            latest_version_id = latest_version['id']
+
+            # Find primary file or first available file
+            primary_file = None
+            for file_info in latest_version.get('files', []):
+                if file_info.get('primary', False):
+                    primary_file = file_info
+                    break
+
+            # If no primary file found, just use first file
+            if not primary_file and latest_version.get('files'):
+                primary_file = latest_version['files'][0]
+
+            if not primary_file:
+                self.logger.warning(f"No files found for model ID {model_id} version {latest_version_id}")
+                return None
+
+            filename = primary_file.get('name', f"model_{model_id}.safetensors")
+            model_name = model_data.get('name', f"Model {model_id}")
+
+            return SearchResult(
+                status='FOUND',
+                filename=filename,
+                source='civitai',
+                civitai_id=model_id,
+                version_id=latest_version_id,
+                civitai_name=model_name,
+                version_name=latest_version.get('name', f"Version {latest_version_id}"),
+                download_url=f"https://civitai.com/api/download/models/{latest_version_id}",
+                confidence='exact',  # 100% confidence for direct ID lookup
+                type=self._infer_model_type_from_data(model_data),
+                metadata={
+                    'search_attempts': 1,
+                    'found_by': 'direct_id',
+                    'nsfw_level': model_data.get('nsfwLevel', 1)  # PG=1, PG13=2, R=4, X=8, XXX=16
+                }
+            )
+
+        except Exception as e:
+            self.logger.error(f"Direct ID lookup error for model {model_id}: {e}")
+            return None
+
+    def search_multi_strategy(self, model_ref: Dict[str, Any]) -> List[SearchResult]:
+        """
+        Cascade through multiple search strategies:
+        1. Check known_models.json for direct ID
+        2. Try query search with nsfw=true
+        3. Try query search without nsfw parameter
+        4. Try tag-based search
+        5. Try creator-based search (if creator known)
+        Return scored candidates sorted by confidence.
+        """
+        results = []
+
+        # Strategy 1: Check known_models.json for direct ID (to be implemented in core.py)
+        # For now, we'll implement direct ID search if available in model_ref
+
+        # Strategy 2: Try query search with nsfw=true
+        nsfw_results = self._search_with_nsfw_param(model_ref, nsfw=True)
+        results.extend(nsfw_results)
+
+        if not results:
+            # Strategy 3: Try query search without nsfw parameter
+            non_nsfw_results = self._search_with_nsfw_param(model_ref, nsfw=False)
+            results.extend(non_nsfw_results)
+
+        if not results:
+            # Strategy 4: Try tag-based search
+            tag_results = self._search_by_tags(model_ref)
+            results.extend(tag_results)
+
+        if not results and model_ref.get('creator'):
+            # Strategy 5: Try creator-based search (if creator known)
+            creator_results = self._search_by_creator(model_ref)
+            results.extend(creator_results)
+
+        # Sort results by confidence or relevance
+        return sorted(results, key=lambda x: self._calculate_confidence_score(x), reverse=True)
+
+    def _search_with_nsfw_param(self, model_ref: Dict[str, Any], nsfw: bool = True) -> List[SearchResult]:
+        """Helper method to search with nsfw parameter."""
+        filename = model_ref['filename']
+        model_type = model_ref.get('type', '')
+        query = self._prepare_search_query(filename)
+
+        self.logger.info(f"Searching with nsfw={nsfw}: {query}")
+
+        try:
+            params = {
+                'query': query,
+                'limit': 10,
+                'sort': 'Highest Rated'
+            }
+
+            if nsfw:
+                params['nsfw'] = 'true'
+
+            type_filter = self._get_type_filter(model_type)
+            if type_filter:
+                params['types'] = type_filter
+
+            headers = {}
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+
+            response = requests.get(
+                f"{self.base_url}/models",
+                params=params,
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            results = []
+
+            for item in data.get('items', []):
+                for version in item.get('modelVersions', []):
+                    for file_info in version.get('files', []):
+                        if file_info.get('name', '').lower().startswith(query.lower().split()[0]):
+                            result = self._create_result_from_match(item, version, filename, model_type, 'fuzzy')
+                            results.append(result)
+
+            return results
+
+        except Exception as e:
+            self.logger.error(f"Search with nsfw={nsfw} failed: {e}")
+            return []
+
+    def _search_by_tags(self, model_ref: Dict[str, Any]) -> List[SearchResult]:
+        """
+        Extract potential tags from filename.
+        Search using /api/v1/models?tag={tag}&types={type}&nsfw=true
+        """
+        filename = model_ref['filename']
+        model_type = model_ref.get('type', '')
+        query = self._prepare_search_query(filename)
+
+        # Extract potential tags from the query
+        potential_tags = self._extract_tags_from_query(query)
+        results = []
+
+        for tag in potential_tags:
+            try:
+                params = {
+                    'tag': tag,
+                    'limit': 5,
+                    'nsfw': 'true'
+                }
+
+                type_filter = self._get_type_filter(model_type)
+                if type_filter:
+                    params['types'] = type_filter
+
+                headers = {}
+                if self.api_key:
+                    headers['Authorization'] = f'Bearer {self.api_key}'
+
+                response = requests.get(
+                    f"{self.base_url}/models",
+                    params=params,
+                    headers=headers,
+                    timeout=30
+                )
+
+                if response.status_code != 200:
+                    continue
+
+                data = response.json()
+                for item in data.get('items', []):
+                    for version in item.get('modelVersions', []):
+                        for file_info in version.get('files', []):
+                            result = self._create_result_from_match(item, version, filename, model_type, 'fuzzy')
+                            # Add tag-based source metadata
+                            if result.metadata:
+                                result.metadata['tag_source'] = tag
+                            else:
+                                result.metadata = {'tag_source': tag}
+                            results.append(result)
+
+            except Exception as e:
+                self.logger.error(f"Tag search failed for tag '{tag}': {e}")
+                continue
+
+        return results
+
+    def _search_by_creator(self, model_ref: Dict[str, Any]) -> List[SearchResult]:
+        """
+        Search models by creator username.
+        Uses /api/v1/models?username={username}&types={type}&nsfw=true
+        """
+        filename = model_ref['filename']
+        model_type = model_ref.get('type', '')
+        creator = model_ref.get('creator', '')
+
+        if not creator:
+            return []
+
+        self.logger.info(f"Searching by creator: {creator}")
+
+        try:
+            params = {
+                'username': creator,
+                'limit': 10,
+                'nsfw': 'true'
+            }
+
+            type_filter = self._get_type_filter(model_type)
+            if type_filter:
+                params['types'] = type_filter
+
+            headers = {}
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+
+            response = requests.get(
+                f"{self.base_url}/models",
+                params=params,
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            results = []
+
+            for item in data.get('items', []):
+                for version in item.get('modelVersions', []):
+                    result = self._create_result_from_match(item, version, filename, model_type, 'fuzzy')
+                    if result.metadata:
+                        result.metadata['creator_search'] = creator
+                    else:
+                        result.metadata = {'creator_search': creator}
+                    results.append(result)
+
+            return results
+
+        except Exception as e:
+            self.logger.error(f"Creator search failed for '{creator}': {e}")
+            return []
+
+    def _extract_tags_from_query(self, query: str) -> List[str]:
+        """Extract potential tags from search query."""
+        # Simple extraction - could be enhanced with NLP
+        # Common tags for NSFW model search
+        anatomical_terms = ['anatomy', 'anatomical', 'detail', 'details', 'eyes', 'pussy', 'anus', 'breasts', 'ass', 'thighs']
+        style_terms = ['realistic', 'high', 'definition', 'hd', 'detailed', 'detail']
+        content_terms = ['nsfw', 'explicit', 'nude', 'naked', 'adult']
+
+        all_terms = anatomical_terms + style_terms + content_terms
+        found_tags = []
+
+        query_lower = query.lower()
+        for term in all_terms:
+            if term in query_lower:
+                found_tags.append(term)
+
+        # Also add individual words from query as potential tags
+        for word in query_lower.split():
+            if len(word) > 2 and word not in ['and', 'the', 'for', 'with', 'v1', 'v2', 'v3', 'xl']:
+                if word not in found_tags:
+                    found_tags.append(word)
+
+        return found_tags
+
+    def _calculate_confidence_score(self, result: SearchResult) -> int:
+        """Calculate confidence score for a search result."""
+        if result.confidence == 'exact':
+            return 100
+        elif result.confidence == 'fuzzy':
+            # Boost score if found by direct ID or creator search
+            if result.metadata:
+                if result.metadata.get('found_by') == 'direct_id':
+                    return 90
+                elif result.metadata.get('creator_search'):
+                    return 70
+                elif result.metadata.get('tag_source'):
+                    return 60
+            return 50
+        return 30
+
+    def _infer_model_type_from_data(self, model_data: Dict[str, Any]) -> str:
+        """Infer model type from model data."""
+        model_type = model_data.get('type', 'Unknown')
+        type_mapping = {
+            'Checkpoint': 'checkpoints',
+            'LORA': 'loras',
+            'VAE': 'vae',
+            'Controlnet': 'controlnet',
+            'Upscaler': 'upscale_models',
+            'TextualInversion': 'clip'
+        }
+        return type_mapping.get(model_type, 'unknown')
+
     def _prepare_search_query(self, filename: str) -> str:
         """Prepare filename for search query."""
         # Normalize separators and remove extension
