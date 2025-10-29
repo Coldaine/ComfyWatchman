@@ -102,9 +102,7 @@ def inspect_paths(
             continue
 
         if root_path.is_dir() and not _looks_like_diffusers_dir(root_path):
-            collected.extend(
-                _inspect_directory_entries(root_path, ctx, recursive=recursive)
-            )
+            collected.extend(_inspect_directory_entries(root_path, ctx, recursive=recursive))
         else:
             collected.append(_inspect_entry(root_path, ctx))
 
@@ -224,8 +222,7 @@ def _inspect_diffusers_dir(path: Path, ctx: InspectionContext) -> Dict[str, obje
     metadata["components"] = [comp[0] for comp in components]
     if ctx.include_components:
         metadata["files"] = [
-            {"name": comp[0], "size_bytes": comp[1], "extension": comp[2]}
-            for comp in components
+            {"name": comp[0], "size_bytes": comp[1], "extension": comp[2]} for comp in components
         ]
 
     total_size = sum(comp[1] for comp in components)
@@ -296,9 +293,7 @@ def _extract_safetensors_metadata(path: Path) -> Tuple[Dict[str, object], List[s
         warnings.append(f"Failed to read safetensors metadata: {exc}")
         return {}, warnings
 
-    metadata = {
-        key: str(header[key]) for key in sorted(header.keys())[:20]
-    }
+    metadata = {key: str(header[key]) for key in sorted(header.keys())[:20]}
     return metadata, warnings
 
 
@@ -322,8 +317,7 @@ def _extract_onnx_metadata(path: Path) -> Tuple[Dict[str, object], List[str]]:
     metadata["ir_version"] = getattr(model, "ir_version", None)
     if hasattr(model, "opset_import") and model.opset_import:
         metadata["opset"] = [
-            {"domain": imp.domain or "", "version": imp.version}
-            for imp in model.opset_import
+            {"domain": imp.domain or "", "version": imp.version} for imp in model.opset_import
         ]
     if hasattr(model, "producer_name") and model.producer_name:
         metadata["producer"] = str(model.producer_name)
