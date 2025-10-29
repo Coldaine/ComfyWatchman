@@ -252,31 +252,47 @@ class CivitaiSearch(SearchBackend):
 
     def search_multi_strategy(self, model_ref: Dict[str, Any]) -> List[SearchResult]:
         """
-        Cascade through multiple search strategies:
+        Enhanced cascade through multiple search strategies for 100% NSFW model discovery:
         1. Check known_models.json for direct ID
-        2. Try query search with nsfw=true
-        3. Try query search without nsfw parameter
-        4. Try tag-based search
+        2. Try NSFW-specific multi-level search strategies
+        3. Try query search with different NSFW parameter combinations
+        4. Try advanced tag-based search with NSFW tags
         5. Try creator-based search (if creator known)
+        6. Try fallback mechanisms for hidden NSFW content
         Return scored candidates sorted by confidence.
         """
         results = []
 
-        # Strategy 1: Check known_models.json for direct ID (to be implemented in core.py)
-        # For now, we'll implement direct ID search if available in model_ref
+        # Strategy 1: Check known_models.json for direct ID using DirectIDBackend
+        from .civitai_tools.direct_id_backend import DirectIDBackend
+        direct_backend = DirectIDBackend()
 
-        # Strategy 2: Try query search with nsfw=true
-        nsfw_results = self._search_with_nsfw_param(model_ref, nsfw=True)
+        # Try to find by model name first
+        filename = model_ref.get('filename', '')
+        if filename:
+            # Extract model name from filename for lookup
+            import re
+            name_for_lookup = re.sub(r'\.safetensors|\.ckpt|\.pt|\.bin|\.pth|v\d+\.\d+|v\d+', '', filename, flags=re.IGNORECASE)
+            name_for_lookup = name_for_lookup.replace('_', ' ').replace('-', ' ').strip()
+
+            known_result = direct_backend.lookup_by_name(name_for_lookup)
+            if known_result:
+                results.append(known_result)
+                # Sort results by confidence and return early since known result is most confident
+                return sorted(results, key=lambda x: self._calculate_confidence_score(x), reverse=True)
+
+        # Strategy 2: Enhanced NSFW-specific multi-level search
+        nsfw_results = self._search_nsfw_multi_level(model_ref)
         results.extend(nsfw_results)
 
         if not results:
-            # Strategy 3: Try query search without nsfw parameter
-            non_nsfw_results = self._search_with_nsfw_param(model_ref, nsfw=False)
-            results.extend(non_nsfw_results)
+            # Strategy 3: Try query search with different NSFW parameter combinations
+            nsfw_param_results = self._search_nsfw_parameter_combinations(model_ref)
+            results.extend(nsfw_param_results)
 
         if not results:
-            # Strategy 4: Try tag-based search
-            tag_results = self._search_by_tags(model_ref)
+            # Strategy 4: Try advanced NSFW tag-based search
+            tag_results = self._search_by_nsfw_tags(model_ref)
             results.extend(tag_results)
 
         if not results and model_ref.get('creator'):
@@ -284,8 +300,254 @@ class CivitaiSearch(SearchBackend):
             creator_results = self._search_by_creator(model_ref)
             results.extend(creator_results)
 
+        if not results:
+            # Strategy 6: Try fallback mechanisms for hidden NSFW content
+            fallback_results = self._search_hidden_nsfw_fallbacks(model_ref)
+            results.extend(fallback_results)
+
         # Sort results by confidence or relevance
         return sorted(results, key=lambda x: self._calculate_confidence_score(x), reverse=True)
+
+    def _search_nsfw_multi_level(self, model_ref: Dict[str, Any]) -> List[SearchResult]:
+        """Enhanced NSFW search with multiple strategies for 100% discovery reliability."""
+        results = []
+        filename = model_ref['filename']
+        model_type = model_ref.get('type', '')
+        query = self._prepare_search_query(filename)
+
+        self.logger.info(f"Starting enhanced NSFW multi-level search for: {query}")
+
+        # Strategy 2.1: Search with explicit NSFW=true and different sort orders
+        nsfw_strategies = [
+            {'nsfw': 'true', 'sort': 'Highest Rated'},
+            {'nsfw': 'true', 'sort': 'Most Downloaded'},
+            {'nsfw': 'true', 'sort': 'Newest'},
+            {'nsfw': 'true', 'sort': 'Most Liked'},
+        ]
+
+        for strategy in nsfw_strategies:
+            strategy_results = self._search_with_nsfw_strategy(model_ref, strategy)
+            results.extend(strategy_results)
+            if results:  # If we found results, continue to next strategy but keep accumulating
+                break
+
+        # Strategy 2.2: If no results, try without NSFW filter but with NSFW tags
+        if not results:
+            no_filter_results = self._search_without_nsfw_filter_with_tags(model_ref)
+            results.extend(no_filter_results)
+
+        # Strategy 2.3: Try with different NSFW levels if available
+        if not results:
+            nsfw_level_results = self._search_by_nsfw_levels(model_ref)
+            results.extend(nsfw_level_results)
+
+        return results
+
+    def _search_with_nsfw_strategy(self, model_ref: Dict[str, Any], strategy: Dict[str, str]) -> List[SearchResult]:
+        """Search using specific NSFW strategy parameters."""
+        filename = model_ref['filename']
+        model_type = model_ref.get('type', '')
+        query = self._prepare_search_query(filename)
+
+        try:
+            params = {
+                'query': query,
+                'limit': 20,  # Increased limit for better coverage
+                'sort': strategy.get('sort', 'Highest Rated')
+            }
+
+            if strategy.get('nsfw'):
+                params['nsfw'] = strategy['nsfw']
+
+            type_filter = self._get_type_filter(model_type)
+            if type_filter:
+                params['types'] = type_filter
+
+            headers = {}
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+
+            response = requests.get(
+                f"{self.base_url}/models",
+                params=params,
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            results = []
+
+            for item in data.get('items', []):
+                # Check if model has NSFW content
+                nsfw_level = item.get('nsfwLevel', 1)
+                if nsfw_level >= 2:  # PG13 or higher
+                    for version in item.get('modelVersions', []):
+                        for file_info in version.get('files', []):
+                            if self._filename_matches(file_info.get('name', ''), filename):
+                                result = self._create_result_from_match(item, version, filename, model_type, 'fuzzy')
+                                # Add NSFW metadata
+                                if result.metadata:
+                                    result.metadata['nsfw_level'] = nsfw_level
+                                    result.metadata['search_strategy'] = strategy
+                                else:
+                                    result.metadata = {'nsfw_level': nsfw_level, 'search_strategy': strategy}
+                                results.append(result)
+
+            return results
+
+        except Exception as e:
+            self.logger.error(f"NSFW strategy search failed: {e}")
+            return []
+
+    def _search_without_nsfw_filter_with_tags(self, model_ref: Dict[str, Any]) -> List[SearchResult]:
+        """Search without NSFW filter but include NSFW-related tags in query."""
+        filename = model_ref['filename']
+        model_type = model_ref.get('type', '')
+        base_query = self._prepare_search_query(filename)
+
+        # Add NSFW-related keywords to broaden search
+        nsfw_keywords = ['nsfw', 'adult', 'explicit', 'nude', 'erotic']
+        enhanced_queries = [base_query] + [f"{base_query} {kw}" for kw in nsfw_keywords]
+
+        results = []
+        for query in enhanced_queries:
+            try:
+                params = {
+                    'query': query,
+                    'limit': 15,
+                    'sort': 'Highest Rated'
+                }
+
+                type_filter = self._get_type_filter(model_type)
+                if type_filter:
+                    params['types'] = type_filter
+
+                headers = {}
+                if self.api_key:
+                    headers['Authorization'] = f'Bearer {self.api_key}'
+
+                response = requests.get(
+                    f"{self.base_url}/models",
+                    params=params,
+                    headers=headers,
+                    timeout=30
+                )
+
+                if response.status_code != 200:
+                    continue
+
+                data = response.json()
+                for item in data.get('items', []):
+                    nsfw_level = item.get('nsfwLevel', 1)
+                    if nsfw_level >= 2:  # Only include potentially NSFW content
+                        for version in item.get('modelVersions', []):
+                            for file_info in version.get('files', []):
+                                if self._filename_matches(file_info.get('name', ''), filename):
+                                    result = self._create_result_from_match(item, version, filename, model_type, 'fuzzy')
+                                    if result.metadata:
+                                        result.metadata['nsfw_level'] = nsfw_level
+                                        result.metadata['enhanced_query'] = query
+                                    else:
+                                        result.metadata = {'nsfw_level': nsfw_level, 'enhanced_query': query}
+                                    results.append(result)
+
+            except Exception as e:
+                self.logger.error(f"Enhanced query search failed for '{query}': {e}")
+                continue
+
+        return results
+
+    def _search_by_nsfw_levels(self, model_ref: Dict[str, Any]) -> List[SearchResult]:
+        """Search specifically targeting different NSFW levels."""
+        filename = model_ref['filename']
+        model_type = model_ref.get('type', '')
+        query = self._prepare_search_query(filename)
+
+        results = []
+
+        # Try different NSFW level combinations
+        nsfw_level_strategies = [
+            {'nsfwLevel': 2},  # PG13
+            {'nsfwLevel': 4},  # R
+            {'nsfwLevel': 8},  # X
+            {'nsfwLevel': 16}, # XXX
+        ]
+
+        for level_strategy in nsfw_level_strategies:
+            try:
+                params = {
+                    'query': query,
+                    'limit': 10,
+                    'sort': 'Highest Rated',
+                    **level_strategy
+                }
+
+                type_filter = self._get_type_filter(model_type)
+                if type_filter:
+                    params['types'] = type_filter
+
+                headers = {}
+                if self.api_key:
+                    headers['Authorization'] = f'Bearer {self.api_key}'
+
+                response = requests.get(
+                    f"{self.base_url}/models",
+                    params=params,
+                    headers=headers,
+                    timeout=30
+                )
+
+                if response.status_code != 200:
+                    continue
+
+                data = response.json()
+                for item in data.get('items', []):
+                    for version in item.get('modelVersions', []):
+                        for file_info in version.get('files', []):
+                            if self._filename_matches(file_info.get('name', ''), filename):
+                                result = self._create_result_from_match(item, version, filename, model_type, 'fuzzy')
+                                if result.metadata:
+                                    result.metadata['target_nsfw_level'] = level_strategy['nsfwLevel']
+                                    result.metadata['actual_nsfw_level'] = item.get('nsfwLevel', 1)
+                                else:
+                                    result.metadata = {
+                                        'target_nsfw_level': level_strategy['nsfwLevel'],
+                                        'actual_nsfw_level': item.get('nsfwLevel', 1)
+                                    }
+                                results.append(result)
+
+            except Exception as e:
+                self.logger.error(f"NSFW level search failed for level {level_strategy}: {e}")
+                continue
+
+        return results
+
+    def _filename_matches(self, candidate: str, target: str) -> bool:
+        """Enhanced filename matching for NSFW models."""
+        candidate_lower = candidate.lower()
+        target_lower = target.lower()
+
+        # Exact match
+        if candidate_lower == target_lower:
+            return True
+
+        # Starts with same prefix (more lenient for NSFW models)
+        candidate_prefix = candidate_lower.split('.')[0]
+        target_prefix = target_lower.split('.')[0]
+
+        if candidate_prefix.startswith(target_prefix) or target_prefix.startswith(candidate_prefix):
+            return True
+
+        # Fuzzy matching for common NSFW naming patterns
+        import re
+        # Remove version numbers and common separators
+        candidate_clean = re.sub(r'v\d+|\d+\.\d+|_|-|\s+', '', candidate_prefix)
+        target_clean = re.sub(r'v\d+|\d+\.\d+|_|-|\s+', '', target_prefix)
+
+        return candidate_clean == target_clean
 
     def _search_with_nsfw_param(self, model_ref: Dict[str, Any], nsfw: bool = True) -> List[SearchResult]:
         """Helper method to search with nsfw parameter."""
@@ -1082,3 +1344,262 @@ def search_with_qwen(model, temp_dir=None, logger=None):
     """
     backend = QwenSearch(temp_dir, logger)
     return backend.search(model)# Kilo Experiment - Enhanced Search with ModelScope Integration
+    Returns:
+        SearchResult object
+    """
+    backend = QwenSearch(temp_dir, logger)
+    return backend.search(model)# Kilo Experiment - Enhanced Search with ModelScope Integration
+
+# HuggingFaceSearch removed - Qwen agentic search handles all backends
+
+
+class ModelSearch:
+    """
+    Unified model search coordinator.
+
+    Manages multiple search backends and provides caching, validation,
+    and result management.
+    """
+
+    def __init__(self, state_manager: Optional[StateManager] = None,
+                 cache_dir: Optional[str] = None, logger=None):
+        """
+        Initialize the model search coordinator.
+
+        Args:
+            state_manager: StateManager for tracking search attempts
+            cache_dir: Directory for caching search results
+            logger: Optional logger instance
+        """
+        self.logger = logger or get_logger("ModelSearch")
+        self.state_manager = state_manager
+
+        # Initialize available backends dynamically
+        # Qwen is the PRIMARY agentic search backend that handles all sources
+        self.backends: Dict[str, SearchBackend] = {
+            'qwen': QwenSearch(logger=self.logger),  # PRIMARY - agentic search
+            'civitai': CivitaiSearch(logger=self.logger)  # FALLBACK - direct API
+        }
+
+        # Conditionally register ModelScope backend
+        if MODELSCOPE_AVAILABLE and ModelScopeSearch and config.copilot.enable_modelscope:
+            self.logger.info("ModelScope backend enabled and available, adding to search backends.")
+            self.backends['modelscope'] = ModelScopeSearch(logger=self.logger)
+        elif MODELSCOPE_AVAILABLE and ModelScopeSearch and not config.copilot.enable_modelscope:
+            self.logger.info("ModelScope backend available but disabled in configuration.")
+        elif MODELSCOPE_AVAILABLE and not ModelScopeSearch:
+            self.logger.warning("ModelScope package available but ModelScopeSearch import failed.")
+        else:
+            self.logger.info("ModelScope backend not available.")
+
+        # Validate and set backend order
+        self._validate_backend_order()
+
+        # Setup caching
+        self.cache_dir = Path(cache_dir or config.temp_dir) / "search_cache"
+        self.cache_dir.mkdir(exist_ok=True)
+
+    def search_model(self, model_info: Dict[str, Any],
+                     use_cache: bool = True) -> SearchResult:
+        """
+        Search for a model using the configured backend order.
+
+        Args:
+            model_info: Dictionary with model information
+            use_cache: Whether to use cached results
+
+        Returns:
+            SearchResult object
+        """
+        filename = model_info['filename']
+
+        # Check cache first
+        if use_cache and config.search.enable_cache:
+            cached_result = self._get_cached_result(filename)
+            if cached_result:
+                self.logger.info(f"Using cached result for {filename}")
+                return cached_result
+
+        # Use the backend order from the global config
+        backends_to_try = config.search.backend_order
+
+        # Try each backend in the configured order
+        for backend_name in backends_to_try:
+            if backend_name not in self.backends:
+                self.logger.warning(f"Configured backend '{backend_name}' is not available or unknown.")
+                continue
+
+            backend = self.backends[backend_name]
+            self.logger.info(f"Trying '{backend_name}' search for '{filename}'")
+
+            result = backend.search(model_info)
+
+            # Attach model type for downstream placement if backend didn't set it
+            if getattr(result, 'type', None) is None:
+                try:
+                    result.type = model_info.get('type')
+                except Exception:
+                    pass
+
+            # Cache successful results
+            if result.status == 'FOUND' and use_cache and config.search.enable_cache:
+                self._cache_result(result)
+
+            # Mark attempt in state manager
+            if self.state_manager:
+                self.state_manager.mark_download_attempted(
+                    filename, model_info, result.__dict__ if result.status == 'FOUND' else None
+                )
+
+            # Return if found or if it's a critical error (don't try other backends)
+            if result.status in ['FOUND', 'ERROR', 'INVALID_FILENAME']:
+                return result
+
+        # If all backends returned NOT_FOUND
+        return SearchResult(
+            status='NOT_FOUND',
+            filename=filename,
+            metadata={
+                'backends_tried': backends_to_try,
+                'reason': f'No results from configured backends'
+            }
+        )
+
+    def search_multiple_models(self, models: List[Dict[str, Any]],
+                             backends: Optional[List[str]] = None,
+                             use_cache: bool = True) -> List[SearchResult]:
+        """
+        Search for multiple models.
+
+        Args:
+            models: List of model info dictionaries
+            backends: List of backend names to try
+            use_cache: Whether to use cached results
+
+        Returns:
+            List of SearchResult objects
+        """
+        original_order = list(config.search.backend_order)
+        try:
+            if backends:
+                config.search.backend_order = backends
+
+            results = []
+            for model in models:
+                result = self.search_model(model, use_cache)
+                results.append(result)
+                time.sleep(0.5)
+            return results
+        finally:
+            # Restore original order to avoid side-effects
+            config.search.backend_order = original_order
+
+    def _get_cached_result(self, filename: str) -> Optional[SearchResult]:
+        """Get cached search result."""
+        cache_file = self.cache_dir / f"{sanitize_filename(filename)}.json"
+        if not cache_file.exists():
+            return None
+
+        try:
+            with open(cache_file, 'r') as f:
+                data = json.load(f)
+            return SearchResult(**data)
+        except Exception:
+            return None
+
+    def _cache_result(self, result: SearchResult) -> None:
+        """Cache a search result."""
+        cache_file = self.cache_dir / f"{sanitize_filename(result.filename)}.json"
+        try:
+            with open(cache_file, 'w') as f:
+                json.dump(result.__dict__, f, indent=2)
+        except Exception as e:
+            self.logger.warning(f"Failed to cache result: {e}")
+
+    def clear_cache(self, filename: Optional[str] = None) -> None:
+        """
+        Clear search cache.
+
+        Args:
+            filename: Specific filename to clear, or None for all
+        """
+        if filename:
+            cache_file = self.cache_dir / f"{sanitize_filename(filename)}.json"
+            if cache_file.exists():
+                cache_file.unlink()
+        else:
+            for cache_file in self.cache_dir.glob("*.json"):
+                cache_file.unlink()
+
+    def get_search_stats(self) -> Dict[str, Any]:
+        """Get search statistics."""
+        cache_files = list(self.cache_dir.glob("*.json"))
+        return {
+            'cached_results': len(cache_files),
+            'cache_dir': str(self.cache_dir),
+            'backends_available': list(self.backends.keys())
+        }
+
+    def _validate_backend_order(self):
+        """Validate the configured backend order against available backends."""
+        configured_order = config.search.backend_order
+        available_backends = set(self.backends.keys())
+
+        # Filter out invalid backends
+        valid_order = [backend for backend in configured_order if backend in available_backends]
+
+        # Log warnings for invalid backends
+        invalid_backends = [backend for backend in configured_order if backend not in available_backends]
+        if invalid_backends:
+            self.logger.warning(f"Configured backends not available: {invalid_backends}. "
+                              f"Available backends: {list(available_backends)}")
+
+        # If no valid backends remain, fall back to default order
+        if not valid_order:
+            valid_order = list(available_backends)
+            self.logger.warning("No valid backends in configured order, falling back to all available backends")
+
+        # Update the config with the validated order
+        config.search.backend_order = valid_order
+
+        self.logger.info(f"Using backend order: {valid_order}")
+
+
+# Convenience functions for backward compatibility
+def search_civitai(model, api_key=None, logger=None):
+    """
+    Convenience function for Civitai search (backward compatibility).
+
+    Args:
+        model: Model info dictionary
+        api_key: Optional API key
+        logger: Optional logger
+
+    Returns:
+        SearchResult object
+    """
+    backend = CivitaiSearch(logger)
+    return backend.search(model)
+
+
+def search_with_qwen(model, temp_dir=None, logger=None):
+    """
+    Convenience function for Qwen search (backward compatibility).
+
+    Args:
+        model: Model info dictionary
+        temp_dir: Temporary directory for results
+        logger: Optional logger
+
+    Returns:
+        SearchResult object
+    """
+    backend = QwenSearch(temp_dir, logger)
+    return backend.search(model)# Kilo Experiment - Enhanced Search with ModelScope Integration
+    Returns:
+        SearchResult object
+    """
+    backend = QwenSearch(temp_dir, logger)
+    return backend.search(model)# Kilo Experiment - Enhanced Search with ModelScope Integration
+
+

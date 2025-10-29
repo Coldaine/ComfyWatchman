@@ -19,8 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from comfyfixersmart.search import CivitaiSearch, SearchResult
 from comfyfixersmart.config import config
-from comfyfixersmart.civitai_tools.python.direct_id_backend import DirectIDBackend
-from comfyfixersmart.civitai_tools.python.enhanced_search import EnhancedCivitaiSearch
+from comfyfixersmart.civitai_tools.direct_id_backend import DirectIDBackend
+from comfyfixersmart.civitai_tools.enhanced_search import EnhancedCivitaiSearch
 
 
 class TestCivitaiAdvancedSearch:
