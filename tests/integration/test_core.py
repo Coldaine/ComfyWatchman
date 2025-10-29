@@ -90,12 +90,16 @@ class TestComfyFixerCore:
         mock_inventory.assert_called_once()
         mock_download.assert_called_once()
 
-    def test_run_workflow_scan_only(self, tmp_path):
+    @patch("comfyfixersmart.core.WorkflowScanner")
+    @patch("comfyfixersmart.core.ModelSearch")
+    @patch("comfyfixersmart.core.ModelInventory")
+    @patch("comfyfixersmart.core.DownloadManager")
+    def test_run_workflow_scan_only(self, mock_download, mock_inventory, mock_search, mock_scanner, tmp_path):
         """Test running workflow scan only."""
         # Create test workflow
         workflow_dir = tmp_path / "workflows"
         workflow_dir.mkdir()
-
+    
         workflow_file = workflow_dir / "test_workflow.json"
         workflow_data = {
             "nodes": [
@@ -107,36 +111,40 @@ class TestComfyFixerCore:
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
-
+    
         core = ComfyFixerCore()
-
+    
         # Mock the scanner to return our test workflow
-        core.scanner.scan_workflows.return_value = [str(workflow_file)]
-
+        mock_scanner.return_value.scan_workflows.return_value = [str(workflow_file)]
+    
         # Mock other components
-        core.search.search_model.return_value = {
+        mock_search.return_value.search_model.return_value = {
             "status": "FOUND",
             "filename": "model.safetensors",
             "download_url": "https://example.com/model",
         }
-        core.inventory.build_inventory.return_value = {}
-        core.downloader.create_download_tasks.return_value = []
-
+        mock_inventory.return_value.build_inventory.return_value = {}
+        mock_download.return_value.create_download_tasks.return_value = []
+    
         result = core.run(scan_only=True, workflow_dirs=[str(workflow_dir)])
-
+    
         assert result is not None
         assert "workflows_scanned" in result
         assert result["workflows_scanned"] >= 1
-
+    
         # Verify scanner was called
-        core.scanner.scan_workflows.assert_called()
+        mock_scanner.return_value.scan_workflows.assert_called()
 
-    def test_run_full_workflow(self, tmp_path):
+    @patch("comfyfixersmart.core.WorkflowScanner")
+    @patch("comfyfixersmart.core.ModelSearch")
+    @patch("comfyfixersmart.core.ModelInventory")
+    @patch("comfyfixersmart.core.DownloadManager")
+    def test_run_full_workflow(self, mock_download, mock_inventory, mock_search, mock_scanner, tmp_path):
         """Test running full ComfyFixerSmart workflow."""
         # Create test workflow
         workflow_dir = tmp_path / "workflows"
         workflow_dir.mkdir()
-
+    
         workflow_file = workflow_dir / "test_workflow.json"
         workflow_data = {
             "nodes": [
@@ -148,44 +156,48 @@ class TestComfyFixerCore:
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
-
+    
         core = ComfyFixerCore()
-
+    
         # Mock components
-        core.scanner.scan_workflows.return_value = [str(workflow_file)]
-        core.scanner.extract_models_from_workflow.return_value = [
+        mock_scanner.return_value.scan_workflows.return_value = [str(workflow_file)]
+        mock_scanner.return_value.extract_models_from_workflow.return_value = [
             Mock(filename="missing_model.safetensors", type="checkpoints")
         ]
-
+    
         # Mock search - model not found locally
-        core.search.search_model.return_value = {
+        mock_search.return_value.search_model.return_value = {
             "status": "FOUND",
             "filename": "missing_model.safetensors",
             "download_url": "https://example.com/model",
             "type": "checkpoints",
         }
-
+    
         # Mock inventory - model not in local inventory
-        core.inventory.build_inventory.return_value = {}
-
+        mock_inventory.return_value.build_inventory.return_value = {}
+    
         # Mock download task creation
         mock_task = Mock()
         mock_task.filename = "missing_model.safetensors"
-        core.downloader.create_download_tasks.return_value = [mock_task]
-
+        mock_download.return_value.create_download_tasks.return_value = [mock_task]
+    
         result = core.run(workflow_dirs=[str(workflow_dir)], generate_scripts=True)
-
+    
         assert result is not None
         assert result["workflows_scanned"] >= 1
         assert result["models_found"] >= 1
-
+    
         # Verify all components were called
-        core.scanner.scan_workflows.assert_called()
-        core.inventory.build_inventory.assert_called()
-        core.search.search_model.assert_called()
-        core.downloader.create_download_tasks.assert_called()
+        mock_scanner.return_value.scan_workflows.assert_called()
+        mock_inventory.return_value.build_inventory.assert_called()
+        mock_search.return_value.search_model.assert_called()
+        mock_download.return_value.create_download_tasks.assert_called()
 
-    def test_run_with_existing_models(self, tmp_path):
+    @patch("comfyfixersmart.core.WorkflowScanner")
+    @patch("comfyfixersmart.core.ModelSearch")
+    @patch("comfyfixersmart.core.ModelInventory")
+    @patch("comfyfixersmart.core.DownloadManager")
+    def test_run_with_existing_models(self, mock_download, mock_inventory, mock_search, mock_scanner, tmp_path):
         """Test running workflow when models already exist locally."""
         # Create test workflow
         workflow_file = tmp_path / "workflow.json"
@@ -199,23 +211,23 @@ class TestComfyFixerCore:
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
-
+    
         # Create the model file locally
         models_dir = tmp_path / "models"
         models_dir.mkdir()
         model_file = models_dir / "existing_model.safetensors"
         model_file.write_bytes(b"x" * 2_000_000)  # 2MB file
-
+    
         core = ComfyFixerCore()
-
+    
         # Mock components
-        core.scanner.scan_workflows.return_value = [str(workflow_file)]
-        core.scanner.extract_models_from_workflow.return_value = [
+        mock_scanner.return_value.scan_workflows.return_value = [str(workflow_file)]
+        mock_scanner.return_value.extract_models_from_workflow.return_value = [
             Mock(filename="existing_model.safetensors", type="checkpoints")
         ]
-
+    
         # Mock inventory to return the existing model
-        core.inventory.build_inventory.return_value = {
+        mock_inventory.return_value.build_inventory.return_value = {
             "existing_model.safetensors": Mock(
                 filename="existing_model.safetensors",
                 path=str(model_file),
@@ -223,31 +235,39 @@ class TestComfyFixerCore:
                 is_valid=True,
             )
         }
-
+    
         result = core.run(workflow_dirs=[str(tmp_path)], scan_only=True)
-
+    
         assert result is not None
         assert result["models_found"] >= 1
         # Should not try to search or download since model exists
-        core.search.search_model.assert_not_called()
+        mock_search.return_value.search_model.assert_not_called()
 
-    def test_run_error_handling(self, tmp_path):
+    @patch("comfyfixersmart.core.WorkflowScanner")
+    @patch("comfyfixersmart.core.ModelSearch")
+    @patch("comfyfixersmart.core.ModelInventory")
+    @patch("comfyfixersmart.core.DownloadManager")
+    def test_run_error_handling(self, mock_download, mock_inventory, mock_search, mock_scanner, tmp_path):
         """Test error handling during workflow execution."""
         core = ComfyFixerCore()
-
+    
         # Mock scanner to raise exception
-        core.scanner.scan_workflows.side_effect = Exception("Scan failed")
-
+        mock_scanner.return_value.scan_workflows.side_effect = Exception("Scan failed")
+    
         result = core.run(workflow_dirs=["/nonexistent"])
-
+    
         assert result is not None
         # Should handle the error gracefully
         assert "error" in result or result.get("workflows_scanned") == 0
 
-    def test_generate_run_report(self, tmp_path):
+    @patch("comfyfixersmart.core.WorkflowScanner")
+    @patch("comfyfixersmart.core.ModelSearch")
+    @patch("comfyfixersmart.core.ModelInventory")
+    @patch("comfyfixersmart.core.DownloadManager")
+    def test_generate_run_report(self, mock_download, mock_inventory, mock_search, mock_scanner, tmp_path):
         """Test generating run report."""
         core = ComfyFixerCore()
-
+    
         # Create a mock run result
         run_result = {
             "run_id": "test_run_123",
@@ -259,16 +279,16 @@ class TestComfyFixerCore:
             "start_time": "2023-01-01T12:00:00",
             "end_time": "2023-01-01T12:05:00",
         }
-
+    
         report_path = core._generate_run_report(run_result, str(tmp_path))
-
+    
         assert report_path is not None
         assert Path(report_path).exists()
-
+    
         # Verify report content
         with open(report_path, "r") as f:
             content = f.read()
-
+    
         assert "test_run_123" in content
         assert "5" in content  # workflows_scanned
         assert "10" in content  # models_found
@@ -342,7 +362,11 @@ class TestCoreIntegrationWorkflow:
         assert result["models_missing"] >= 1  # One model missing
         assert result["models_resolved"] >= 1  # One model resolved via search
 
-    def test_workflow_with_multiple_missing_models(self, tmp_path):
+    @patch("comfyfixersmart.core.WorkflowScanner")
+    @patch("comfyfixersmart.core.ModelSearch")
+    @patch("comfyfixersmart.core.ModelInventory")
+    @patch("comfyfixersmart.core.DownloadManager")
+    def test_workflow_with_multiple_missing_models(self, mock_download, mock_inventory, mock_search, mock_scanner, tmp_path):
         """Test workflow processing with multiple missing models."""
         # Create test workflow
         workflow_file = tmp_path / "workflow.json"
@@ -358,12 +382,12 @@ class TestCoreIntegrationWorkflow:
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
-
+    
         core = ComfyFixerCore()
-
+    
         # Mock empty local inventory
-        core.inventory.build_inventory.return_value = {}
-
+        mock_inventory.return_value.build_inventory.return_value = {}
+    
         # Mock search results - all found
         search_results = {
             "checkpoint1.safetensors": {
@@ -380,28 +404,32 @@ class TestCoreIntegrationWorkflow:
             },
             "lora1.safetensors": {"status": "NOT_FOUND", "filename": "lora1.safetensors"},
         }
-
+    
         def mock_search_model(model_info, **kwargs):
             return search_results.get(
                 model_info["filename"], {"status": "NOT_FOUND", "filename": model_info["filename"]}
             )
-
-        core.search.search_model = mock_search_model
-
+    
+        mock_search.return_value.search_model = mock_search_model
+    
         # Mock download task creation
-        core.downloader.create_download_tasks.return_value = [
+        mock_download.return_value.create_download_tasks.return_value = [
             Mock(filename="checkpoint1.safetensors"),
             Mock(filename="vae1.safetensors"),
         ]
-
+    
         result = core.run(workflow_dirs=[str(tmp_path)], generate_scripts=True)
-
+    
         assert result["models_found"] == 3
         assert result["models_missing"] == 3  # All missing from local
         assert result["models_resolved"] == 2  # Two found via search
         assert result["downloads_generated"] == 2  # Two download tasks created
 
-    def test_workflow_with_no_missing_models(self, tmp_path):
+    @patch("comfyfixersmart.core.WorkflowScanner")
+    @patch("comfyfixersmart.core.ModelSearch")
+    @patch("comfyfixersmart.core.ModelInventory")
+    @patch("comfyfixersmart.core.DownloadManager")
+    def test_workflow_with_no_missing_models(self, mock_download, mock_inventory, mock_search, mock_scanner, tmp_path):
         """Test workflow processing when all models exist locally."""
         # Create test workflow
         workflow_file = tmp_path / "workflow.json"
@@ -415,17 +443,17 @@ class TestCoreIntegrationWorkflow:
             ]
         }
         workflow_file.write_text(json.dumps(workflow_data))
-
+    
         # Create the model locally
         models_dir = tmp_path / "models"
         models_dir.mkdir()
         model_file = models_dir / "existing_checkpoint.safetensors"
         model_file.write_bytes(b"x" * 2_000_000)
-
+    
         core = ComfyFixerCore()
-
+    
         # Mock inventory to return the existing model
-        core.inventory.build_inventory.return_value = {
+        mock_inventory.return_value.build_inventory.return_value = {
             "existing_checkpoint.safetensors": Mock(
                 filename="existing_checkpoint.safetensors",
                 path=str(model_file),
@@ -433,9 +461,9 @@ class TestCoreIntegrationWorkflow:
                 is_valid=True,
             )
         }
-
+    
         result = core.run(workflow_dirs=[str(tmp_path)], scan_only=True)
-
+    
         assert result["models_found"] == 1
         assert result["models_missing"] == 0
         assert result["models_resolved"] == 1
