@@ -16,6 +16,7 @@ from .direct_downloader import CivitaiDirectDownloader
 @dataclass
 class SelectionResult:
     """Result of user selection"""
+
     selected: bool
     candidate: Optional[SearchCandidate] = None
     action: Optional[str] = None  # 'download', 'info', 'cancel'
@@ -33,8 +34,9 @@ class CivitaiFuzzyFinder:
         self.searcher = AdvancedCivitaiSearch()
         self.downloader = CivitaiDirectDownloader()
 
-    def find_and_select(self, search_term: str, model_type: str = "LORA",
-                       auto_download: bool = False) -> SelectionResult:
+    def find_and_select(
+        self, search_term: str, model_type: str = "LORA", auto_download: bool = False
+    ) -> SelectionResult:
         """
         Search for models and let user select one.
 
@@ -51,7 +53,7 @@ class CivitaiFuzzyFinder:
 
         # Perform search
         results = self.searcher.search(search_term, model_type)
-        candidates = results.get('candidates', [])
+        candidates = results.get("candidates", [])
 
         if not candidates:
             print("❌ No results found")
@@ -83,19 +85,19 @@ class CivitaiFuzzyFinder:
         print("=" * 60)
 
         for i, candidate in enumerate(candidates, 1):
-            score = candidate.get('score', 0)
-            confidence = candidate.get('confidence', 'unknown')
-            name = candidate.get('name', 'Unknown')
-            model_id = candidate.get('model_id', 0)
-            creator = candidate.get('creator', 'Unknown')
+            score = candidate.get("score", 0)
+            confidence = candidate.get("confidence", "unknown")
+            name = candidate.get("name", "Unknown")
+            model_id = candidate.get("model_id", 0)
+            creator = candidate.get("creator", "Unknown")
 
             # Confidence indicator
-            if confidence == 'high':
-                indicator = '🟢'
-            elif confidence == 'medium':
-                indicator = '🟡'
+            if confidence == "high":
+                indicator = "🟢"
+            elif confidence == "medium":
+                indicator = "🟡"
             else:
-                indicator = '🔴'
+                indicator = "🔴"
 
             print(f"\n[{i}] {indicator} Score: {score} | Confidence: {confidence}")
             print(f"    Name: {name}")
@@ -126,12 +128,12 @@ class CivitaiFuzzyFinder:
                 choice = input("Your choice: ").strip().lower()
 
                 # Quit
-                if choice == 'q':
+                if choice == "q":
                     print("👋 Cancelled")
-                    return SelectionResult(selected=False, action='cancel')
+                    return SelectionResult(selected=False, action="cancel")
 
                 # Info request
-                if choice.startswith('i'):
+                if choice.startswith("i"):
                     try:
                         index = int(choice[1:]) - 1
                         if 0 <= index < len(candidates):
@@ -157,7 +159,7 @@ class CivitaiFuzzyFinder:
 
             except KeyboardInterrupt:
                 print("\n\n👋 Interrupted by user")
-                return SelectionResult(selected=False, action='cancel')
+                return SelectionResult(selected=False, action="cancel")
 
     def _show_detailed_info(self, candidate: Dict):
         """Show detailed information about a candidate"""
@@ -166,12 +168,12 @@ class CivitaiFuzzyFinder:
         print("=" * 60)
 
         for key, value in candidate.items():
-            if key != 'metadata':
+            if key != "metadata":
                 print(f"{key}: {value}")
 
-        if 'metadata' in candidate and candidate['metadata']:
+        if "metadata" in candidate and candidate["metadata"]:
             print("\nMetadata:")
-            for key, value in candidate['metadata'].items():
+            for key, value in candidate["metadata"].items():
                 print(f"  {key}: {value}")
 
         print("=" * 60 + "\n")
@@ -181,19 +183,19 @@ class CivitaiFuzzyFinder:
         from .advanced_search import SearchStrategy, ConfidenceLevel
 
         return SearchCandidate(
-            model_id=candidate_dict['model_id'],
-            name=candidate_dict['name'],
-            filename=candidate_dict['filename'],
-            version_id=candidate_dict['version_id'],
-            version_name=candidate_dict.get('version_name', ''),
-            score=candidate_dict['score'],
-            confidence=ConfidenceLevel(candidate_dict['confidence']),
-            found_by=SearchStrategy(candidate_dict['found_by']),
-            type=candidate_dict['type'],
-            download_url=candidate_dict['download_url'],
-            creator=candidate_dict.get('creator'),
-            tag_used=candidate_dict.get('tag_used'),
-            metadata=candidate_dict.get('metadata')
+            model_id=candidate_dict["model_id"],
+            name=candidate_dict["name"],
+            filename=candidate_dict["filename"],
+            version_id=candidate_dict["version_id"],
+            version_name=candidate_dict.get("version_name", ""),
+            score=candidate_dict["score"],
+            confidence=ConfidenceLevel(candidate_dict["confidence"]),
+            found_by=SearchStrategy(candidate_dict["found_by"]),
+            type=candidate_dict["type"],
+            download_url=candidate_dict["download_url"],
+            creator=candidate_dict.get("creator"),
+            tag_used=candidate_dict.get("tag_used"),
+            metadata=candidate_dict.get("metadata"),
         )
 
     def _download_candidate(self, candidate: SearchCandidate) -> SelectionResult:
@@ -203,19 +205,13 @@ class CivitaiFuzzyFinder:
         print(f"   File: {candidate.filename}")
         print()
 
-        result = self.downloader.download_by_id(
-            candidate.model_id,
-            candidate.version_id
-        )
+        result = self.downloader.download_by_id(candidate.model_id, candidate.version_id)
 
-        return SelectionResult(
-            selected=True,
-            candidate=candidate,
-            action='download'
-        )
+        return SelectionResult(selected=True, candidate=candidate, action="download")
 
-    def batch_find(self, search_terms: List[str], model_type: str = "LORA",
-                  output_file: Optional[str] = None) -> List[SelectionResult]:
+    def batch_find(
+        self, search_terms: List[str], model_type: str = "LORA", output_file: Optional[str] = None
+    ) -> List[SelectionResult]:
         """
         Find and optionally download multiple models.
 
@@ -232,7 +228,7 @@ class CivitaiFuzzyFinder:
         for i, term in enumerate(search_terms, 1):
             print(f"\n{'=' * 60}")
             print(f"Query {i}/{len(search_terms)}: {term}")
-            print('=' * 60)
+            print("=" * 60)
 
             result = self.find_and_select(term, model_type, auto_download=False)
             results.append(result)
@@ -251,7 +247,7 @@ class CivitaiFuzzyFinder:
             if result.selected and result.candidate:
                 export_data.append(result.candidate.to_dict())
 
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(export_data, f, indent=2)
 
         print(f"\n📄 Results exported to: {output_file}")
@@ -261,18 +257,14 @@ def main():
     """CLI interface for standalone usage"""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description='Interactive fuzzy Civitai model finder'
+    parser = argparse.ArgumentParser(description="Interactive fuzzy Civitai model finder")
+    parser.add_argument("search_term", nargs="+", help="Model name(s) to search for")
+    parser.add_argument("--type", default="LORA", help="Model type (default: LORA)")
+    parser.add_argument(
+        "--auto-download", action="store_true", help="Automatically download top result"
     )
-    parser.add_argument('search_term', nargs='+',
-                       help='Model name(s) to search for')
-    parser.add_argument('--type', default='LORA',
-                       help='Model type (default: LORA)')
-    parser.add_argument('--auto-download', action='store_true',
-                       help='Automatically download top result')
-    parser.add_argument('--batch', action='store_true',
-                       help='Process multiple search terms')
-    parser.add_argument('--export', help='Export results to JSON file')
+    parser.add_argument("--batch", action="store_true", help="Process multiple search terms")
+    parser.add_argument("--export", help="Export results to JSON file")
 
     args = parser.parse_args()
 
@@ -283,16 +275,12 @@ def main():
         finder.batch_find(args.search_term, args.type, args.export)
     else:
         # Single search
-        search_term = ' '.join(args.search_term)
-        result = finder.find_and_select(
-            search_term,
-            args.type,
-            args.auto_download
-        )
+        search_term = " ".join(args.search_term)
+        result = finder.find_and_select(search_term, args.type, args.auto_download)
 
         if not result.selected:
             exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

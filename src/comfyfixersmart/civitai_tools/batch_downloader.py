@@ -17,6 +17,7 @@ from .direct_downloader import CivitaiDirectDownloader, DownloadStatus, Download
 
 class BatchStatus(str, Enum):
     """Batch download status"""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -26,6 +27,7 @@ class BatchStatus(str, Enum):
 @dataclass
 class BatchJob:
     """A batch download job"""
+
     model_id: int
     model_name: Optional[str] = None
     version_id: Optional[int] = None
@@ -38,20 +40,21 @@ class BatchJob:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
-            'model_id': self.model_id,
-            'model_name': self.model_name,
-            'version_id': self.version_id,
-            'status': self.status.value,
-            'attempts': self.attempts,
-            'max_retries': self.max_retries,
-            'result': self.result.to_dict() if self.result else None,
-            'error': self.error
+            "model_id": self.model_id,
+            "model_name": self.model_name,
+            "version_id": self.version_id,
+            "status": self.status.value,
+            "attempts": self.attempts,
+            "max_retries": self.max_retries,
+            "result": self.result.to_dict() if self.result else None,
+            "error": self.error,
         }
 
 
 @dataclass
 class BatchSummary:
     """Summary of batch download operation"""
+
     total: int
     successful: int
     failed: int
@@ -61,11 +64,11 @@ class BatchSummary:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
-            'total': self.total,
-            'successful': self.successful,
-            'failed': self.failed,
-            'skipped': self.skipped,
-            'jobs': [job.to_dict() for job in self.jobs]
+            "total": self.total,
+            "successful": self.successful,
+            "failed": self.failed,
+            "skipped": self.skipped,
+            "jobs": [job.to_dict() for job in self.jobs],
         }
 
 
@@ -76,9 +79,12 @@ class CivitaiBatchDownloader:
     Ported from bash/batch_civitai_downloader.sh
     """
 
-    def __init__(self, download_dir: Optional[str] = None,
-                 max_retries: int = 3,
-                 delay_between_downloads: float = 2.0):
+    def __init__(
+        self,
+        download_dir: Optional[str] = None,
+        max_retries: int = 3,
+        delay_between_downloads: float = 2.0,
+    ):
         """
         Initialize batch downloader.
 
@@ -91,8 +97,9 @@ class CivitaiBatchDownloader:
         self.max_retries = max_retries
         self.delay_between_downloads = delay_between_downloads
 
-    def download_batch(self, jobs: List[BatchJob],
-                      continue_on_failure: bool = True) -> BatchSummary:
+    def download_batch(
+        self, jobs: List[BatchJob], continue_on_failure: bool = True
+    ) -> BatchSummary:
         """
         Download multiple models in batch.
 
@@ -128,10 +135,7 @@ class CivitaiBatchDownloader:
                 print(f"  Attempt {job.attempts}/{self.max_retries}")
 
                 try:
-                    result = self.downloader.download_by_id(
-                        job.model_id,
-                        job.version_id
-                    )
+                    result = self.downloader.download_by_id(job.model_id, job.version_id)
 
                     job.result = result
 
@@ -183,15 +187,10 @@ class CivitaiBatchDownloader:
         print("=" * 60)
 
         return BatchSummary(
-            total=len(jobs),
-            successful=successful,
-            failed=failed,
-            skipped=skipped,
-            jobs=jobs
+            total=len(jobs), successful=successful, failed=failed, skipped=skipped, jobs=jobs
         )
 
-    def download_from_json(self, json_file: str,
-                          continue_on_failure: bool = True) -> BatchSummary:
+    def download_from_json(self, json_file: str, continue_on_failure: bool = True) -> BatchSummary:
         """
         Download models from a JSON file.
 
@@ -214,16 +213,16 @@ class CivitaiBatchDownloader:
         """
         print(f"📄 Loading batch file: {json_file}")
 
-        with open(json_file, 'r') as f:
+        with open(json_file, "r") as f:
             data = json.load(f)
 
         jobs = []
         for item in data:
             job = BatchJob(
-                model_id=item['model_id'],
-                model_name=item.get('model_name'),
-                version_id=item.get('version_id'),
-                max_retries=self.max_retries
+                model_id=item["model_id"],
+                model_name=item.get("model_name"),
+                version_id=item.get("version_id"),
+                max_retries=self.max_retries,
             )
             jobs.append(job)
 
@@ -231,7 +230,7 @@ class CivitaiBatchDownloader:
 
     def export_summary(self, summary: BatchSummary, output_file: str):
         """Export batch summary to JSON file"""
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(summary.to_dict(), f, indent=2)
 
         print(f"\n📄 Summary exported to: {output_file}")
@@ -241,30 +240,30 @@ def main():
     """CLI interface for standalone usage"""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description='Batch Civitai model downloader with retry logic'
+    parser = argparse.ArgumentParser(description="Batch Civitai model downloader with retry logic")
+    parser.add_argument("input_json", help="JSON file with model list")
+    parser.add_argument("--output-dir", help="Download directory")
+    parser.add_argument(
+        "--max-retries", type=int, default=3, help="Maximum retry attempts (default: 3)"
     )
-    parser.add_argument('input_json', help='JSON file with model list')
-    parser.add_argument('--output-dir', help='Download directory')
-    parser.add_argument('--max-retries', type=int, default=3,
-                       help='Maximum retry attempts (default: 3)')
-    parser.add_argument('--delay', type=float, default=2.0,
-                       help='Delay between downloads in seconds (default: 2.0)')
-    parser.add_argument('--stop-on-failure', action='store_true',
-                       help='Stop batch if a download fails')
-    parser.add_argument('--export-summary', help='Export summary to JSON file')
+    parser.add_argument(
+        "--delay", type=float, default=2.0, help="Delay between downloads in seconds (default: 2.0)"
+    )
+    parser.add_argument(
+        "--stop-on-failure", action="store_true", help="Stop batch if a download fails"
+    )
+    parser.add_argument("--export-summary", help="Export summary to JSON file")
 
     args = parser.parse_args()
 
     downloader = CivitaiBatchDownloader(
         download_dir=args.output_dir,
         max_retries=args.max_retries,
-        delay_between_downloads=args.delay
+        delay_between_downloads=args.delay,
     )
 
     summary = downloader.download_from_json(
-        args.input_json,
-        continue_on_failure=not args.stop_on_failure
+        args.input_json, continue_on_failure=not args.stop_on_failure
     )
 
     if args.export_summary:
@@ -274,5 +273,5 @@ def main():
     exit(0 if summary.failed == 0 else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

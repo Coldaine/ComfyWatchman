@@ -19,6 +19,7 @@ from enum import Enum
 
 class DownloadStatus(str, Enum):
     """Download operation status"""
+
     SUCCESS = "success"
     FAILED = "failed"
     HASH_MISMATCH = "hash_mismatch"
@@ -28,6 +29,7 @@ class DownloadStatus(str, Enum):
 @dataclass
 class DownloadResult:
     """Result of a download operation"""
+
     status: DownloadStatus
     model_id: int
     model_name: str
@@ -41,15 +43,15 @@ class DownloadResult:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
-            'status': self.status.value,
-            'model_id': self.model_id,
-            'model_name': self.model_name,
-            'filename': self.filename,
-            'file_path': self.file_path,
-            'file_size': self.file_size,
-            'expected_hash': self.expected_hash,
-            'actual_hash': self.actual_hash,
-            'error_message': self.error_message
+            "status": self.status.value,
+            "model_id": self.model_id,
+            "model_name": self.model_name,
+            "filename": self.filename,
+            "file_path": self.file_path,
+            "file_size": self.file_size,
+            "expected_hash": self.expected_hash,
+            "actual_hash": self.actual_hash,
+            "error_message": self.error_message,
         }
 
 
@@ -62,10 +64,10 @@ class CivitaiDirectDownloader:
     """
 
     def __init__(self, download_dir: Optional[str] = None, api_key: Optional[str] = None):
-        self.download_dir = Path(download_dir or './downloads')
+        self.download_dir = Path(download_dir or "./downloads")
         self.download_dir.mkdir(exist_ok=True, parents=True)
 
-        self.api_key = api_key or os.environ.get('CIVITAI_API_KEY', '')
+        self.api_key = api_key or os.environ.get("CIVITAI_API_KEY", "")
         self.base_url = "https://civitai.com/api/v1"
 
     @staticmethod
@@ -90,7 +92,7 @@ class CivitaiDirectDownloader:
             1091495
         """
         # Match: https://civitai.com/models/{id} or https://civitai.com/models/{id}/{name}
-        url_pattern = r'https://civitai\.com/models/(\d+)(?:/.*)?'
+        url_pattern = r"https://civitai\.com/models/(\d+)(?:/.*)?"
         match = re.match(url_pattern, input_string)
 
         if match:
@@ -117,12 +119,10 @@ class CivitaiDirectDownloader:
         try:
             headers = {}
             if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+                headers["Authorization"] = f"Bearer {self.api_key}"
 
             response = requests.get(
-                f"{self.base_url}/models/{model_id}",
-                headers=headers,
-                timeout=30
+                f"{self.base_url}/models/{model_id}", headers=headers, timeout=30
             )
 
             if response.status_code != 200:
@@ -135,8 +135,9 @@ class CivitaiDirectDownloader:
             print(f"✗ Error fetching model details: {e}")
             return None
 
-    def get_download_info(self, model_data: Dict[str, Any],
-                         version_id: Optional[int] = None) -> Optional[Tuple[Dict, Dict]]:
+    def get_download_info(
+        self, model_data: Dict[str, Any], version_id: Optional[int] = None
+    ) -> Optional[Tuple[Dict, Dict]]:
         """
         Get download information from model data.
 
@@ -149,7 +150,7 @@ class CivitaiDirectDownloader:
         Returns:
             Tuple of (version_dict, file_dict), or None if not found
         """
-        versions = model_data.get('modelVersions', [])
+        versions = model_data.get("modelVersions", [])
         if not versions:
             print("✗ No versions found for this model")
             return None
@@ -158,7 +159,7 @@ class CivitaiDirectDownloader:
         target_version = None
         if version_id:
             for version in versions:
-                if version.get('id') == version_id:
+                if version.get("id") == version_id:
                     target_version = version
                     break
             if not target_version:
@@ -169,22 +170,27 @@ class CivitaiDirectDownloader:
             target_version = versions[0]
 
         # Find primary file or largest file
-        files = target_version.get('files', [])
+        files = target_version.get("files", [])
         if not files:
             print("✗ No files found in this version")
             return None
 
         # Prefer primary file
-        primary_file = next((f for f in files if f.get('primary')), None)
+        primary_file = next((f for f in files if f.get("primary")), None)
 
         if not primary_file:
             # Fall back to largest file
-            primary_file = max(files, key=lambda f: f.get('sizeKB', 0))
+            primary_file = max(files, key=lambda f: f.get("sizeKB", 0))
 
         return target_version, primary_file
 
-    def download_file(self, url: str, filepath: Path, expected_hash: Optional[str] = None,
-                     show_progress: bool = True) -> DownloadResult:
+    def download_file(
+        self,
+        url: str,
+        filepath: Path,
+        expected_hash: Optional[str] = None,
+        show_progress: bool = True,
+    ) -> DownloadResult:
         """
         Download file with progress tracking and optional hash verification.
 
@@ -202,7 +208,7 @@ class CivitaiDirectDownloader:
         try:
             headers = {}
             if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+                headers["Authorization"] = f"Bearer {self.api_key}"
 
             print(f"⬇ Downloading to: {filepath}")
 
@@ -210,11 +216,11 @@ class CivitaiDirectDownloader:
             response = requests.get(url, headers=headers, stream=True, timeout=60)
             response.raise_for_status()
 
-            total_size = int(response.headers.get('content-length', 0))
+            total_size = int(response.headers.get("content-length", 0))
             block_size = 8192
             downloaded = 0
 
-            with open(filepath, 'wb') as f:
+            with open(filepath, "wb") as f:
                 for chunk in response.iter_content(chunk_size=block_size):
                     if chunk:
                         f.write(chunk)
@@ -222,7 +228,7 @@ class CivitaiDirectDownloader:
 
                         if show_progress and total_size > 0:
                             percent = (downloaded / total_size) * 100
-                            print(f"\r  Progress: {percent:.1f}%", end='', flush=True)
+                            print(f"\r  Progress: {percent:.1f}%", end="", flush=True)
 
             if show_progress:
                 print()  # New line after progress
@@ -245,7 +251,7 @@ class CivitaiDirectDownloader:
                         file_path=str(filepath),
                         file_size=file_size,
                         expected_hash=expected_hash,
-                        actual_hash=actual_hash
+                        actual_hash=actual_hash,
                     )
                 else:
                     print(f"✗ SHA256 verification failed")
@@ -259,7 +265,7 @@ class CivitaiDirectDownloader:
                         filename=filepath.name,
                         expected_hash=expected_hash,
                         actual_hash=actual_hash,
-                        error_message="Hash verification failed"
+                        error_message="Hash verification failed",
                     )
 
             # Success without hash verification
@@ -269,7 +275,7 @@ class CivitaiDirectDownloader:
                 model_name="",
                 filename=filepath.name,
                 file_path=str(filepath),
-                file_size=file_size
+                file_size=file_size,
             )
 
         except Exception as e:
@@ -279,7 +285,7 @@ class CivitaiDirectDownloader:
                 model_id=0,
                 model_name="",
                 filename=filepath.name if filepath else "unknown",
-                error_message=str(e)
+                error_message=str(e),
             )
 
     @staticmethod
@@ -297,14 +303,15 @@ class CivitaiDirectDownloader:
         """
         sha256_hash = hashlib.sha256()
 
-        with open(filepath, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
+        with open(filepath, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
                 sha256_hash.update(chunk)
 
         return sha256_hash.hexdigest()
 
-    def download_by_id(self, model_id: int, version_id: Optional[int] = None,
-                      output_filename: Optional[str] = None) -> DownloadResult:
+    def download_by_id(
+        self, model_id: int, version_id: Optional[int] = None, output_filename: Optional[str] = None
+    ) -> DownloadResult:
         """
         Download model by direct ID.
 
@@ -328,10 +335,10 @@ class CivitaiDirectDownloader:
                 model_id=model_id,
                 model_name="Unknown",
                 filename="",
-                error_message="Failed to fetch model details"
+                error_message="Failed to fetch model details",
             )
 
-        model_name = model_data.get('name', f'Model {model_id}')
+        model_name = model_data.get("name", f"Model {model_id}")
         print(f"📦 Model: {model_name}")
 
         # Get download info
@@ -342,21 +349,21 @@ class CivitaiDirectDownloader:
                 model_id=model_id,
                 model_name=model_name,
                 filename="",
-                error_message="No downloadable files found"
+                error_message="No downloadable files found",
             )
 
         version, file_info = download_info
 
-        filename = output_filename or file_info.get('name', f'model_{model_id}.safetensors')
-        file_size_kb = file_info.get('sizeKB', 0)
-        expected_hash = file_info.get('hashes', {}).get('SHA256')
+        filename = output_filename or file_info.get("name", f"model_{model_id}.safetensors")
+        file_size_kb = file_info.get("sizeKB", 0)
+        expected_hash = file_info.get("hashes", {}).get("SHA256")
 
         print(f"📄 File: {filename}")
         if file_size_kb > 0:
             print(f"📊 Size: {file_size_kb / 1024:.1f} MB")
 
         # Construct download URL
-        version_id_actual = version.get('id')
+        version_id_actual = version.get("id")
         download_url = f"https://civitai.com/api/download/models/{version_id_actual}"
 
         # Download and verify
@@ -394,7 +401,7 @@ class CivitaiDirectDownloader:
                 model_id=0,
                 model_name="",
                 filename="",
-                error_message="Invalid URL or model ID"
+                error_message="Invalid URL or model ID",
             )
 
         return self.download_by_id(model_id, version_id)
@@ -405,19 +412,19 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='Direct Civitai model downloader with hash verification'
+        description="Direct Civitai model downloader with hash verification"
     )
-    parser.add_argument('model_id_or_url', help='Civitai model ID or URL')
-    parser.add_argument('--version-id', type=int, help='Specific version ID (optional)')
-    parser.add_argument('--output-dir', help='Download directory (default: ./downloads)')
-    parser.add_argument('--output-name', help='Override output filename')
+    parser.add_argument("model_id_or_url", help="Civitai model ID or URL")
+    parser.add_argument("--version-id", type=int, help="Specific version ID (optional)")
+    parser.add_argument("--output-dir", help="Download directory (default: ./downloads)")
+    parser.add_argument("--output-name", help="Override output filename")
 
     args = parser.parse_args()
 
     downloader = CivitaiDirectDownloader(download_dir=args.output_dir)
 
     # Check if input is URL or ID
-    if args.model_id_or_url.startswith('http'):
+    if args.model_id_or_url.startswith("http"):
         result = downloader.download_by_url(args.model_id_or_url, args.version_id)
     else:
         model_id = int(args.model_id_or_url)
@@ -427,5 +434,5 @@ def main():
     exit(0 if result.status == DownloadStatus.SUCCESS else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

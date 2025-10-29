@@ -23,6 +23,7 @@ from enum import Enum
 
 class ConfidenceLevel(str, Enum):
     """Match confidence levels"""
+
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
@@ -30,6 +31,7 @@ class ConfidenceLevel(str, Enum):
 
 class SearchStrategy(str, Enum):
     """Search strategy types"""
+
     DIRECT_ID = "direct_id"
     QUERY = "query"
     QUERY_NSFW = "query_nsfw"
@@ -41,6 +43,7 @@ class SearchStrategy(str, Enum):
 @dataclass
 class SearchCandidate:
     """A candidate model from search results"""
+
     model_id: int
     name: str
     filename: str
@@ -100,7 +103,7 @@ class ModelScorer:
                 score += 25
 
         # Safetensors format bonus: +5
-        if item_name.endswith('.safetensors'):
+        if item_name.endswith(".safetensors"):
             score += 5
 
         # Direct ID lookup bonus: +50 (100% accurate)
@@ -125,20 +128,24 @@ class TagExtractor:
 
     # Port of anatomical/style/content terms from bash (lines 303-308)
     ANATOMICAL_TERMS = [
-        'anatomy', 'anatomical', 'detail', 'details', 'eyes',
-        'pussy', 'anus', 'breasts', 'ass', 'thighs'
+        "anatomy",
+        "anatomical",
+        "detail",
+        "details",
+        "eyes",
+        "pussy",
+        "anus",
+        "breasts",
+        "ass",
+        "thighs",
     ]
 
-    STYLE_TERMS = [
-        'realistic', 'high', 'definition', 'hd', 'detailed', 'detail'
-    ]
+    STYLE_TERMS = ["realistic", "high", "definition", "hd", "detailed", "detail"]
 
-    CONTENT_TERMS = [
-        'nsfw', 'explicit', 'nude', 'naked', 'adult'
-    ]
+    CONTENT_TERMS = ["nsfw", "explicit", "nude", "naked", "adult"]
 
     # Words to skip (lines 325)
-    SKIP_WORDS = {'and', 'the', 'for', 'with', 'v1', 'v2', 'v3', 'xl'}
+    SKIP_WORDS = {"and", "the", "for", "with", "v1", "v2", "v3", "xl"}
 
     @classmethod
     def extract_tags(cls, query: str) -> List[str]:
@@ -165,7 +172,7 @@ class TagExtractor:
         # Extract individual words (longer than 2 chars, not common words)
         words = query.split()
         for word in words:
-            word_clean = re.sub(r'[^a-zA-Z0-9]', '', word)
+            word_clean = re.sub(r"[^a-zA-Z0-9]", "", word)
             word_lower = word_clean.lower()
 
             if len(word_lower) > 2 and word_lower not in cls.SKIP_WORDS:
@@ -191,7 +198,7 @@ class KnownModelsDB:
             return {}
 
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"Warning: Failed to load known models: {e}")
@@ -226,14 +233,15 @@ class AdvancedCivitaiSearch:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get('CIVITAI_API_KEY', '')
+        self.api_key = api_key or os.environ.get("CIVITAI_API_KEY", "")
         self.base_url = "https://civitai.com/api/v1"
         self.scorer = ModelScorer()
         self.tag_extractor = TagExtractor()
         self.known_models = KnownModelsDB()
 
-    def search(self, search_term: str, model_type: str = "LORA",
-               creator: Optional[str] = None) -> Dict[str, Any]:
+    def search(
+        self, search_term: str, model_type: str = "LORA", creator: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Execute advanced multi-strategy search.
 
@@ -248,48 +256,48 @@ class AdvancedCivitaiSearch:
             Dict with query, strategies tried, and candidates
         """
         results = {
-            'query': search_term,
-            'model_type': model_type,
-            'strategies_tried': [],
-            'candidates': []
+            "query": search_term,
+            "model_type": model_type,
+            "strategies_tried": [],
+            "candidates": [],
         }
 
         # Strategy 1: Check known models first (fastest)
         known_result = self._check_known_models(search_term, model_type)
         if known_result:
-            results['strategies_tried'].append(SearchStrategy.DIRECT_ID.value)
-            results['candidates'].append(known_result.to_dict())
+            results["strategies_tried"].append(SearchStrategy.DIRECT_ID.value)
+            results["candidates"].append(known_result.to_dict())
             return results
 
         # Strategy 2: Query search with nsfw=true
         query_results = self._search_query(search_term, model_type, nsfw=True)
         if query_results:
-            results['strategies_tried'].append(SearchStrategy.QUERY_NSFW.value)
-            results['candidates'].extend([r.to_dict() for r in query_results])
+            results["strategies_tried"].append(SearchStrategy.QUERY_NSFW.value)
+            results["candidates"].extend([r.to_dict() for r in query_results])
 
         # Strategy 3: Query search without nsfw parameter
-        if len(results['candidates']) < 5:
+        if len(results["candidates"]) < 5:
             query_no_nsfw = self._search_query(search_term, model_type, nsfw=False)
             if query_no_nsfw:
-                results['strategies_tried'].append(SearchStrategy.QUERY_NO_NSFW.value)
-                results['candidates'].extend([r.to_dict() for r in query_no_nsfw])
+                results["strategies_tried"].append(SearchStrategy.QUERY_NO_NSFW.value)
+                results["candidates"].extend([r.to_dict() for r in query_no_nsfw])
 
         # Strategy 4: Tag-based search
-        if len(results['candidates']) < 10:
+        if len(results["candidates"]) < 10:
             tag_results = self._search_by_tags(search_term, model_type)
             if tag_results:
-                results['strategies_tried'].append(SearchStrategy.TAG.value)
-                results['candidates'].extend([r.to_dict() for r in tag_results])
+                results["strategies_tried"].append(SearchStrategy.TAG.value)
+                results["candidates"].extend([r.to_dict() for r in tag_results])
 
         # Strategy 5: Creator-based search (if provided)
-        if creator and len(results['candidates']) < 15:
+        if creator and len(results["candidates"]) < 15:
             creator_results = self._search_by_creator(creator, model_type, search_term)
             if creator_results:
-                results['strategies_tried'].append(SearchStrategy.CREATOR.value)
-                results['candidates'].extend([r.to_dict() for r in creator_results])
+                results["strategies_tried"].append(SearchStrategy.CREATOR.value)
+                results["candidates"].extend([r.to_dict() for r in creator_results])
 
         # Sort by score (highest first) and deduplicate
-        results['candidates'] = self._deduplicate_and_sort(results['candidates'])
+        results["candidates"] = self._deduplicate_and_sort(results["candidates"])
 
         return results
 
@@ -303,7 +311,7 @@ class AdvancedCivitaiSearch:
         if not model_info:
             return None
 
-        model_id = model_info.get('model_id')
+        model_id = model_info.get("model_id")
         if not model_id:
             return None
 
@@ -311,12 +319,10 @@ class AdvancedCivitaiSearch:
         try:
             headers = {}
             if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+                headers["Authorization"] = f"Bearer {self.api_key}"
 
             response = requests.get(
-                f"{self.base_url}/models/{model_id}",
-                headers=headers,
-                timeout=30
+                f"{self.base_url}/models/{model_id}", headers=headers, timeout=30
             )
 
             if response.status_code != 200:
@@ -325,22 +331,22 @@ class AdvancedCivitaiSearch:
             data = response.json()
 
             # Get latest version
-            versions = data.get('modelVersions', [])
+            versions = data.get("modelVersions", [])
             if not versions:
                 return None
 
             version = versions[0]
-            version_id = version.get('id')
+            version_id = version.get("id")
 
             # Get primary file
-            files = version.get('files', [])
-            primary_file = next((f for f in files if f.get('primary')), files[0] if files else None)
+            files = version.get("files", [])
+            primary_file = next((f for f in files if f.get("primary")), files[0] if files else None)
 
             if not primary_file:
                 return None
 
-            filename = primary_file.get('name', f'model_{model_id}.safetensors')
-            model_name = data.get('name', f'Model {model_id}')
+            filename = primary_file.get("name", f"model_{model_id}.safetensors")
+            model_name = data.get("name", f"Model {model_id}")
 
             score = self.scorer.calculate_score(model_name, search_term, SearchStrategy.DIRECT_ID)
 
@@ -349,14 +355,14 @@ class AdvancedCivitaiSearch:
                 name=model_name,
                 filename=filename,
                 version_id=version_id,
-                version_name=version.get('name', f'Version {version_id}'),
+                version_name=version.get("name", f"Version {version_id}"),
                 score=score,
                 confidence=ConfidenceLevel.HIGH,
                 found_by=SearchStrategy.DIRECT_ID,
                 type=model_type,
                 download_url=f"https://civitai.com/api/download/models/{version_id}",
-                creator=data.get('creator', {}).get('username'),
-                metadata={'direct_id_lookup': True}
+                creator=data.get("creator", {}).get("username"),
+                metadata={"direct_id_lookup": True},
             )
 
         except Exception as e:
@@ -370,25 +376,17 @@ class AdvancedCivitaiSearch:
         Port of perform_query_search() from bash (lines 216-245).
         """
         try:
-            params = {
-                'query': query,
-                'types': model_type,
-                'limit': 10,
-                'sort': 'Highest Rated'
-            }
+            params = {"query": query, "types": model_type, "limit": 10, "sort": "Highest Rated"}
 
             if nsfw:
-                params['nsfw'] = 'true'
+                params["nsfw"] = "true"
 
             headers = {}
             if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+                headers["Authorization"] = f"Bearer {self.api_key}"
 
             response = requests.get(
-                f"{self.base_url}/models",
-                params=params,
-                headers=headers,
-                timeout=30
+                f"{self.base_url}/models", params=params, headers=headers, timeout=30
             )
 
             if response.status_code != 200:
@@ -396,9 +394,9 @@ class AdvancedCivitaiSearch:
 
             data = response.json()
             return self._process_search_results(
-                data.get('items', []),
+                data.get("items", []),
                 query,
-                SearchStrategy.QUERY_NSFW if nsfw else SearchStrategy.QUERY_NO_NSFW
+                SearchStrategy.QUERY_NSFW if nsfw else SearchStrategy.QUERY_NO_NSFW,
             )
 
         except Exception as e:
@@ -416,22 +414,14 @@ class AdvancedCivitaiSearch:
 
         for tag in tags[:5]:  # Limit to first 5 tags
             try:
-                params = {
-                    'tag': tag,
-                    'types': model_type,
-                    'nsfw': 'true',
-                    'limit': 5
-                }
+                params = {"tag": tag, "types": model_type, "nsfw": "true", "limit": 5}
 
                 headers = {}
                 if self.api_key:
-                    headers['Authorization'] = f'Bearer {self.api_key}'
+                    headers["Authorization"] = f"Bearer {self.api_key}"
 
                 response = requests.get(
-                    f"{self.base_url}/models",
-                    params=params,
-                    headers=headers,
-                    timeout=30
+                    f"{self.base_url}/models", params=params, headers=headers, timeout=30
                 )
 
                 if response.status_code != 200:
@@ -439,9 +429,7 @@ class AdvancedCivitaiSearch:
 
                 data = response.json()
                 tag_results = self._process_search_results(
-                    data.get('items', []),
-                    query,
-                    SearchStrategy.TAG
+                    data.get("items", []), query, SearchStrategy.TAG
                 )
 
                 # Add tag metadata
@@ -456,29 +444,23 @@ class AdvancedCivitaiSearch:
 
         return results
 
-    def _search_by_creator(self, creator: str, model_type: str, query: str) -> List[SearchCandidate]:
+    def _search_by_creator(
+        self, creator: str, model_type: str, query: str
+    ) -> List[SearchCandidate]:
         """
         Perform creator-based search.
 
         Port of creator search from bash (lines 525-562).
         """
         try:
-            params = {
-                'username': creator,
-                'types': model_type,
-                'nsfw': 'true',
-                'limit': 10
-            }
+            params = {"username": creator, "types": model_type, "nsfw": "true", "limit": 10}
 
             headers = {}
             if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+                headers["Authorization"] = f"Bearer {self.api_key}"
 
             response = requests.get(
-                f"{self.base_url}/models",
-                params=params,
-                headers=headers,
-                timeout=30
+                f"{self.base_url}/models", params=params, headers=headers, timeout=30
             )
 
             if response.status_code != 200:
@@ -486,40 +468,39 @@ class AdvancedCivitaiSearch:
 
             data = response.json()
             return self._process_search_results(
-                data.get('items', []),
-                query,
-                SearchStrategy.CREATOR
+                data.get("items", []), query, SearchStrategy.CREATOR
             )
 
         except Exception as e:
             print(f"Creator search error: {e}")
             return []
 
-    def _process_search_results(self, items: List[Dict], query: str,
-                                strategy: SearchStrategy) -> List[SearchCandidate]:
+    def _process_search_results(
+        self, items: List[Dict], query: str, strategy: SearchStrategy
+    ) -> List[SearchCandidate]:
         """Process API search results into SearchCandidate objects"""
         candidates = []
 
         for item in items:
-            model_id = item.get('id')
-            model_name = item.get('name', '')
+            model_id = item.get("id")
+            model_name = item.get("name", "")
 
             # Get latest version
-            versions = item.get('modelVersions', [])
+            versions = item.get("modelVersions", [])
             if not versions:
                 continue
 
             version = versions[0]
-            version_id = version.get('id')
+            version_id = version.get("id")
 
             # Get primary file
-            files = version.get('files', [])
-            primary_file = next((f for f in files if f.get('primary')), files[0] if files else None)
+            files = version.get("files", [])
+            primary_file = next((f for f in files if f.get("primary")), files[0] if files else None)
 
             if not primary_file:
                 continue
 
-            filename = primary_file.get('name', f'model_{model_id}.safetensors')
+            filename = primary_file.get("name", f"model_{model_id}.safetensors")
 
             # Calculate score
             score = self.scorer.calculate_score(model_name, query, strategy)
@@ -530,13 +511,13 @@ class AdvancedCivitaiSearch:
                 name=model_name,
                 filename=filename,
                 version_id=version_id,
-                version_name=version.get('name', f'Version {version_id}'),
+                version_name=version.get("name", f"Version {version_id}"),
                 score=score,
                 confidence=confidence,
                 found_by=strategy,
-                type=item.get('type', 'Unknown'),
+                type=item.get("type", "Unknown"),
                 download_url=f"https://civitai.com/api/download/models/{version_id}",
-                creator=item.get('creator', {}).get('username')
+                creator=item.get("creator", {}).get("username"),
             )
 
             candidates.append(candidate)
@@ -549,12 +530,12 @@ class AdvancedCivitaiSearch:
         unique = []
 
         for candidate in candidates:
-            model_id = candidate['model_id']
+            model_id = candidate["model_id"]
             if model_id not in seen:
                 seen.add(model_id)
                 unique.append(candidate)
 
-        return sorted(unique, key=lambda x: x['score'], reverse=True)
+        return sorted(unique, key=lambda x: x["score"], reverse=True)
 
 
 def main():
@@ -562,32 +543,38 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='Advanced Civitai Search with multi-strategy fallbacks'
+        description="Advanced Civitai Search with multi-strategy fallbacks"
     )
-    parser.add_argument('search_term', help='Model name or description')
-    parser.add_argument('--type', default='LORA', help='Model type (default: LORA)')
-    parser.add_argument('--creator', help='Creator username for creator-based search')
-    parser.add_argument('--output-format', choices=['json', 'table'], default='json',
-                       help='Output format (default: json)')
+    parser.add_argument("search_term", help="Model name or description")
+    parser.add_argument("--type", default="LORA", help="Model type (default: LORA)")
+    parser.add_argument("--creator", help="Creator username for creator-based search")
+    parser.add_argument(
+        "--output-format",
+        choices=["json", "table"],
+        default="json",
+        help="Output format (default: json)",
+    )
 
     args = parser.parse_args()
 
     searcher = AdvancedCivitaiSearch()
     results = searcher.search(args.search_term, args.type, args.creator)
 
-    if args.output_format == 'json':
+    if args.output_format == "json":
         print(json.dumps(results, indent=2))
     else:
         print(f"Query: {results['query']}")
         print(f"Model Type: {results['model_type']}")
         print(f"Strategies tried: {', '.join(results['strategies_tried'])}")
         print(f"\nTop Candidates:")
-        for i, candidate in enumerate(results['candidates'][:10], 1):
-            print(f"[{i}] Score: {candidate['score']} | "
-                  f"Name: {candidate['name']} | "
-                  f"ID: {candidate['model_id']} | "
-                  f"Confidence: {candidate['confidence']}")
+        for i, candidate in enumerate(results["candidates"][:10], 1):
+            print(
+                f"[{i}] Score: {candidate['score']} | "
+                f"Name: {candidate['name']} | "
+                f"ID: {candidate['model_id']} | "
+                f"Confidence: {candidate['confidence']}"
+            )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
