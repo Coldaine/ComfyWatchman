@@ -1,10 +1,14 @@
 [flake8]
 max-line-length = 100
-extend-ignore = E203, W503
+# Black compatibility and common allowances
+extend-ignore = E203,W503,E501,W504,F401
 per-file-ignores =
+    # Allow unused imports in package namespace initializers
     src/comfyfixersmart/__init__.py:F401
     src/comfyfixersmart/**/__init__.py:F401
     # Allow long lines in complex prompt strings and JSON formatting
     src/comfyfixersmart/search.py:E501
-exclude = .git,__pycache__,.venv,venv,env,build,dist,scripts,src/copilot_backend,setup.py,usage_examples.py,tests
-select = E9,F63,F7,F82
+exclude =
+    .git,__pycache__,.venv,venv,env,build,dist,scripts,src/copilot_backend,
+    setup.py,usage_examples.py,tests,docs
+select = E,W,F
