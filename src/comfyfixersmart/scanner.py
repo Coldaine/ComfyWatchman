@@ -34,6 +34,7 @@ from .adapters.copilot_validator import CopilotValidator
 @dataclass
 class WorkflowInfo:
     """Information about a scanned workflow."""
+
     path: str
     filename: str
     size: int
@@ -47,6 +48,7 @@ class WorkflowInfo:
 @dataclass
 class ModelReference:
     """A model reference extracted from a workflow."""
+
     filename: str
     type: str
     node_type: str
@@ -73,8 +75,9 @@ class WorkflowScanner:
         self.logger = logger or get_logger("WorkflowScanner")
         self.validator = CopilotValidator(logger=self.logger)
 
-    def scan_workflows(self, specific_paths: Optional[List[str]] = None,
-                      workflow_dirs: Optional[List[str]] = None) -> List[str]:
+    def scan_workflows(
+        self, specific_paths: Optional[List[str]] = None, workflow_dirs: Optional[List[str]] = None
+    ) -> List[str]:
         """
         Scan workflow directories for JSON files.
 
@@ -111,7 +114,7 @@ class WorkflowScanner:
         """Scan specific workflow file paths."""
         workflows = []
         for path in paths:
-            if os.path.exists(path) and path.endswith('.json'):
+            if os.path.exists(path) and path.endswith(".json"):
                 workflows.append(path)
                 self.logger.info(f"Added: {path}")
             else:
@@ -119,8 +122,9 @@ class WorkflowScanner:
         self.logger.info(f"Total workflows to scan: {len(workflows)}")
         return workflows
 
-    async def scan_workflows_detailed(self, specific_paths: Optional[List[str]] = None,
-                               workflow_dirs: Optional[List[str]] = None) -> List[WorkflowInfo]:
+    async def scan_workflows_detailed(
+        self, specific_paths: Optional[List[str]] = None, workflow_dirs: Optional[List[str]] = None
+    ) -> List[WorkflowInfo]:
         """
         Scan workflows and return detailed information about each workflow, running analysis in parallel.
 
@@ -132,7 +136,7 @@ class WorkflowScanner:
             List of WorkflowInfo objects with detailed workflow metadata
         """
         workflow_paths = self.scan_workflows(specific_paths, workflow_dirs)
-        
+
         tasks = [self._analyze_workflow(path) for path in workflow_paths]
         detailed_info = await asyncio.gather(*tasks)
 
@@ -160,7 +164,9 @@ class WorkflowScanner:
         if is_valid:
             try:
                 # This part is synchronous and CPU-bound, so it's fine to run it directly.
-                models, nodes = self.extract_models_from_workflow(workflow_path, return_node_count=True)
+                models, nodes = self.extract_models_from_workflow(
+                    workflow_path, return_node_count=True
+                )
                 model_count = len(models)
                 node_count = nodes
             except Exception as e:
@@ -175,21 +181,22 @@ class WorkflowScanner:
                 if validation_report is None and config.copilot.require_comfyui:
                     errors.append("Copilot validation failed, and it is required by config.")
             elif config.copilot.require_comfyui:
-                errors.append("Copilot validation is required by config, but the backend is not available.")
+                errors.append(
+                    "Copilot validation is required by config, but the backend is not available."
+                )
 
         return WorkflowInfo(
             path=workflow_path,
             filename=path_obj.name,
             size=size,
-            is_valid=is_valid and not errors, # Mark as invalid if validation fails and is required
+            is_valid=is_valid and not errors,  # Mark as invalid if validation fails and is required
             model_count=model_count,
             node_count=node_count,
             errors=errors,
-            copilot_validation_report=validation_report
+            copilot_validation_report=validation_report,
         )
 
-    def extract_models_from_workflow(self, workflow_path: str,
-                                   return_node_count: bool = False):
+    def extract_models_from_workflow(self, workflow_path: str, return_node_count: bool = False):
         """
         Parse workflow and extract model references.
 
@@ -201,18 +208,18 @@ class WorkflowScanner:
             List of ModelReference objects, or tuple if return_node_count=True
         """
         try:
-            with open(workflow_path, 'r', encoding='utf-8') as f:
+            with open(workflow_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             models = []
-            nodes = data.get('nodes', [])
+            nodes = data.get("nodes", [])
 
             for node in nodes:
-                node_type = node.get('type', '')
-                node_id = node.get('id', '')
+                node_type = node.get("type", "")
+                node_id = node.get("id", "")
 
                 # Check widgets_values for model filenames
-                for i, value in enumerate(node.get('widgets_values', [])):
+                for i, value in enumerate(node.get("widgets_values", [])):
                     if isinstance(value, str) and _is_model_filename(value):
                         # Normalize filename from either POSIX or Windows-style paths
                         # os.path.basename does not treat backslashes as separators on POSIX
@@ -230,7 +237,7 @@ class WorkflowScanner:
                             node_type=node_type,
                             workflow_path=workflow_path,
                             node_id=node_id,
-                            widget_name=f"widgets_values[{i}]"
+                            widget_name=f"widgets_values[{i}]",
                         )
                         models.append(model_ref)
 
@@ -255,44 +262,44 @@ class WorkflowScanner:
             Dictionary with validation results
         """
         result = {
-            'path': workflow_path,
-            'is_valid': False,
-            'errors': [],
-            'warnings': [],
-            'stats': {}
+            "path": workflow_path,
+            "is_valid": False,
+            "errors": [],
+            "warnings": [],
+            "stats": {},
         }
 
         try:
-            with open(workflow_path, 'r', encoding='utf-8') as f:
+            with open(workflow_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             # Basic structure validation
             if not isinstance(data, dict):
-                result['errors'].append("Workflow must be a JSON object")
+                result["errors"].append("Workflow must be a JSON object")
                 return result
 
-            nodes = data.get('nodes', [])
+            nodes = data.get("nodes", [])
             if not isinstance(nodes, list):
-                result['errors'].append("'nodes' must be a list")
+                result["errors"].append("'nodes' must be a list")
                 return result
 
             # Node validation
             node_ids = set()
             for node in nodes:
                 if not isinstance(node, dict):
-                    result['errors'].append("Each node must be a JSON object")
+                    result["errors"].append("Each node must be a JSON object")
                     continue
 
-                node_id = node.get('id')
+                node_id = node.get("id")
                 if node_id is None:
-                    result['warnings'].append("Node missing 'id' field")
+                    result["warnings"].append("Node missing 'id' field")
                 elif node_id in node_ids:
-                    result['errors'].append(f"Duplicate node ID: {node_id}")
+                    result["errors"].append(f"Duplicate node ID: {node_id}")
                 else:
                     node_ids.add(node_id)
 
-                if 'type' not in node:
-                    result['errors'].append(f"Node {node_id} missing 'type' field")
+                if "type" not in node:
+                    result["errors"].append(f"Node {node_id} missing 'type' field")
 
             # Model reference validation
             models = self.extract_models_from_workflow(workflow_path)
@@ -305,18 +312,20 @@ class WorkflowScanner:
                     invalid_models.append(f"Filename too long: {model.filename[:50]}...")
 
             if invalid_models:
-                result['warnings'].extend(invalid_models)
+                result["warnings"].extend(invalid_models)
 
-            result['is_valid'] = len(result['errors']) == 0
-            result['stats'] = {
-                'node_count': len(nodes),
-                'model_count': len(models),
-                'unique_model_types': len(set(m.type for m in models)),
-                'unique_node_types': len(set(n.get('type', '') for n in nodes if isinstance(n, dict)))
+            result["is_valid"] = len(result["errors"]) == 0
+            result["stats"] = {
+                "node_count": len(nodes),
+                "model_count": len(models),
+                "unique_model_types": len(set(m.type for m in models)),
+                "unique_node_types": len(
+                    set(n.get("type", "") for n in nodes if isinstance(n, dict))
+                ),
             }
 
         except (json.JSONDecodeError, OSError) as e:
-            result['errors'].append(f"Parse error: {e}")
+            result["errors"].append(f"Parse error: {e}")
 
         return result
 
@@ -331,33 +340,37 @@ class WorkflowScanner:
             Dictionary with summary statistics
         """
         summary = {
-            'total_workflows': len(workflow_paths),
-            'valid_workflows': 0,
-            'invalid_workflows': 0,
-            'total_models': 0,
-            'unique_models': set(),
-            'model_types': {},
-            'node_types': {},
-            'errors': []
+            "total_workflows": len(workflow_paths),
+            "valid_workflows": 0,
+            "invalid_workflows": 0,
+            "total_models": 0,
+            "unique_models": set(),
+            "model_types": {},
+            "node_types": {},
+            "errors": [],
         }
 
         for path in workflow_paths:
             try:
                 models = self.extract_models_from_workflow(path)
-                summary['total_models'] += len(models)
+                summary["total_models"] += len(models)
 
                 for model in models:
-                    summary['unique_models'].add(model.filename)
-                    summary['model_types'][model.type] = summary['model_types'].get(model.type, 0) + 1
-                    summary['node_types'][model.node_type] = summary['node_types'].get(model.node_type, 0) + 1
+                    summary["unique_models"].add(model.filename)
+                    summary["model_types"][model.type] = (
+                        summary["model_types"].get(model.type, 0) + 1
+                    )
+                    summary["node_types"][model.node_type] = (
+                        summary["node_types"].get(model.node_type, 0) + 1
+                    )
 
-                summary['valid_workflows'] += 1
+                summary["valid_workflows"] += 1
 
             except Exception as e:
-                summary['invalid_workflows'] += 1
-                summary['errors'].append(f"{path}: {e}")
+                summary["invalid_workflows"] += 1
+                summary["errors"].append(f"{path}: {e}")
 
-        summary['unique_models'] = len(summary['unique_models'])
+        summary["unique_models"] = len(summary["unique_models"])
         return summary
 
 
@@ -393,9 +406,12 @@ def extract_models_from_workflow(workflow_path, logger=None):
     models = scanner.extract_models_from_workflow(workflow_path)
 
     # Convert to dictionary format for backward compatibility
-    return [{
-        'filename': m.filename,
-        'type': m.type,
-        'node_type': m.node_type,
-        'workflow': os.path.basename(m.workflow_path)
-    } for m in models]
+    return [
+        {
+            "filename": m.filename,
+            "type": m.type,
+            "node_type": m.node_type,
+            "workflow": os.path.basename(m.workflow_path),
+        }
+        for m in models
+    ]

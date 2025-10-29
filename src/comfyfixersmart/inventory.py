@@ -28,6 +28,7 @@ from .utils import get_file_size, validate_model_filename
 @dataclass
 class ModelInfo:
     """Information about a local model file."""
+
     filename: str
     path: str
     size: int
@@ -43,7 +44,12 @@ class ModelInventory:
     and comparison operations.
     """
 
-    def __init__(self, models_dir: Optional[str] = None, state_manager: Optional[StateManager] = None, logger=None):
+    def __init__(
+        self,
+        models_dir: Optional[str] = None,
+        state_manager: Optional[StateManager] = None,
+        logger=None,
+    ):
         """
         Initialize the model inventory manager.
 
@@ -61,8 +67,9 @@ class ModelInventory:
         self.state_manager = state_manager
         self.logger = logger or get_logger("ModelInventory")
 
-    def build_inventory(self, include_state_tracking: bool = True,
-                       min_file_size: int = 1_000_000) -> Dict[str, ModelInfo]:
+    def build_inventory(
+        self, include_state_tracking: bool = True, min_file_size: int = 1_000_000
+    ) -> Dict[str, ModelInfo]:
         """
         Build comprehensive inventory of local models with validation.
 
@@ -99,7 +106,7 @@ class ModelInventory:
 
         model_extensions = config.model_extensions
 
-        for model_file in self.models_dir.rglob('*'):
+        for model_file in self.models_dir.rglob("*"):
             if not model_file.is_file():
                 continue
 
@@ -129,12 +136,14 @@ class ModelInventory:
                 path=file_path,
                 size=file_size,
                 is_valid=True,
-                validation_errors=[]
+                validation_errors=[],
             )
 
         return inventory
 
-    def _validate_model_file(self, file_path: str, file_size: int, min_file_size: int) -> Tuple[bool, List[str]]:
+    def _validate_model_file(
+        self, file_path: str, file_size: int, min_file_size: int
+    ) -> Tuple[bool, List[str]]:
         """
         Validate a model file.
 
@@ -165,7 +174,7 @@ class ModelInventory:
 
         # Check if file is readable
         try:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 f.read(1)  # Try to read first byte
         except OSError as e:
             errors.append(f"File not readable: {e}")
@@ -182,7 +191,7 @@ class ModelInventory:
         successful = self.state_manager.get_successful_downloads()
 
         for filename, info in successful.items():
-            file_path = info.get('file_path')
+            file_path = info.get("file_path")
             if not file_path or not os.path.exists(file_path):
                 continue
 
@@ -193,7 +202,7 @@ class ModelInventory:
                     path=file_path,
                     size=file_size,
                     is_valid=True,
-                    validation_errors=[]
+                    validation_errors=[],
                 )
                 self.logger.info(f"Added from state: {filename}")
 
@@ -219,17 +228,18 @@ class ModelInventory:
             extensions[ext] = extensions.get(ext, 0) + 1
 
         return {
-            'total_models': len(inventory),
-            'valid_models': valid_count,
-            'invalid_models': len(inventory) - valid_count,
-            'total_size_bytes': total_size,
-            'total_size_mb': total_size / (1024 * 1024),
-            'extensions': extensions,
-            'models_dir': str(self.models_dir)
+            "total_models": len(inventory),
+            "valid_models": valid_count,
+            "invalid_models": len(inventory) - valid_count,
+            "total_size_bytes": total_size,
+            "total_size_mb": total_size / (1024 * 1024),
+            "extensions": extensions,
+            "models_dir": str(self.models_dir),
         }
 
-    def compare_inventories(self, old_inventory: Dict[str, ModelInfo],
-                           new_inventory: Dict[str, ModelInfo]) -> Dict[str, Any]:
+    def compare_inventories(
+        self, old_inventory: Dict[str, ModelInfo], new_inventory: Dict[str, ModelInfo]
+    ) -> Dict[str, Any]:
         """
         Compare two inventories and generate a diff.
 
@@ -253,16 +263,16 @@ class ModelInventory:
             new_info = new_inventory[filename]
             if old_info.size != new_info.size or old_info.path != new_info.path:
                 changed[filename] = {
-                    'old': {'size': old_info.size, 'path': old_info.path},
-                    'new': {'size': new_info.size, 'path': new_info.path}
+                    "old": {"size": old_info.size, "path": old_info.path},
+                    "new": {"size": new_info.size, "path": new_info.path},
                 }
 
         return {
-            'added': list(added),
-            'removed': list(removed),
-            'changed': changed,
-            'unchanged': len(common) - len(changed),
-            'total_changes': len(added) + len(removed) + len(changed)
+            "added": list(added),
+            "removed": list(removed),
+            "changed": changed,
+            "unchanged": len(common) - len(changed),
+            "total_changes": len(added) + len(removed) + len(changed),
         }
 
     def find_duplicates(self, inventory: Dict[str, ModelInfo]) -> Dict[str, List[str]]:
@@ -301,25 +311,20 @@ class ModelInventory:
         Returns:
             Dictionary with validation results
         """
-        results = {
-            'valid': True,
-            'errors': [],
-            'warnings': [],
-            'stats': {}
-        }
+        results = {"valid": True, "errors": [], "warnings": [], "stats": {}}
 
         # Check for missing files
         missing_files = []
         for filename, info in inventory.items():
             if not os.path.exists(info.path):
                 missing_files.append(filename)
-                results['errors'].append(f"File not found: {info.path}")
+                results["errors"].append(f"File not found: {info.path}")
 
         # Check for duplicates
         duplicates = self.find_duplicates(inventory)
         if duplicates:
-            results['warnings'].append(f"Found {len(duplicates)} duplicate filenames")
-            results['duplicate_files'] = duplicates
+            results["warnings"].append(f"Found {len(duplicates)} duplicate filenames")
+            results["duplicate_files"] = duplicates
 
         # Check file sizes
         suspicious_sizes = []
@@ -328,20 +333,21 @@ class ModelInventory:
                 suspicious_sizes.append(f"{info.filename}: {info.size} bytes")
 
         if suspicious_sizes:
-            results['warnings'].extend(suspicious_sizes)
+            results["warnings"].extend(suspicious_sizes)
 
-        results['stats'] = {
-            'total_models': len(inventory),
-            'missing_files': len(missing_files),
-            'duplicate_groups': len(duplicates),
-            'suspicious_sizes': len(suspicious_sizes)
+        results["stats"] = {
+            "total_models": len(inventory),
+            "missing_files": len(missing_files),
+            "duplicate_groups": len(duplicates),
+            "suspicious_sizes": len(suspicious_sizes),
         }
 
-        results['valid'] = len(results['errors']) == 0
+        results["valid"] = len(results["errors"]) == 0
         return results
 
-    def export_inventory(self, inventory: Dict[str, ModelInfo], output_path: str,
-                        format: str = 'json') -> bool:
+    def export_inventory(
+        self, inventory: Dict[str, ModelInfo], output_path: str, format: str = "json"
+    ) -> bool:
         """
         Export inventory to a file.
 
@@ -354,39 +360,40 @@ class ModelInventory:
             True if export successful
         """
         try:
-            if format.lower() == 'json':
+            if format.lower() == "json":
                 data = {
-                    'metadata': {
-                        'export_time': str(Path(output_path).stat().st_mtime) if Path(output_path).exists() else None,
-                        'total_models': len(inventory),
-                        'models_dir': str(self.models_dir)
+                    "metadata": {
+                        "export_time": (
+                            str(Path(output_path).stat().st_mtime)
+                            if Path(output_path).exists()
+                            else None
+                        ),
+                        "total_models": len(inventory),
+                        "models_dir": str(self.models_dir),
                     },
-                    'models': {
+                    "models": {
                         filename: {
-                            'path': info.path,
-                            'size': info.size,
-                            'is_valid': info.is_valid,
-                            'validation_errors': info.validation_errors
+                            "path": info.path,
+                            "size": info.size,
+                            "is_valid": info.is_valid,
+                            "validation_errors": info.validation_errors,
                         }
                         for filename, info in inventory.items()
-                    }
+                    },
                 }
                 import json
-                with open(output_path, 'w') as f:
+
+                with open(output_path, "w") as f:
                     json.dump(data, f, indent=2)
 
-            elif format.lower() == 'csv':
+            elif format.lower() == "csv":
                 import csv
-                with open(output_path, 'w', newline='') as f:
+
+                with open(output_path, "w", newline="") as f:
                     writer = csv.writer(f)
-                    writer.writerow(['filename', 'path', 'size', 'is_valid'])
+                    writer.writerow(["filename", "path", "size", "is_valid"])
                     for filename, info in inventory.items():
-                        writer.writerow([
-                            filename,
-                            info.path,
-                            info.size,
-                            info.is_valid
-                        ])
+                        writer.writerow([filename, info.path, info.size, info.is_valid])
             else:
                 self.logger.error(f"Unsupported export format: {format}")
                 return False
@@ -400,8 +407,13 @@ class ModelInventory:
 
 
 # Convenience functions for backward compatibility
-def build_local_inventory(models_dir=None, state_manager=None, logger=None,
-                         include_state_tracking=True, min_file_size=1_000_000):
+def build_local_inventory(
+    models_dir=None,
+    state_manager=None,
+    logger=None,
+    include_state_tracking=True,
+    min_file_size=1_000_000,
+):
     """
     Convenience function to build local model inventory.
 
@@ -437,12 +449,12 @@ def compare_inventories(old_inventory, new_inventory, logger=None):
     """
     # Convert sets to dict format if needed
     if isinstance(old_inventory, set):
-        old_dict = {filename: ModelInfo(filename, '', 0, True, []) for filename in old_inventory}
+        old_dict = {filename: ModelInfo(filename, "", 0, True, []) for filename in old_inventory}
     else:
         old_dict = old_inventory
 
     if isinstance(new_inventory, set):
-        new_dict = {filename: ModelInfo(filename, '', 0, True, []) for filename in new_inventory}
+        new_dict = {filename: ModelInfo(filename, "", 0, True, []) for filename in new_inventory}
     else:
         new_dict = new_inventory
 
