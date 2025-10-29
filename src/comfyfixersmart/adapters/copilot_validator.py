@@ -45,7 +45,9 @@ class CopilotValidator:
         """Check if the validator is properly initialized and ready."""
         return self.enabled
 
-    async def validate_and_repair(self, workflow_path: str, session_id: str = "comfyfixer-repair-session") -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    async def validate_and_repair(
+        self, workflow_path: str, session_id: str = "comfyfixer-repair-session"
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
         Validates and optionally repairs a workflow file.
 
@@ -76,14 +78,16 @@ class CopilotValidator:
             if isinstance(item, dict) and item.get("type") in ("param_update", "workflow_update"):
                 workflow_data = item.get("data", {}).get("workflow_data")
                 if workflow_data:
-                    self.logger.info(f"Found repaired workflow data in validation report for {workflow_path}.")
+                    self.logger.info(
+                        f"Found repaired workflow data in validation report for {workflow_path}."
+                    )
                     repaired_workflow = workflow_data
                     break
-        
+
         if repaired_workflow:
             try:
                 # Overwrite the original file with the repaired workflow
-                with open(workflow_path, 'w', encoding='utf-8') as f:
+                with open(workflow_path, "w", encoding="utf-8") as f:
                     json.dump(repaired_workflow, f, indent=2, ensure_ascii=False)
                 self.logger.info(f"Successfully saved repaired workflow to {workflow_path}")
                 return report, repaired_workflow

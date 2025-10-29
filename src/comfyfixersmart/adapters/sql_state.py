@@ -73,13 +73,15 @@ class SqlStateManager(StateManager):
         if not self.enabled or not self._db:
             return StateData()
 
-        self.logger.warning("Loading state from SQL is a placeholder and does not fully represent download history.")
-        
+        self.logger.warning(
+            "Loading state from SQL is a placeholder and does not fully represent download history."
+        )
+
         # Placeholder: We can't easily map our DownloadAttempt history to their
         # workflow versioning system. We will return an empty state for now.
         state = StateData()
-        state.metadata['backend'] = 'sql'
-        state.metadata['db_path'] = self.db_path
+        state.metadata["backend"] = "sql"
+        state.metadata["db_path"] = self.db_path
         return state
 
     def _save_state(self):
@@ -93,7 +95,9 @@ class SqlStateManager(StateManager):
         if not self.enabled or not self._db:
             return
 
-        self.logger.warning("Saving state to SQL is a placeholder and does not persist download history.")
+        self.logger.warning(
+            "Saving state to SQL is a placeholder and does not persist download history."
+        )
         # Placeholder: In a real implementation, we would iterate through
         # self.state.history and save relevant information as workflow versions.
         # For example:
@@ -105,21 +109,28 @@ class SqlStateManager(StateManager):
     # We will override all public methods from the base StateManager
     # For now, most will be placeholders that log a warning.
 
-    def mark_download_attempted(self, filename: str, model_info: Dict[str, Any], civitai_info: Optional[Dict[str, Any]] = None):
+    def mark_download_attempted(
+        self,
+        filename: str,
+        model_info: Dict[str, Any],
+        civitai_info: Optional[Dict[str, Any]] = None,
+    ):
         self.logger.info(f"[SQL Backend] Placeholder: Marked download attempted for {filename}")
         # In a real implementation, this might create a new "workflow_version"
         # with a "pending" status attribute.
 
-    def mark_download_success(self, filename: str, file_path: Path, file_size: int, checksum: Optional[str] = None):
+    def mark_download_success(
+        self, filename: str, file_path: Path, file_size: int, checksum: Optional[str] = None
+    ):
         self.logger.info(f"[SQL Backend] Placeholder: Marked download success for {filename}")
 
     def mark_download_failed(self, filename: str, error_message: str):
         self.logger.info(f"[SQL Backend] Placeholder: Marked download failed for {filename}")
 
     def get_download_status(self, filename: str) -> Optional[str]:
-        return None # Placeholder
+        return None  # Placeholder
 
     def get_successful_downloads(self) -> Dict[str, DownloadAttempt]:
-        return {} # Placeholder
+        return {}  # Placeholder
 
     # ... other methods would also be overridden ...

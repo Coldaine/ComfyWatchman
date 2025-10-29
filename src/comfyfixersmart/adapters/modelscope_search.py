@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from ..search import SearchBackend, SearchResult
 
 from ..search import SearchBackend, SearchResult
+
 # Feature detection from our new __init__.py
 from . import MODELSCOPE_AVAILABLE, COPILOT_AVAILABLE
 
@@ -35,14 +36,15 @@ if MODELSCOPE_AVAILABLE and COPILOT_AVAILABLE:
         # Get the path to the copilot_backend submodule
         current_dir = Path(__file__).parent
         copilot_path = current_dir.parent.parent / "copilot_backend"
-        
+
         # Add the parent directory to sys.path if not already there
         parent_dir = str(copilot_path.parent)
         if parent_dir not in sys.path:
             sys.path.insert(0, parent_dir)
-        
+
         # Try to import the ModelScopeGateway
         from copilot_backend.backend.utils.modelscope_gateway import ModelScopeGateway
+
         logger.info("Successfully imported ModelScopeGateway from copilot_backend")
     except (ImportError, ModuleNotFoundError) as e:
         logger.warning(f"Failed to import ModelScopeGateway from copilot_backend: {e}")
@@ -70,7 +72,9 @@ class ModelScopeAdapter(CopilotAdapter):
     a clean interface for searching models on the ModelScope platform.
     """
 
-    def __init__(self, name: str = "modelscope", description: str = "ModelScope model search and download"):
+    def __init__(
+        self, name: str = "modelscope", description: str = "ModelScope model search and download"
+    ):
         super().__init__(name, description)
         self._gateway = None
         # Use the module logger instead of self.logger which might not be initialized yet
@@ -90,13 +94,16 @@ class ModelScopeAdapter(CopilotAdapter):
         try:
             self._gateway = ModelScopeGateway()
             self._initialized = True
-            
+
             # Check if we're using the fallback implementation
-            if hasattr(self._gateway, '__class__') and 'Fallback' in self._gateway.__class__.__name__:
+            if (
+                hasattr(self._gateway, "__class__")
+                and "Fallback" in self._gateway.__class__.__name__
+            ):
                 self.logger.info("ModelScopeAdapter initialized with fallback implementation")
             else:
                 self.logger.info("ModelScopeAdapter initialized with full ModelScope gateway")
-                
+
             return True
         except Exception as e:
             self.logger.error(f"Failed to initialize ModelScopeAdapter: {e}")
@@ -107,11 +114,7 @@ class ModelScopeAdapter(CopilotAdapter):
         if not self.is_available():
             return []
 
-        return [
-            "model_search",
-            "model_download",
-            "modelscope_integration"
-        ]
+        return ["model_search", "model_download", "modelscope_integration"]
 
     def execute(self, operation: str, **kwargs) -> Any:
         """
@@ -138,7 +141,9 @@ class ModelScopeAdapter(CopilotAdapter):
         else:
             raise NotImplementedError(f"Operation '{operation}' not supported by ModelScopeAdapter")
 
-    def _search_models(self, query: str, model_type: Optional[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
+    def _search_models(
+        self, query: str, model_type: Optional[str] = None, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Search for models on ModelScope.
 
@@ -156,9 +161,7 @@ class ModelScopeAdapter(CopilotAdapter):
         try:
             # Use the suggest method for fuzzy search
             result = self._gateway.suggest(
-                name=query,
-                page_size=min(limit, 30),  # ModelScope max is 30
-                page=1
+                name=query, page_size=min(limit, 30), page=1  # ModelScope max is 30
             )
 
             if result.get("data"):
@@ -172,7 +175,9 @@ class ModelScopeAdapter(CopilotAdapter):
             self.logger.error(f"ModelScope search failed for query '{query}': {e}")
             raise RuntimeError(f"ModelScope search failed: {e}") from e
 
-    def _download_model(self, model_id: str, model_type: str, dest_dir: Optional[str] = None) -> str:
+    def _download_model(
+        self, model_id: str, model_type: str, dest_dir: Optional[str] = None
+    ) -> str:
         """
         Download a model from ModelScope.
 
@@ -189,9 +194,7 @@ class ModelScopeAdapter(CopilotAdapter):
 
         try:
             return self._gateway.download_with_sdk(
-                model_id=model_id,
-                model_type=model_type,
-                dest_dir=dest_dir
+                model_id=model_id, model_type=model_type, dest_dir=dest_dir
             )
         except Exception as e:
             self.logger.error(f"ModelScope download failed for model '{model_id}': {e}")
@@ -199,25 +202,6 @@ class ModelScopeAdapter(CopilotAdapter):
 
 
 class ModelScopeSearch(SearchBackend):
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     """
     Search backend that uses the ModelScopeAdapter for finding models.
 
@@ -232,7 +216,10 @@ class ModelScopeSearch(SearchBackend):
         self.enabled = self.adapter.initialize()
 
         # Check if we're using the fallback implementation
-        if hasattr(self.adapter._gateway, '__class__') and 'Fallback' in self.adapter._gateway.__class__.__name__:
+        if (
+            hasattr(self.adapter._gateway, "__class__")
+            and "Fallback" in self.adapter._gateway.__class__.__name__
+        ):
             self.logger.info("ModelScopeSearch initialized with fallback implementation")
             self.fallback_mode = True
         else:
@@ -257,35 +244,32 @@ class ModelScopeSearch(SearchBackend):
         """
         if not self.enabled:
             return SearchResult(
-                status='ERROR',
-                filename=model_info['filename'],
+                status="ERROR",
+                filename=model_info["filename"],
                 source=self.get_name(),
-                error_message="ModelScope backend is not available or failed to initialize."
+                error_message="ModelScope backend is not available or failed to initialize.",
             )
 
-        filename = model_info['filename']
-        model_type = model_info.get('type', 'checkpoints')
+        filename = model_info["filename"]
+        model_type = model_info.get("type", "checkpoints")
 
         self.logger.info(f"Searching ModelScope for: {filename}")
 
         try:
             # Search using the adapter
             results = self.adapter.execute(
-                "search",
-                query=filename,
-                model_type=model_type,
-                limit=5  # Get top 5 results
+                "search", query=filename, model_type=model_type, limit=5  # Get top 5 results
             )
 
             if not results:
                 return SearchResult(
-                    status='NOT_FOUND',
+                    status="NOT_FOUND",
                     filename=filename,
                     source=self.get_name(),
                     metadata={
-                        'reason': f'No ModelScope results for {filename}',
-                        'fallback_mode': self.fallback_mode
-                    }
+                        "reason": f"No ModelScope results for {filename}",
+                        "fallback_mode": self.fallback_mode,
+                    },
                 )
 
             # Take the best result (first one)
@@ -293,31 +277,31 @@ class ModelScopeSearch(SearchBackend):
 
             # Convert ModelScope result to SearchResult format
             return SearchResult(
-                status='FOUND',
+                status="FOUND",
                 filename=filename,
                 source=self.get_name(),
                 download_url=self._construct_download_url(best_match),
                 confidence=self._calculate_confidence(filename, best_match),
                 metadata={
-                    'modelscope_id': f"{best_match.get('Path', '')}/{best_match.get('Name', '')}",
-                    'modelscope_name': best_match.get('Name', ''),
-                    'modelscope_path': best_match.get('Path', ''),
-                    'chinese_name': best_match.get('ChineseName', ''),
-                    'downloads': best_match.get('Downloads', 0),
-                    'libraries': best_match.get('Libraries', []),
-                    'last_updated': best_match.get('LastUpdatedTime', ''),
-                    'fallback_mode': self.fallback_mode
-                }
+                    "modelscope_id": f"{best_match.get('Path', '')}/{best_match.get('Name', '')}",
+                    "modelscope_name": best_match.get("Name", ""),
+                    "modelscope_path": best_match.get("Path", ""),
+                    "chinese_name": best_match.get("ChineseName", ""),
+                    "downloads": best_match.get("Downloads", 0),
+                    "libraries": best_match.get("Libraries", []),
+                    "last_updated": best_match.get("LastUpdatedTime", ""),
+                    "fallback_mode": self.fallback_mode,
+                },
             )
 
         except Exception as e:
             self.logger.error(f"ModelScope search failed for '{filename}': {e}")
             return SearchResult(
-                status='ERROR',
+                status="ERROR",
                 filename=filename,
                 source=self.get_name(),
                 error_message=str(e),
-                metadata={'fallback_mode': self.fallback_mode}
+                metadata={"fallback_mode": self.fallback_mode},
             )
 
     def _construct_download_url(self, model_data: Dict[str, Any]) -> str:
@@ -330,8 +314,8 @@ class ModelScopeSearch(SearchBackend):
         Returns:
             Download URL string
         """
-        path = model_data.get('Path', '')
-        name = model_data.get('Name', '')
+        path = model_data.get("Path", "")
+        name = model_data.get("Name", "")
 
         if path and name:
             # ModelScope download URL format
@@ -350,22 +334,27 @@ class ModelScopeSearch(SearchBackend):
         Returns:
             Confidence level string ('exact', 'high', 'medium', 'low')
         """
-        model_name = model_data.get('Name', '').lower()
-        query_name = query_filename.lower().replace('.safetensors', '').replace('.ckpt', '').replace('.pth', '')
+        model_name = model_data.get("Name", "").lower()
+        query_name = (
+            query_filename.lower()
+            .replace(".safetensors", "")
+            .replace(".ckpt", "")
+            .replace(".pth", "")
+        )
 
         # Exact match
         if model_name == query_name:
-            return 'exact'
+            return "exact"
 
         # Contains the query
         if query_name in model_name or model_name in query_name:
-            return 'high'
+            return "high"
 
         # Similar words
         query_words = set(query_name.split())
         model_words = set(model_name.split())
 
         if query_words & model_words:
-            return 'medium'
+            return "medium"
 
-        return 'low'
+        return "low"
