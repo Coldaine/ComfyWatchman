@@ -16,6 +16,7 @@ MIGRATION_TARGET_VERSION = "2.0.0"
 LEGACY_VERSION_SUPPORT = "1.x"
 COMPATIBILITY_LAYER_ACTIVE = True
 
+
 def get_version_info():
     """Get detailed version information."""
     return {
