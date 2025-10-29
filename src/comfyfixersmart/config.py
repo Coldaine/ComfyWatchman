@@ -6,16 +6,20 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import sys
 
+
 @dataclass
 class CopilotConfig:
     """Configuration for the ComfyUI-Copilot integration."""
+
     enable_validation: bool = False
     enable_auto_repair: bool = False
     enable_modelscope: bool = False
 
+
 @dataclass
 class SearchConfig:
     """Configuration for model search functionalities."""
+
     backend_order: List[str] = field(default_factory=list)  # Will be set dynamically
     civitai_api_key: Optional[str] = os.getenv("CIVITAI_API_KEY")
     enable_cache: bool = True
@@ -24,12 +28,15 @@ class SearchConfig:
     civitai_use_direct_id: bool = True
     min_confidence_threshold: int = 50
 
+
 @dataclass
 class StateConfig:
     """Configuration for state management."""
+
     backend: str = "json"  # or "sql"
     json_path: str = "state/"
     sql_url: str = "sqlite:///state.db"
+
 
 @dataclass
 class Config:
@@ -54,48 +61,50 @@ class Config:
     civitai_api_timeout: int = 30
 
     # Model settings
-    model_extensions: List[str] = field(default_factory=lambda: [
-        ".safetensors", ".ckpt", ".pt", ".bin", ".pth"
-    ])
-    model_type_mapping: Dict[str, str] = field(default_factory=lambda: {
-        'CheckpointLoaderSimple': 'checkpoints',
-        'CheckpointLoader': 'checkpoints',
-        'LoraLoader': 'loras',
-        'LoraLoaderModelOnly': 'loras',
-        'VAELoader': 'vae',
-        'CLIPLoader': 'clip',
-        'DualCLIPLoader': 'clip',
-        'ControlNetLoader': 'controlnet',
-        'UpscaleModelLoader': 'upscale_models',
-        'CLIPVisionLoader': 'clip_vision',
-        'UNETLoader': 'unet',
-        'SAMLoader': 'sams',
-        'GroundingDinoModelLoader': 'grounding-dino',
-        # Video Frame Interpolation (VFI) models - stored in checkpoints directory
-        'RIFE VFI': 'checkpoints',
-        'GMFSS Fortuna VFI': 'checkpoints',
-        'IFRNet VFI': 'checkpoints',
-        'IFUnet VFI': 'checkpoints',
-        'M2M VFI': 'checkpoints',
-        'Sepconv VFI': 'checkpoints',
-        'AMT VFI': 'checkpoints',
-        'FILM VFI': 'checkpoints',
-        'STMFNet VFI': 'checkpoints',
-        'FLAVR VFI': 'checkpoints',
-        'CAIN VFI': 'checkpoints',
-        'DownloadAndLoadGIMMVFIModel': 'checkpoints',
-        # Ultralytics YOLO detection models
-        'UltralyticsDetectorProvider': 'ultralytics',
-        # HunyuanVideo models
-        'HunyuanVideoLoraLoader': 'loras',
-        # WanVideo models
-        'WanVideoLoraSelect': 'loras',
-        'WanVideoLoraSelectMulti': 'loras',
-        'LoadWanVideoT5TextEncoder': 'text_encoders',
-        'WanVideoVAELoader': 'vae',
-        'WanVideoModelLoader': 'diffusion_models',
-        'WanVideoControlnetLoader': 'controlnet',
-    })
+    model_extensions: List[str] = field(
+        default_factory=lambda: [".safetensors", ".ckpt", ".pt", ".bin", ".pth"]
+    )
+    model_type_mapping: Dict[str, str] = field(
+        default_factory=lambda: {
+            "CheckpointLoaderSimple": "checkpoints",
+            "CheckpointLoader": "checkpoints",
+            "LoraLoader": "loras",
+            "LoraLoaderModelOnly": "loras",
+            "VAELoader": "vae",
+            "CLIPLoader": "clip",
+            "DualCLIPLoader": "clip",
+            "ControlNetLoader": "controlnet",
+            "UpscaleModelLoader": "upscale_models",
+            "CLIPVisionLoader": "clip_vision",
+            "UNETLoader": "unet",
+            "SAMLoader": "sams",
+            "GroundingDinoModelLoader": "grounding-dino",
+            # Video Frame Interpolation (VFI) models - stored in checkpoints directory
+            "RIFE VFI": "checkpoints",
+            "GMFSS Fortuna VFI": "checkpoints",
+            "IFRNet VFI": "checkpoints",
+            "IFUnet VFI": "checkpoints",
+            "M2M VFI": "checkpoints",
+            "Sepconv VFI": "checkpoints",
+            "AMT VFI": "checkpoints",
+            "FILM VFI": "checkpoints",
+            "STMFNet VFI": "checkpoints",
+            "FLAVR VFI": "checkpoints",
+            "CAIN VFI": "checkpoints",
+            "DownloadAndLoadGIMMVFIModel": "checkpoints",
+            # Ultralytics YOLO detection models
+            "UltralyticsDetectorProvider": "ultralytics",
+            # HunyuanVideo models
+            "HunyuanVideoLoraLoader": "loras",
+            # WanVideo models
+            "WanVideoLoraSelect": "loras",
+            "WanVideoLoraSelectMulti": "loras",
+            "LoadWanVideoT5TextEncoder": "text_encoders",
+            "WanVideoVAELoader": "vae",
+            "WanVideoModelLoader": "diffusion_models",
+            "WanVideoControlnetLoader": "controlnet",
+        }
+    )
 
     # Logging
     log_format: str = "%Y-%m-%d %H:%M:%S"
@@ -154,17 +163,21 @@ class Config:
         for key, value in data.items():
             if hasattr(config_obj, key):
                 attr = getattr(config_obj, key)
-                if isinstance(attr, (CopilotConfig, SearchConfig, StateConfig)) and isinstance(value, dict):
+                if isinstance(attr, (CopilotConfig, SearchConfig, StateConfig)) and isinstance(
+                    value, dict
+                ):
                     self._update_from_dict(attr, value)
-                elif isinstance(value, dict) and hasattr(attr, '__dataclass_fields__'):
-                     self._update_from_dict(attr, value)
+                elif isinstance(value, dict) and hasattr(attr, "__dataclass_fields__"):
+                    self._update_from_dict(attr, value)
                 else:
                     # Handle special types
-                    if key == 'comfyui_root' and value is not None:
+                    if key == "comfyui_root" and value is not None:
                         setattr(config_obj, key, Path(value) if isinstance(value, str) else value)
-                    elif key == 'workflow_dirs' and isinstance(value, list):
-                        setattr(config_obj, key, [Path(p) if isinstance(p, str) else p for p in value])
-                    elif key in ['output_dir', 'log_dir', 'temp_dir'] and isinstance(value, str):
+                    elif key == "workflow_dirs" and isinstance(value, list):
+                        setattr(
+                            config_obj, key, [Path(p) if isinstance(p, str) else p for p in value]
+                        )
+                    elif key in ["output_dir", "log_dir", "temp_dir"] and isinstance(value, str):
                         setattr(config_obj, key, Path(value))
                     else:
                         setattr(config_obj, key, value)
@@ -178,7 +191,11 @@ class Config:
         if require_comfyui_path and self.comfyui_root is None:
             raise ValueError("comfyui_root must be configured")
 
-        if require_comfyui_path and self.comfyui_root is not None and not self.comfyui_root.exists():
+        if (
+            require_comfyui_path
+            and self.comfyui_root is not None
+            and not self.comfyui_root.exists()
+        ):
             raise ValueError(f"ComfyUI root does not exist: {self.comfyui_root}")
 
         if self.civitai_api_timeout < 5:
@@ -212,7 +229,6 @@ class Config:
         if not self.search.backend_order:
             self.search.backend_order = default_order
 
-
     @property
     def models_dir(self) -> Optional[Path]:
         """ComfyUI models directory."""
@@ -233,5 +249,6 @@ class Config:
         """Get search log file path."""
         return str(self.log_dir / self.search_log_file)
 
+
 # Global config instance
-config = Config()# Kilo Experiment - Copilot Configuration Flags
+config = Config()  # Kilo Experiment - Copilot Configuration Flags
