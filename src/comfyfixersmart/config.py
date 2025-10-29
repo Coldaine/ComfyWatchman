@@ -20,6 +20,9 @@ class SearchConfig:
     civitai_api_key: Optional[str] = os.getenv("CIVITAI_API_KEY")
     enable_cache: bool = True
     cache_ttl: int = 86400
+    known_models_map: str = "civitai_tools/config/known_models.json"
+    civitai_use_direct_id: bool = True
+    min_confidence_threshold: int = 50
 
 @dataclass
 class StateConfig:
