@@ -6,7 +6,7 @@ that can be used when the actual ComfyUI-Copilot backend is not available.
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
 
 
 class ModelScopeGatewayFallback:

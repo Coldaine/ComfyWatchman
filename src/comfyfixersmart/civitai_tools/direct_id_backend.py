@@ -5,15 +5,15 @@ Implements direct model ID lookup which bypasses search API limitations
 and provides 100% success rate for known model IDs.
 """
 
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
-import requests
 import json
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-from ..search import SearchResult
+import requests
+
 from ..config import config
 from ..logging import get_logger
+from ..search import SearchResult
 from ..utils import get_api_key
 
 
@@ -41,7 +41,7 @@ class DirectIDBackend:
             return {}
 
         try:
-            with open(self.known_models_path, "r", encoding="utf-8") as f:
+            with open(self.known_models_path, encoding="utf-8") as f:
                 data = json.load(f)
             self.logger.info(f"Loaded {len(data)} known models from {self.known_models_path}")
             return data

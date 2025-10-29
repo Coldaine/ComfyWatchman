@@ -6,17 +6,17 @@ forked ComfyUI-Copilot backend.
 """
 
 import json
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-from ..logging import get_logger
 from ..config import config
+from ..logging import get_logger
 from . import COPILOT_AVAILABLE
 
 # Conditionally import from the forked submodule
 if COPILOT_AVAILABLE:
     try:
         from ...backend.service.debug_agent import debug_workflow_errors
-        from ...backend.utils.request_context import set_session_id, set_config
+        from ...backend.utils.request_context import set_config, set_session_id
     except (ImportError, ModuleNotFoundError) as e:
         debug_workflow_errors = None
         set_session_id, set_config = None, None
@@ -91,7 +91,7 @@ class CopilotValidator:
                     json.dump(repaired_workflow, f, indent=2, ensure_ascii=False)
                 self.logger.info(f"Successfully saved repaired workflow to {workflow_path}")
                 return report, repaired_workflow
-            except IOError as e:
+            except OSError as e:
                 self.logger.error(f"Failed to save repaired workflow to {workflow_path}: {e}")
 
         return report, None

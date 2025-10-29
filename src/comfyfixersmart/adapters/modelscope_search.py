@@ -7,11 +7,11 @@ interface for Copilot integration and the SearchBackend interface for
 model search functionality.
 """
 
-from ..logging import get_logger
-from typing import Dict, Any, List, Optional, TYPE_CHECKING
 import sys
-import os
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from ..logging import get_logger
 
 # Get the logger
 logger = get_logger(__name__)
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 from ..search import SearchBackend, SearchResult
 
 # Feature detection from our new __init__.py
-from . import MODELSCOPE_AVAILABLE, COPILOT_AVAILABLE
+from . import COPILOT_AVAILABLE, MODELSCOPE_AVAILABLE
 
 # Import the fallback implementation
 from .modelscope_fallback import ModelScopeGatewayFallback
@@ -161,7 +161,9 @@ class ModelScopeAdapter(CopilotAdapter):
         try:
             # Use the suggest method for fuzzy search
             result = self._gateway.suggest(
-                name=query, page_size=min(limit, 30), page=1  # ModelScope max is 30
+                name=query,
+                page_size=min(limit, 30),
+                page=1,  # ModelScope max is 30
             )
 
             if result.get("data"):
@@ -258,7 +260,10 @@ class ModelScopeSearch(SearchBackend):
         try:
             # Search using the adapter
             results = self.adapter.execute(
-                "search", query=filename, model_type=model_type, limit=5  # Get top 5 results
+                "search",
+                query=filename,
+                model_type=model_type,
+                limit=5,  # Get top 5 results
             )
 
             if not results:

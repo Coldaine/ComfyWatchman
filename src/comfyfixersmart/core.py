@@ -13,22 +13,19 @@ Functions:
     run_comfy_fixer: Main entry point for running the fixer
 """
 
-import json
 import os
-import time
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 from .config import config
+from .download import DownloadManager
+from .inventory import ModelInventory
 from .logging import get_logger
-from .state_manager import JsonStateManager
-from .scanner import WorkflowScanner, extract_models_from_workflow
-from .inventory import ModelInventory, build_local_inventory
+from .scanner import WorkflowScanner
 from .search import ModelSearch, SearchResult
-from .download import DownloadManager, generate_download_script
-from .utils import save_json_file, ensure_directory
+from .state_manager import JsonStateManager
+from .utils import save_json_file
 
 
 @dataclass

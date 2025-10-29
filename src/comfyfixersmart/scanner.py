@@ -14,21 +14,20 @@ Functions:
     validate_workflow: Validate workflow structure and content
 """
 
-import json
+import asyncio
 import glob
+import json
 import os
 import re
-from pathlib import Path
-from typing import List, Dict, Optional, Set, Any
 from dataclasses import dataclass
-
-from .config import config
-from .logging import get_logger
-import asyncio
-from .utils import validate_json_file, determine_model_type, _is_model_filename
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # Import for integration
 from .adapters.copilot_validator import CopilotValidator
+from .config import config
+from .logging import get_logger
+from .utils import _is_model_filename, determine_model_type, validate_json_file
 
 
 @dataclass
@@ -208,7 +207,7 @@ class WorkflowScanner:
             List of ModelReference objects, or tuple if return_node_count=True
         """
         try:
-            with open(workflow_path, "r", encoding="utf-8") as f:
+            with open(workflow_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             models = []
@@ -270,7 +269,7 @@ class WorkflowScanner:
         }
 
         try:
-            with open(workflow_path, "r", encoding="utf-8") as f:
+            with open(workflow_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Basic structure validation

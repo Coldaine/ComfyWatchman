@@ -9,13 +9,13 @@ Provides common utilities used across ComfyFixerSmart components:
 - Common data validation functions
 """
 
+import hashlib
+import json
 import os
 import re
-import hashlib
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Set, Any
+from typing import Any, Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
-import json
 
 
 def get_api_key() -> str:
@@ -220,7 +220,7 @@ def validate_civitai_response(
             if returned_id != requested_id:
                 result["valid"] = False
                 result["error_message"] = (
-                    f"API returned wrong model. " f"Requested: {requested_id}, Got: {returned_id}"
+                    f"API returned wrong model. Requested: {requested_id}, Got: {returned_id}"
                 )
                 result["data"] = None
                 return result
@@ -253,7 +253,7 @@ def fetch_civitai_image(image_id: int, api_key: Optional[str] = None) -> Dict[st
         api_key = get_api_key()
 
     # Use /api/v1/images?ids={id} endpoint
-    url = f"https://civitai.com/api/v1/images"
+    url = "https://civitai.com/api/v1/images"
     params = {"ids": image_id}
     headers = {"Authorization": f"Bearer {api_key}"}
 
@@ -374,7 +374,7 @@ def validate_json_file(file_path: Union[str, Path]) -> bool:
         True if file contains valid JSON
     """
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             json.load(f)
         return True
     except (json.JSONDecodeError, OSError):
@@ -393,7 +393,7 @@ def load_json_file(file_path: Union[str, Path], default: Any = None) -> Any:
         Parsed JSON data or default value
     """
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return default
@@ -464,7 +464,7 @@ def extract_models_from_workflow(workflow_path: Union[str, Path]) -> List[Dict[s
         List of model dictionaries with filename, type, and node_type
     """
     try:
-        with open(workflow_path, "r", encoding="utf-8") as f:
+        with open(workflow_path, encoding="utf-8") as f:
             data = json.load(f)
 
         models = []

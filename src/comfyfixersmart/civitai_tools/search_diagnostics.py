@@ -8,10 +8,11 @@ and suggests alternative approaches when search fails.
 
 import json
 import os
-import requests
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import requests
 
 
 class DiagnosticLevel(str, Enum):
@@ -107,7 +108,7 @@ class CivitaiSearchDebugger:
         )
 
         # Strategy 1: Query search with nsfw parameter
-        print("\n=== Query Search (nsfw={}) ===".format(nsfw))
+        print(f"\n=== Query Search (nsfw={nsfw}) ===")
         query_result = self._test_query_search(search_term, model_type, nsfw)
         diagnostic.query_results = query_result
 
@@ -373,7 +374,6 @@ class CivitaiSearchDebugger:
         query_results = diagnostic.query_results or {}
 
         if query_results.get("status") != "success" or len(query_results.get("items", [])) == 0:
-
             diagnostic.add_suggestion("Try direct ID lookup if model URL is known")
             print("💡 [SUGGESTION] Try direct ID lookup if model URL is known")
 

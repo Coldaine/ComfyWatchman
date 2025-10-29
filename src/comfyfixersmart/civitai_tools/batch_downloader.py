@@ -7,12 +7,11 @@ Downloads multiple models from a JSON list with retry logic.
 
 import json
 import time
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
-from .direct_downloader import CivitaiDirectDownloader, DownloadStatus, DownloadResult
+from .direct_downloader import CivitaiDirectDownloader, DownloadResult, DownloadStatus
 
 
 class BatchStatus(str, Enum):
@@ -142,7 +141,7 @@ class CivitaiBatchDownloader:
                     if result.status == DownloadStatus.SUCCESS:
                         job.status = BatchStatus.COMPLETED
                         successful += 1
-                        print(f"  ✅ Success")
+                        print("  ✅ Success")
                         break
                     else:
                         job.error = result.error_message
@@ -213,7 +212,7 @@ class CivitaiBatchDownloader:
         """
         print(f"📄 Loading batch file: {json_file}")
 
-        with open(json_file, "r") as f:
+        with open(json_file) as f:
             data = json.load(f)
 
         jobs = []

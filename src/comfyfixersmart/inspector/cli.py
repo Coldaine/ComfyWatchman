@@ -129,11 +129,9 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     exit_code = (
         1
         if any(
-            (
-                item.get("warnings")
-                for item in items
-                if isinstance(item, dict) and item.get("warnings")
-            )
+            item.get("warnings")
+            for item in items
+            if isinstance(item, dict) and item.get("warnings")
         )
         else 0
     )

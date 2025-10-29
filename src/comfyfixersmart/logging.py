@@ -9,14 +9,14 @@ Provides standardized logging across all ComfyFixerSmart components with:
 - Configurable log levels and destinations
 """
 
+import json
 import logging
 import logging.handlers
-import json
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any, Union
-from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
 
 @dataclass

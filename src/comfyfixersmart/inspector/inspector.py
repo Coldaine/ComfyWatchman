@@ -173,7 +173,7 @@ def _inspect_model_file(path: Path, ctx: InspectionContext) -> Dict[str, object]
     if ctx.do_hash:
         try:
             sha_val = _hash_file(path)
-        except (OSError, IOError) as exc:
+        except OSError as exc:
             warnings.append(f"Hashing failed: {exc}")
 
     type_hint, family = _guess_type_hint(path, file_format, metadata, size_bytes)

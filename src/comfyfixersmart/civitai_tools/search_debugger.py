@@ -5,12 +5,10 @@ Diagnostic tool that shows exact API queries, raw responses,
 scoring breakdowns, and suggests alternative approaches.
 """
 
-from typing import Dict, List, Optional, Any
-import json
-import requests
-from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ..search import SearchResult
+import requests
+
 from ..config import config
 from ..logging import get_logger
 from ..utils import get_api_key
@@ -258,10 +256,10 @@ class SearchDebugger:
 
     def print_debug_report(self, debug_info: Dict[str, Any]):
         """Print a formatted debug report to console."""
-        print(f"{'='*50}")
-        print(f"CIVITAI SEARCH DEBUGGER")
-        print(f"{'='*50}")
-        print(f"Search Term: \"{debug_info['query']}\"")
+        print(f"{'=' * 50}")
+        print("CIVITAI SEARCH DEBUGGER")
+        print(f"{'=' * 50}")
+        print(f'Search Term: "{debug_info["query"]}"')
         print(f"Model Type: {debug_info['model_type']}")
         print(f"NSFW Search: {debug_info['nsfw']}")
         print()
@@ -295,4 +293,4 @@ class SearchDebugger:
         for suggestion in debug_info["suggestions"]:
             print(f"  - {suggestion}")
 
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")

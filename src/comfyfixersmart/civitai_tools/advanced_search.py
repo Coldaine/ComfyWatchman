@@ -14,11 +14,12 @@ Scoring system prioritizes exact matches while allowing partial matches for disc
 import json
 import os
 import re
-import requests
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import requests
 
 
 class ConfidenceLevel(str, Enum):
@@ -198,7 +199,7 @@ class KnownModelsDB:
             return {}
 
         try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"Warning: Failed to load known models: {e}")
@@ -566,7 +567,7 @@ def main():
         print(f"Query: {results['query']}")
         print(f"Model Type: {results['model_type']}")
         print(f"Strategies tried: {', '.join(results['strategies_tried'])}")
-        print(f"\nTop Candidates:")
+        print("\nTop Candidates:")
         for i, candidate in enumerate(results["candidates"][:10], 1):
             print(
                 f"[{i}] Score: {candidate['score']} | "

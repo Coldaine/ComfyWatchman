@@ -5,11 +5,11 @@ Provides a state management backend that uses SQLAlchemy, leveraging the
 data access objects (DAO) from the forked ComfyUI-Copilot repository.
 """
 
-from typing import Dict, Any, Optional, List
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-from ..state_manager import StateManager, StateData, DownloadAttempt, DownloadStatus
 from ..logging import get_logger
+from ..state_manager import DownloadAttempt, StateData, StateManager
 from . import SQLALCHEMY_AVAILABLE
 
 # Conditionally import from the forked submodule

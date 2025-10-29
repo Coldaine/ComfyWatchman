@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from .config import config
+from .core import run_v1_compatibility_mode, run_v2_compatibility_mode
 from .logging import get_logger
-from .core import run_comfy_fixer, run_v1_compatibility_mode, run_v2_compatibility_mode
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -248,11 +248,9 @@ def _run_inspect_command(args: argparse.Namespace) -> int:
     exit_code = (
         1
         if any(
-            (
-                item.get("warnings")
-                for item in items
-                if isinstance(item, dict) and item.get("warnings")
-            )
+            item.get("warnings")
+            for item in items
+            if isinstance(item, dict) and item.get("warnings")
         )
         else 0
     )

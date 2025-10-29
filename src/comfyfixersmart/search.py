@@ -20,19 +20,19 @@ Functions:
 import json
 import re
 import time
-import requests
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-from .config import config
-from .logging import get_logger
-from .utils import get_api_key, sanitize_filename
-from .state_manager import StateManager
+import requests
 
 # Import adapters and feature flags
 from .adapters import MODELSCOPE_AVAILABLE
+from .config import config
+from .logging import get_logger
+from .state_manager import StateManager
+from .utils import get_api_key, sanitize_filename
 
 # Conditionally import ModelScopeSearch
 try:
@@ -1240,7 +1240,7 @@ class ModelSearch:
             return None
 
         try:
-            with open(cache_file, "r") as f:
+            with open(cache_file) as f:
                 data = json.load(f)
             return SearchResult(**data)
         except Exception:
@@ -1341,11 +1341,3 @@ def search_with_qwen(model, temp_dir=None, logger=None):
     """
     backend = QwenSearch(temp_dir, logger)
     return backend.search(model)
-
-
-
-
-
-
-
-

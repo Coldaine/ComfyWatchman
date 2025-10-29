@@ -10,11 +10,12 @@ downloads specified version (default: latest) with SHA256 verification.
 import hashlib
 import os
 import re
-import requests
-from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
+import requests
 
 
 class DownloadStatus(str, Enum):
@@ -254,7 +255,7 @@ class CivitaiDirectDownloader:
                         actual_hash=actual_hash,
                     )
                 else:
-                    print(f"✗ SHA256 verification failed")
+                    print("✗ SHA256 verification failed")
                     print(f"  Expected: {expected_hash}")
                     print(f"  Actual:   {actual_hash}")
                     filepath.unlink()  # Delete corrupted file

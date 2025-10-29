@@ -11,17 +11,16 @@ Provides robust state tracking for download operations with:
 - Backup and restore capabilities
 """
 
+import json
+import shutil
+import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-import threading
-from enum import Enum
-from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Any, Tuple, Union
-from pathlib import Path
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
-import shutil
-import json
-import os
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 from .config import config
 from .logging import get_logger
@@ -144,7 +143,7 @@ class JsonStateManager(AbstractStateManager):
             return StateData()
 
         try:
-            with open(self.state_file, "r", encoding="utf-8") as f:
+            with open(self.state_file, encoding="utf-8") as f:
                 data = json.load(f)
             version = data.get("version", "1.0")
             if version != "2.0":
@@ -425,10 +424,7 @@ class JsonStateManager(AbstractStateManager):
                     if not attempts:
                         continue
                     latest = attempts[-1]
-                    if (
-                        latest.status == DownloadStatus.FAILED.value
-                        and latest.failed_at
-                    ):
+                    if latest.status == DownloadStatus.FAILED.value and latest.failed_at:
                         try:
                             failed_time = datetime.fromisoformat(latest.failed_at)
                         except (TypeError, ValueError):
@@ -446,7 +442,9 @@ class JsonStateManager(AbstractStateManager):
                     if not attempts:
                         continue
                     # Filter successful attempts
-                    successful_attempts = [a for a in attempts if a.status == DownloadStatus.SUCCESS.value]
+                    successful_attempts = [
+                        a for a in attempts if a.status == DownloadStatus.SUCCESS.value
+                    ]
                     if len(successful_attempts) > 1:
                         # Sort by completed_at (fallback to timestamp) and keep the latest
                         def parse_time(a: DownloadAttempt) -> datetime:
@@ -485,7 +483,7 @@ class JsonStateManager(AbstractStateManager):
         """Import state from a JSON file. Replace or merge with existing state."""
         import_path = Path(import_path)
         try:
-            with open(import_path, "r", encoding="utf-8") as f:
+            with open(import_path, encoding="utf-8") as f:
                 data = json.load(f)
             incoming = self._dict_to_state_data(data)
 
@@ -517,6 +515,7 @@ class StateManager(JsonStateManager):
     Historically, callers instantiated `StateManager` directly. We now keep
     this name as a thin subclass of the JSON-backed implementation.
     """
+
     pass
 
 

@@ -6,8 +6,8 @@ Interactive tool to search and select models with fuzzy matching.
 """
 
 import json
-from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 from .advanced_search import AdvancedCivitaiSearch, SearchCandidate
 from .direct_downloader import CivitaiDirectDownloader
@@ -180,7 +180,7 @@ class CivitaiFuzzyFinder:
 
     def _dict_to_candidate(self, candidate_dict: Dict) -> SearchCandidate:
         """Convert candidate dict to SearchCandidate object"""
-        from .advanced_search import SearchStrategy, ConfidenceLevel
+        from .advanced_search import ConfidenceLevel, SearchStrategy
 
         return SearchCandidate(
             model_id=candidate_dict["model_id"],

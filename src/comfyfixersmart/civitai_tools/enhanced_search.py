@@ -5,13 +5,12 @@ Implements multi-strategy search with direct ID lookup, tag-based search,
 and other advanced techniques to overcome Civitai API limitations.
 """
 
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
+from typing import Optional
+
 import requests
 
-from ..search import CivitaiSearch, SearchResult
 from ..config import config
-from ..logging import get_logger
+from ..search import CivitaiSearch, SearchResult
 from ..utils import get_api_key
 
 

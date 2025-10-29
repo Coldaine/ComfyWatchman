@@ -41,8 +41,7 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
-    "black>=22.0.0",
-    "flake8>=4.0.0",
+    "ruff>=0.1.0",  # Unified linter and formatter (replaces Black + flake8)
     "mypy>=0.950",
     "sphinx>=4.0.0",
     "sphinx-rtd-theme>=1.0.0",
@@ -102,25 +101,6 @@ exclude = ["tests*", "docs*"]
 [tool.setuptools.package-data]
 comfyfixersmart = ["config/*.toml", "templates/*"]
 
-[tool.black]
-line-length = 100
-target-version = ['py37']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-  | src/copilot_backend
-)/
-'''
-
 [tool.mypy]
 python_version = "3.7"
 warn_return_any = true
@@ -152,15 +132,10 @@ python_functions = "test_*"
 source = ["src/comfyfixersmart"]
 omit = ["*/tests/*", "*/test_*.py"]
 
+# Ruff - Unified linter and formatter (replaces Black, flake8, isort, pyupgrade)
 [tool.ruff]
 line-length = 100
 target-version = "py37"
-select = ["E", "F", "W"]
-ignore = [
-    "E203",  # whitespace before ':' (Black compatibility)
-    "E501",  # line too long (handled by Black)
-    "F401",  # unused imports (allowed in __init__.py)
-]
 exclude = [
     ".git",
     "__pycache__",
@@ -170,23 +145,41 @@ exclude = [
     "build",
     "dist",
     "scripts",
-    "src/copilot_backend",
+    "src/copilot_backend",  # External submodule - do not format
     "setup.py",
     "usage_examples.py",
     "tests",
     "docs",
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint]
+# Enable pycodestyle (E/W), pyflakes (F), isort (I), and pyupgrade (UP)
+select = ["E", "F", "W", "I", "UP"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+# Allow unused imports in package namespace initializers
 "src/comfyfixersmart/__init__.py" = ["F401"]
 "src/comfyfixersmart/**/__init__.py" = ["F401"]
+# Allow long lines in complex prompt strings and JSON formatting
 "src/comfyfixersmart/search.py" = ["E501"]
 
-[tool.flake8]
-max-line-length = 100
-extend-ignore = ["E203", "W503"]
-# Allow unused imports in package namespace initializers
-per-file-ignores = [
-    "src/comfyfixersmart/__init__.py:F401",
-    "src/comfyfixersmart/**/__init__.py:F401",
-]
+[tool.ruff.lint.isort]
+known-first-party = ["comfyfixersmart"]
+
+[tool.ruff.format]
+# Use Black-compatible formatting
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true

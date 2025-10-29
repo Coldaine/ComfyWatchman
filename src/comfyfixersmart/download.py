@@ -16,18 +16,16 @@ Functions:
 """
 
 import os
-import json
-import time
 import subprocess
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from .config import config
 from .logging import get_logger
 from .state_manager import StateManager
-from .utils import ensure_directory, get_file_size, validate_url, sanitize_filename
+from .utils import get_file_size, sanitize_filename
 
 
 @dataclass
@@ -185,23 +183,23 @@ class DownloadScriptGenerator:
 
             lines.extend(
                 [
-                    f"echo '----------------------------------------'",
+                    "echo '----------------------------------------'",
                     f"# [{confidence_marker}] {task.filename}",
                     f"echo 'Downloading: {clean_filename}'",
                     f'mkdir -p "{target_dir}"',
                     "",
-                    f"wget -c --content-disposition \\",
+                    "wget -c --content-disposition \\",
                     f"  --timeout=60 --tries={task.max_retries} \\",
                     f'  -O "{target_path}" \\',
                     f'  "{task.download_url}"',
                     "",
                     f'if verify_download "{target_path}" "{clean_filename}"; then',
-                    f"  echo '  Marking as successful in state'",
+                    "  echo '  Marking as successful in state'",
                     f'  update_state "{task.filename}" "success" "{target_path}"',
-                    f"else",
-                    f"  echo '  Download may have failed'",
+                    "else",
+                    "  echo '  Download may have failed'",
                     f'  update_state "{task.filename}" "failed" ""',
-                    f"fi",
+                    "fi",
                     "",
                 ]
             )
