@@ -144,6 +144,7 @@ exclude = [
     "env",
     "build",
     "dist",
+    "*.egg-info",
     "scripts",
     "src/copilot_backend",  # External submodule - do not format
     "setup.py",
@@ -157,6 +158,8 @@ exclude = [
 select = ["E", "F", "W", "I", "UP"]
 ignore = [
     "E501",  # line too long (handled by formatter)
+    "UP006", # non-pep585-annotation (not valid for py37 target)
+    "UP045", # non-pep604-annotation-optional (not valid for py37 target)
 ]
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
