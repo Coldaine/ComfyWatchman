@@ -1,16 +1,15 @@
-# ComfyFixerSmart Documentation
+# ComfyWatchman Documentation
 
-Welcome to the comprehensive documentation for ComfyFixerSmart, an automated tool for analyzing ComfyUI workflows and downloading missing models.
+Welcome to the documentation for ComfyWatchman, a library of **agent-callable tools** for analyzing ComfyUI workflows and managing model dependencies.
+
+**🤖 Built for AI Agents** - ComfyWatchman is not a standalone CLI for end users. It's a Python library designed for AI agents (like Claude, ChatGPT, or custom automation) to invoke programmatically.
 
 ## Documentation Structure
 
-### 📖 User Documentation
+### 🤖 AI Agent Documentation
 
-- **[User Guide](user/user-guide.md)** - Complete guide for installation, setup, and usage
-- **[Configuration](user/configuration.md)** - Detailed configuration reference and options
-- **[CLI Reference](user/cli-reference.md)** - Command-line interface documentation
-- **[Troubleshooting](user/troubleshooting.md)** - Common issues and solutions
-- **[Examples](user/examples.md)** - Usage examples and tutorials
+- **[AI Agent Guide](../CLAUDE.md)** - Complete guide for agents calling ComfyWatchman tools
+- **[API Reference](developer/api-reference.md)** - Python API documentation for all tools
 
 ### 🛠️ Developer Documentation
 
@@ -36,17 +35,14 @@ Welcome to the comprehensive documentation for ComfyFixerSmart, an automated too
 
 ## Quick Start
 
-1. **New Users**: Start with the [User Guide](user/user-guide.md)
-2. **Configuration**: Check the [Configuration](user/configuration.md) guide
-3. **CLI Usage**: See the [CLI Reference](user/cli-reference.md)
-4. **Troubleshooting**: Visit [Troubleshooting](user/troubleshooting.md) for common issues
+### For AI Agents
+1. **Integration**: Start with the [AI Agent Guide](../CLAUDE.md)
+2. **API Reference**: See [API Reference](developer/api-reference.md) for all callable tools
 
-## For Developers
-
+### For Developers
 1. **Setup**: Follow the [Developer Guide](developer/developer-guide.md)
-2. **Architecture**: Understand the system in [Architecture](developer/architecture.md)
-3. **API**: Reference the [API Reference](developer/api-reference.md)
-4. **Testing**: Learn about testing in [Testing](developer/testing.md)
+2. **Architecture**: Understand the system in [Architecture](architecture/vision.md)
+3. **Testing**: Learn about testing in [Testing](developer/testing.md)
 
 ## Building Documentation
 

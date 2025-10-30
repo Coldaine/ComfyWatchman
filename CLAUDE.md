@@ -1,6 +1,6 @@
 # AI Agent Development and Usage Guide
 
-This guide provides comprehensive instructions for AI agents, covering both development on the `ComfyWatchman` codebase and autonomous use of its command-line tools.
+This guide provides comprehensive instructions for AI agents using ComfyWatchman as **callable Python tools** for ComfyUI workflow management.
 
 ---
 
@@ -8,7 +8,8 @@ This guide provides comprehensive instructions for AI agents, covering both deve
 
 ### 1.1. Project Overview & Philosophy
 *   **Name:** `ComfyWatchman` (repository name: `ComfyFixerSmart`, package name: `comfywatchman`)
-*   **Purpose:** An intelligent Python tool that analyzes ComfyUI workflows, identifies missing models and custom nodes, searches for them on Civitai and HuggingFace, and automates the download process.
+*   **Purpose:** A **library of Python tools designed for AI agents** to analyze ComfyUI workflows, identify missing models, search across multiple sources, and automatically download dependencies.
+*   **Agent-First Design:** Functions return structured data (dataclasses, dicts) for agent decision-making. Not a monolithic CLI for end users.
 *   **Development Philosophy:** This is a solo developer project. Favor practical solutions, reuse existing code patterns, and avoid unnecessary enterprise-level abstractions.
 
 ### 1.2. Relationship to ComfyUI-Copilot
@@ -85,56 +86,110 @@ The codebase follows a clean, modular architecture with a clear separation of co
 
 ---
 
-## 3. Guide for Using the Tool Autonomously
+## 3. Guide for AI Agents: Calling ComfyWatchman Tools
 
-This section is for AI agents using the compiled `comfywatchman` tool to manage workflows.
+This section shows how AI agents invoke ComfyWatchman's Python APIs programmatically.
 
-### 3.1. Basic Usage
-```bash
-# Run the full analysis and download pipeline automatically
-comfywatchman --auto
+### 3.1. Core Tools Available
 
-# Monitor the progress of a run
-comfywatchman --status
+**Workflow Scanning:**
+```python
+from comfyfixersmart.scanner import WorkflowScanner
 
-# Resume an interrupted run
-comfywatchman --resume
+scanner = WorkflowScanner()
+models = scanner.extract_models_from_workflow("/path/to/workflow.json")
+# Returns: List[Dict] with filename, type, node_id, etc.
 ```
 
-### 3.2. Monitoring a Run
-The tool's status is written to `status.json`. Agents should monitor this file to track progress.
+**Model Search:**
+```python
+from comfyfixersmart.search import ModelSearch, SearchResult
 
-*   **Status Phases:** `idle`, `scanning`, `resolving`, `downloading`, `complete`, `error`.
-*   **Example Monitoring Logic:**
-    ```python
-    import json
-    import time
+search = ModelSearch()
+result = search.search_model({"filename": "model.safetensors", "type": "checkpoint"})
+# Returns: SearchResult(status="FOUND", civitai_id=123, download_url="...", confidence="exact")
+```
 
-    while True:
-        try:
-            with open('status.json') as f:
-                status = json.load(f)
-            
-            phase = status.get('phase', 'idle')
-            print(f"Current phase: {phase}")
+**Model Downloads:**
+```python
+from comfyfixersmart.civitai_tools.direct_downloader import CivitaiDirectDownloader
 
-            if phase in ['complete', 'error']:
-                break
-        except FileNotFoundError:
-            print("Waiting for run to start...")
-        
-        time.sleep(5)
-    ```
+downloader = CivitaiDirectDownloader(download_dir="/path/to/ComfyUI/models/checkpoints")
+result = downloader.download_by_id(
+    model_id=123456,
+    version_id=789012
+)
+# Returns: DownloadResult(status=DownloadStatus.SUCCESS, file_path="...", file_size=..., actual_hash="...")
+```
 
-### 3.3. Understanding the Output
-All outputs are placed in the `output/` directory.
+**Local Inventory:**
+```python
+from comfyfixersmart.inventory import ModelInventory
 
-*   `missing_models.json`: A list of models that were not found locally.
-*   `resolutions.json`: The search results from Civitai/HuggingFace for the missing models.
-*   `summary_report.md`: A human-readable summary of the run.
+inventory = ModelInventory(models_dir="/path/to/ComfyUI/models")
+local_models = inventory.build_inventory()
+# Returns: Dict[str, List[str]] - {"checkpoints": [...], "loras": [...]}
+```
 
-### 3.4. Error Handling and Recovery
-*   If `status.json` shows `phase: "error"`, check the `errors` array for details.
-*   Consult the log files in the `log/` directory for detailed stack traces.
-*   For most transient errors (network issues, timeouts), a run can be recovered by executing `comfywatchman --resume`.
-*   If an API key is invalid (`401 Unauthorized`), the agent should notify the user to check their `~/.secrets` file.
+### 3.2. Decision-Making Pattern for Agents
+
+Agents should use these tools in a workflow:
+
+```python
+# 1. Scan workflow to find dependencies
+models_needed = scanner.extract_models_from_workflow("workflow.json")
+
+# 2. Check what's already available
+local_models = inventory.build_inventory()
+
+# 3. Find what's missing
+missing = [m for m in models_needed if m['filename'] not in local_models.get(m['type'], [])]
+
+# 4. Search for each missing model
+for model_info in missing:
+    search_result = search.search_model(model_info)
+
+    # 5. Agent decides whether to download based on confidence
+    if search_result.status == "FOUND" and search_result.confidence == "exact":
+        download_result = downloader.download_by_id(
+            search_result.civitai_id,
+            search_result.version_id
+        )
+
+        if download_result.status == DownloadStatus.SUCCESS:
+            print(f"✓ Downloaded {model_info['filename']}")
+        else:
+            print(f"✗ Failed: {download_result.error_message}")
+```
+
+### 3.3. Understanding Return Types
+
+All tools return structured data for agent decision-making:
+
+*   **SearchResult:** `status` (FOUND/NOT_FOUND/UNCERTAIN), `civitai_id`, `download_url`, `confidence` (exact/fuzzy)
+*   **DownloadResult:** `status` (SUCCESS/FAILED/HASH_MISMATCH), `file_path`, `file_size`, `expected_hash`, `actual_hash`
+*   **Model Lists:** List[Dict] with `filename`, `type`, `node_id`, `workflow`
+
+### 3.4. Error Handling for Agents
+
+Agents should handle errors gracefully:
+
+```python
+try:
+    result = search.search_model(model_info)
+
+    if result.status == "NOT_FOUND":
+        # Agent decides: notify user, try alternative search, etc.
+        pass
+    elif result.status == "UNCERTAIN":
+        # Agent reviews candidates and asks user for clarification
+        candidates = result.metadata.get("candidates", [])
+        pass
+
+except ImportError as e:
+    # Missing dependency - notify user to install optional packages
+    pass
+except Exception as e:
+    # Unexpected error - log and continue with other models
+    pass
+```
