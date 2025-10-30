@@ -24,7 +24,7 @@ This project is designed to **complement and integrate with** [ComfyUI-Copilot](
 *   **API Keys:** The tool requires API keys which are stored in `~/.secrets` and loaded into the environment.
     *   `CIVITAI_API_KEY`: Required for Civitai API search.
     *   `TAVILY_API_KEY`: Required for the Qwen agent's web search fallback.
-    *   `HF_TOKEN`: Optional for accessing private models on HuggingFace.
+    *   `HF_TOKEN`: required for accessing private models on HuggingFace.
 
 ---
 
@@ -56,9 +56,6 @@ The codebase follows a clean, modular architecture with a clear separation of co
     ```bash
     # Format code
     black src/ tests/
-
-    # Lint code
-    flake8 src/ tests/
 
     # Type checking
     mypy src/
