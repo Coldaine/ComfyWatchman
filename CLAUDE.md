@@ -41,7 +41,7 @@ The codebase follows a clean, modular architecture with a clear separation of co
     *   `scanner.py`: Handles workflow parsing and model extraction.
     *   `inventory.py`: Builds the local model inventory.
     *   `search.py`: Manages multi-backend model search (Qwen, Civitai, etc.).
-    *   `download.py`: Manages model downloads and script generation.
+    *   `download.py`: Manages automatic model downloads with hash verification (script generation deprecated).
     *   `state_manager.py`: Handles state tracking and caching.
     *   `inspector/`: The model metadata inspection subsystem.
     *   `adapters/`: The integration layer for external tools like ComfyUI-Copilot.
@@ -107,8 +107,16 @@ result = search.search_model({"filename": "model.safetensors", "type": "checkpoi
 # Returns: SearchResult(status="FOUND", civitai_id=123, download_url="...", confidence="exact")
 ```
 
-**Model Downloads:**
+**Model Downloads (Automatic - Default Behavior):**
 ```python
+from comfyfixersmart.core import ComfyFixerCore
+
+# The core workflow automatically downloads models by default
+core = ComfyFixerCore()
+run = core.run_workflow_analysis()
+# Downloads happen automatically with hash verification to correct directories
+
+# For manual control, use the low-level API:
 from comfyfixersmart.civitai_tools.direct_downloader import CivitaiDirectDownloader
 
 downloader = CivitaiDirectDownloader(download_dir="/path/to/ComfyUI/models/checkpoints")
