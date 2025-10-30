@@ -12,6 +12,11 @@ log_dir = "log"
 search_log_file = "qwen_search_history.log"
 download_counter_file = "download_counter.txt"
 
+[schedule]
+enabled = true
+interval_minutes = 120
+min_vram_gb = 6.0
+
 # Note: state_dir is now accessed via state.json_path (see State Management section below)
 
 # API Settings
