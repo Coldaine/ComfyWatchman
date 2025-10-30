@@ -100,10 +100,41 @@ class CivitaiSearch(SearchBackend):
         # Normalize to basename independent of OS/path style
         filename = self._normalize_filename(raw_filename)
 
+        # NEW: Try DirectIDBackend first
+        try:
+            from .civitai_tools.direct_id_backend import DirectIDBackend
+
+            direct_backend = DirectIDBackend()
+
+            # Extract name for lookup (remove file extension)
+            name = filename.rsplit(".", 1)[0] if "." in filename else filename
+            self.logger.info(f"Attempting DirectIDBackend lookup for: {name}")
+
+            result = direct_backend.lookup_by_name(name)
+
+            if result and result.status == "FOUND":
+                self.logger.info(
+                    f"DirectIDBackend found model: {result.civitai_name} (ID: {result.civitai_id})"
+                )
+                # Ensure the result has the correct filename and type from the request
+                result.filename = filename
+                if not result.type or result.type == "unknown":
+                    result.type = model_type
+                return result
+            else:
+                self.logger.debug(f"DirectIDBackend lookup returned no results for: {name}")
+        except ImportError as e:
+            self.logger.warning(f"DirectIDBackend not available: {e}, falling back to API search")
+        except Exception as e:
+            self.logger.warning(
+                f"DirectIDBackend lookup failed: {e}, falling back to API search"
+            )
+
+        # EXISTING: Fall back to API search
         # Clean filename for search
         query = self._prepare_search_query(filename)
 
-        self.logger.info(f"Searching Civitai: {query}")
+        self.logger.info(f"Searching Civitai API: {query}")
 
         try:
             # Build search parameters
