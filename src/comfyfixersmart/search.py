@@ -17,8 +17,12 @@ Functions:
     search_with_qwen: Convenience function for Qwen search
 """
 
+import hashlib
 import json
+import os
 import re
+import shlex
+import subprocess
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -32,13 +36,253 @@ from .adapters import MODELSCOPE_AVAILABLE
 from .config import config
 from .logging import get_logger
 from .state_manager import StateManager
-from .utils import get_api_key, sanitize_filename
+from .utils import get_api_key, sanitize_filename, validate_and_sanitize_filename
 
 # Conditionally import ModelScopeSearch
 try:
     from .adapters.modelscope_search import ModelScopeSearch
 except ImportError:
     ModelScopeSearch = None
+
+
+class TavilyAPI:
+    """Tavily Web Search API client for model discovery.
+
+    Provides robust web search capabilities with proper error handling,
+    rate limiting, and result parsing for ComfyUI model discovery.
+    """
+
+    def __init__(self, api_key: Optional[str] = None, logger=None):
+        """Initialize Tavily API client.
+
+        Args:
+            api_key: Tavily API key (defaults to TAVILY_API_KEY env var)
+            logger: Logger instance
+        """
+        self.api_key = api_key or os.getenv("TAVILY_API_KEY")
+        self.base_url = "https://api.tavily.com"
+        self.logger = logger or get_logger("TavilyAPI")
+        self._session = requests.Session()
+
+    def is_available(self) -> bool:
+        """Check if Tavily API is available and configured."""
+        return bool(self.api_key)
+
+    def search(
+        self,
+        query: str,
+        search_depth: str = "basic",
+        max_results: int = 10,
+        include_domains: Optional[List[str]] = None,
+        exclude_domains: Optional[List[str]] = None,
+        timeout: int = 30,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Perform web search using Tavily API.
+
+        Args:
+            query: Search query string
+            search_depth: Search depth ("basic" or "advanced")
+            max_results: Maximum number of results to return
+            include_domains: Domains to include in search
+            exclude_domains: Domains to exclude from search
+            timeout: Request timeout in seconds
+
+        Returns:
+            List of search results or None if search fails
+        """
+        if not self.api_key:
+            self.logger.warning("TAVILY_API_KEY not available")
+            return None
+
+        payload = {
+            "api_key": self.api_key,
+            "query": query,
+            "search_depth": search_depth,
+            "max_results": max_results,
+        }
+
+        if include_domains:
+            payload["include_domains"] = include_domains
+
+        if exclude_domains:
+            payload["exclude_domains"] = exclude_domains
+
+        self.logger.debug(f"Performing Tavily search: {query}")
+
+        try:
+            response = self._session.post(
+                f"{self.base_url}/search",
+                json=payload,
+                timeout=timeout,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [])
+                self.logger.info(
+                    f"Tavily search successful: {len(results)} results for query '{query}'"
+                )
+                return results
+            elif response.status_code == 401:
+                self.logger.error("Tavily API authentication failed - check API key")
+                return None
+            elif response.status_code == 429:
+                self.logger.warning("Tavily API rate limit exceeded")
+                return None
+            else:
+                self.logger.warning(
+                    f"Tavily API returned status {response.status_code}: {response.text}"
+                )
+                return None
+
+        except requests.exceptions.Timeout:
+            self.logger.error(f"Tavily search timed out after {timeout} seconds")
+            return None
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Tavily search request failed: {e}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected Tavily search error: {e}")
+            return None
+
+    def search_huggingface_models(
+        self,
+        model_filename: str,
+        max_results: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Search for HuggingFace models related to the given filename.
+
+        Args:
+            model_filename: Model filename to search for
+            max_results: Maximum number of results to return
+
+        Returns:
+            List of search results focused on HuggingFace
+        """
+        if not self.is_available():
+            return []
+
+        # Extract base name without extension
+        base_name = (
+            model_filename.rsplit(".", 1)[0]
+            if "." in model_filename
+            else model_filename
+        )
+
+        # Prepare search queries with different strategies
+        queries = [
+            f'"{base_name}" site:huggingface.co',
+            f'"{base_name}" model huggingface',
+            f'"{base_name}" stable diffusion huggingface',
+            f'"{base_name}" file:safetensors OR file:ckpt site:huggingface.co',
+        ]
+
+        all_results = []
+        seen_urls = set()
+
+        for query in queries:
+            try:
+                results = self.search(
+                    query=query,
+                    max_results=max_results,
+                    include_domains=["huggingface.co"],
+                )
+
+                if results:
+                    # Add search metadata to each result
+                    for result in results:
+                        url = result.get("url", "")
+                        if url not in seen_urls:
+                            result["search_query"] = query
+                            result["search_strategy"] = self._determine_search_strategy(
+                                model_filename
+                            )
+                            all_results.append(result)
+                            seen_urls.add(url)
+
+                    # If we get good results, don't try more queries
+                    if len(results) >= max_results // 2:
+                        break
+
+            except Exception as e:
+                self.logger.warning(f"Tavily search failed for query '{query}': {e}")
+                continue
+
+        self.logger.info(
+            f"HuggingFace model search for '{model_filename}': {len(all_results)} unique results"
+        )
+        return all_results
+
+    def search_model_repositories(
+        self,
+        model_filename: str,
+    ) -> List[Dict[str, Any]]:
+        """Search for model repositories (HuggingFace, GitHub) containing the model.
+
+        Args:
+            model_filename: Model filename to search for
+
+        Returns:
+            List of repository search results
+        """
+        if not self.is_available():
+            return []
+
+        base_name = (
+            model_filename.rsplit(".", 1)[0]
+            if "." in model_filename
+            else model_filename
+        )
+
+        # Search for repositories containing this model
+        queries = [
+            f'"{base_name}" site:huggingface.co OR site:github.com',
+            f'"{model_filename}" repository',
+            f'"{base_name}" model download',
+        ]
+
+        all_results = []
+        for query in queries:
+            try:
+                results = self.search(
+                    query=query,
+                    max_results=15,
+                )
+                if results:
+                    all_results.extend(results)
+            except Exception as e:
+                self.logger.warning(f"Repository search failed for '{query}': {e}")
+                continue
+
+        return all_results
+
+    def _determine_search_strategy(self, filename: str) -> str:
+        """Determine the search strategy based on filename patterns.
+
+        Args:
+            filename: Model filename
+
+        Returns:
+            Search strategy identifier
+        """
+        filename_lower = filename.lower()
+
+        if any(
+            pattern in filename_lower for pattern in ["rife", "frame", "interpolation"]
+        ):
+            return "rife_specific"
+        elif any(
+            pattern in filename_lower for pattern in ["sam", "segment", "anything"]
+        ):
+            return "sam_specific"
+        elif any(
+            pattern in filename_lower for pattern in ["nmkd", "superscale", "upscale"]
+        ):
+            return "upscaler_specific"
+        elif any(pattern in filename_lower for pattern in ["controlnet", "control"]):
+            return "controlnet_specific"
+        else:
+            return "general_search"
 
 
 @dataclass
@@ -86,7 +330,9 @@ class CivitaiSearch(SearchBackend):
 
     def __init__(self, logger=None):
         super().__init__(logger)
-        self.api_key = config.search.civitai_api_key or get_api_key()  # Fallback for old method
+        self.api_key = (
+            config.search.civitai_api_key or get_api_key()
+        )  # Fallback for old method
         self.base_url = "https://civitai.com/api/v1"
 
     def get_name(self) -> str:
@@ -97,8 +343,27 @@ class CivitaiSearch(SearchBackend):
         raw_filename = model_info["filename"]
         model_type = model_info.get("type", "")
 
+        # Enhanced filename validation with early return for INVALID_FILENAME
+        is_valid, sanitized_filename, error_reason = validate_and_sanitize_filename(
+            raw_filename
+        )
+        if not is_valid:
+            self.logger.warning(
+                f"Invalid filename detected: {raw_filename} - {error_reason}"
+            )
+            return SearchResult(
+                status="INVALID_FILENAME",
+                filename=raw_filename,
+                type=model_type,
+                error_message=error_reason,
+                metadata={
+                    "validation_reason": error_reason,
+                    "original_filename": raw_filename,
+                },
+            )
+
         # Normalize to basename independent of OS/path style
-        filename = self._normalize_filename(raw_filename)
+        filename = self._normalize_filename(sanitized_filename)
 
         # NEW: Try DirectIDBackend first
         try:
@@ -122,9 +387,13 @@ class CivitaiSearch(SearchBackend):
                     result.type = model_type
                 return result
             else:
-                self.logger.debug(f"DirectIDBackend lookup returned no results for: {name}")
+                self.logger.debug(
+                    f"DirectIDBackend lookup returned no results for: {name}"
+                )
         except ImportError as e:
-            self.logger.warning(f"DirectIDBackend not available: {e}, falling back to API search")
+            self.logger.warning(
+                f"DirectIDBackend not available: {e}, falling back to API search"
+            )
         except Exception as e:
             self.logger.warning(
                 f"DirectIDBackend lookup failed: {e}, falling back to API search"
@@ -161,11 +430,53 @@ class CivitaiSearch(SearchBackend):
 
             results = response.json().get("items", [])
             if not results:
+                self.logger.info(
+                    "Simple Civitai search returned zero results, attempting multi-strategy cascade"
+                )
+                cascade_results = self.search_multi_strategy(model_info)
+                if cascade_results:
+                    best_result = cascade_results[0]
+                    best_result.filename = filename
+                    if not best_result.type:
+                        best_result.type = model_type
+                    if best_result.metadata is None:
+                        best_result.metadata = {}
+                    best_result.metadata["search_attempts"] = max(
+                        2, best_result.metadata.get("search_attempts", 1)
+                    )
+                    self.logger.info(
+                        "Multi-strategy found result after empty simple search: %s (ID: %s)",
+                        best_result.civitai_name,
+                        best_result.civitai_id,
+                    )
+                    return best_result
+
+                # Hash fallback: Try to find local file and use its hash for lookup
+                hash_result = self._try_hash_fallback(model_info)
+                if hash_result:
+                    hash_result.filename = filename
+                    if not hash_result.type:
+                        hash_result.type = model_type
+                    if hash_result.metadata is None:
+                        hash_result.metadata = {}
+                    hash_result.metadata["search_attempts"] = max(
+                        3, hash_result.metadata.get("search_attempts", 1)
+                    )
+                    self.logger.info(
+                        "Hash fallback found result after empty simple + multi-strategy search: %s (ID: %s)",
+                        hash_result.civitai_name,
+                        hash_result.civitai_id,
+                    )
+                    return hash_result
+
                 return SearchResult(
                     status="NOT_FOUND",
                     filename=filename,
                     type=model_type,
-                    metadata={"search_attempts": 1, "reason": "No results found"},
+                    metadata={
+                        "search_attempts": 3,
+                        "reason": "Simple + multi-strategy + hash fallback search returned no results",
+                    },
                 )
 
             # Find best match
@@ -177,12 +488,51 @@ class CivitaiSearch(SearchBackend):
                     result_obj, version, filename, model_type, "exact"
                 )
             else:
-                # No exact filename match; do not return fuzzy 'FOUND'
-                # Provide top candidate context for human review in metadata
+                self.logger.info(
+                    "Simple Civitai search returned candidates but no exact filename match; "
+                    "attempting multi-strategy cascade"
+                )
+                cascade_results = self.search_multi_strategy(model_info)
+
+                if cascade_results:
+                    best_result = cascade_results[0]
+                    best_result.filename = filename
+                    if not best_result.type:
+                        best_result.type = model_type
+                    if best_result.metadata is None:
+                        best_result.metadata = {}
+                    best_result.metadata["search_attempts"] = max(
+                        2, best_result.metadata.get("search_attempts", 1)
+                    )
+                    self.logger.info(
+                        "Multi-strategy found result after no exact match: %s (ID: %s)",
+                        best_result.civitai_name,
+                        best_result.civitai_id,
+                    )
+                    return best_result
+
+                # Hash fallback: Try to find local file and use its hash for lookup
+                hash_result = self._try_hash_fallback(model_info)
+                if hash_result:
+                    hash_result.filename = filename
+                    if not hash_result.type:
+                        hash_result.type = model_type
+                    if hash_result.metadata is None:
+                        hash_result.metadata = {}
+                    hash_result.metadata["search_attempts"] = max(
+                        3, hash_result.metadata.get("search_attempts", 1)
+                    )
+                    self.logger.info(
+                        "Hash fallback found result after no exact match: %s (ID: %s)",
+                        hash_result.civitai_name,
+                        hash_result.civitai_id,
+                    )
+                    return hash_result
+
                 top = results[0]
                 meta = {
-                    "search_attempts": 1,
-                    "reason": "No exact filename match on Civitai",
+                    "search_attempts": 3,
+                    "reason": "No exact filename match after simple + multi-strategy + hash fallback search",
                     "top_candidate": {
                         "id": top.get("id"),
                         "name": top.get("name"),
@@ -190,7 +540,10 @@ class CivitaiSearch(SearchBackend):
                     },
                 }
                 return SearchResult(
-                    status="NOT_FOUND", filename=filename, type=model_type, metadata=meta
+                    status="NOT_FOUND",
+                    filename=filename,
+                    type=model_type,
+                    metadata=meta,
                 )
 
         except Exception as e:
@@ -266,7 +619,9 @@ class CivitaiSearch(SearchBackend):
                 metadata={
                     "search_attempts": 1,
                     "found_by": "direct_id",
-                    "nsfw_level": model_data.get("nsfwLevel", 1),  # PG=1, PG13=2, R=4, X=8, XXX=16
+                    "nsfw_level": model_data.get(
+                        "nsfwLevel", 1
+                    ),  # PG=1, PG13=2, R=4, X=8, XXX=16
                 },
             )
 
@@ -304,14 +659,18 @@ class CivitaiSearch(SearchBackend):
                 filename,
                 flags=re.IGNORECASE,
             )
-            name_for_lookup = name_for_lookup.replace("_", " ").replace("-", " ").strip()
+            name_for_lookup = (
+                name_for_lookup.replace("_", " ").replace("-", " ").strip()
+            )
 
             known_result = direct_backend.lookup_by_name(name_for_lookup)
             if known_result:
                 results.append(known_result)
                 # Sort results by confidence and return early since known result is most confident
                 return sorted(
-                    results, key=lambda x: self._calculate_confidence_score(x), reverse=True
+                    results,
+                    key=lambda x: self._calculate_confidence_score(x),
+                    reverse=True,
                 )
 
         # Strategy 2: Enhanced NSFW-specific multi-level search
@@ -339,7 +698,9 @@ class CivitaiSearch(SearchBackend):
             results.extend(fallback_results)
 
         # Sort results by confidence or relevance
-        return sorted(results, key=lambda x: self._calculate_confidence_score(x), reverse=True)
+        return sorted(
+            results, key=lambda x: self._calculate_confidence_score(x), reverse=True
+        )
 
     def _search_nsfw_multi_level(self, model_ref: Dict[str, Any]) -> List[SearchResult]:
         """Enhanced NSFW search with multiple strategies for 100% discovery reliability."""
@@ -360,7 +721,9 @@ class CivitaiSearch(SearchBackend):
         for strategy in nsfw_strategies:
             strategy_results = self._search_with_nsfw_strategy(model_ref, strategy)
             results.extend(strategy_results)
-            if results:  # If we found results, continue to next strategy but keep accumulating
+            if (
+                results
+            ):  # If we found results, continue to next strategy but keep accumulating
                 break
 
         # Strategy 2.2: If no results, try without NSFW filter but with NSFW tags
@@ -417,7 +780,9 @@ class CivitaiSearch(SearchBackend):
                 if nsfw_level >= 2:  # PG13 or higher
                     for version in item.get("modelVersions", []):
                         for file_info in version.get("files", []):
-                            if self._filename_matches(file_info.get("name", ""), filename):
+                            if self._filename_matches(
+                                file_info.get("name", ""), filename
+                            ):
                                 result = self._create_result_from_match(
                                     item, version, filename, model_type, "fuzzy"
                                 )
@@ -464,7 +829,10 @@ class CivitaiSearch(SearchBackend):
                     headers["Authorization"] = f"Bearer {self.api_key}"
 
                 response = requests.get(
-                    f"{self.base_url}/models", params=params, headers=headers, timeout=30
+                    f"{self.base_url}/models",
+                    params=params,
+                    headers=headers,
+                    timeout=30,
                 )
 
                 if response.status_code != 200:
@@ -476,7 +844,9 @@ class CivitaiSearch(SearchBackend):
                     if nsfw_level >= 2:  # Only include potentially NSFW content
                         for version in item.get("modelVersions", []):
                             for file_info in version.get("files", []):
-                                if self._filename_matches(file_info.get("name", ""), filename):
+                                if self._filename_matches(
+                                    file_info.get("name", ""), filename
+                                ):
                                     result = self._create_result_from_match(
                                         item, version, filename, model_type, "fuzzy"
                                     )
@@ -514,7 +884,12 @@ class CivitaiSearch(SearchBackend):
 
         for level_strategy in nsfw_level_strategies:
             try:
-                params = {"query": query, "limit": 10, "sort": "Highest Rated", **level_strategy}
+                params = {
+                    "query": query,
+                    "limit": 10,
+                    "sort": "Highest Rated",
+                    **level_strategy,
+                }
 
                 type_filter = self._get_type_filter(model_type)
                 if type_filter:
@@ -525,7 +900,10 @@ class CivitaiSearch(SearchBackend):
                     headers["Authorization"] = f"Bearer {self.api_key}"
 
                 response = requests.get(
-                    f"{self.base_url}/models", params=params, headers=headers, timeout=30
+                    f"{self.base_url}/models",
+                    params=params,
+                    headers=headers,
+                    timeout=30,
                 )
 
                 if response.status_code != 200:
@@ -535,24 +913,32 @@ class CivitaiSearch(SearchBackend):
                 for item in data.get("items", []):
                     for version in item.get("modelVersions", []):
                         for file_info in version.get("files", []):
-                            if self._filename_matches(file_info.get("name", ""), filename):
+                            if self._filename_matches(
+                                file_info.get("name", ""), filename
+                            ):
                                 result = self._create_result_from_match(
                                     item, version, filename, model_type, "fuzzy"
                                 )
                                 if result.metadata:
-                                    result.metadata["target_nsfw_level"] = level_strategy[
-                                        "nsfwLevel"
-                                    ]
-                                    result.metadata["actual_nsfw_level"] = item.get("nsfwLevel", 1)
+                                    result.metadata["target_nsfw_level"] = (
+                                        level_strategy["nsfwLevel"]
+                                    )
+                                    result.metadata["actual_nsfw_level"] = item.get(
+                                        "nsfwLevel", 1
+                                    )
                                 else:
                                     result.metadata = {
-                                        "target_nsfw_level": level_strategy["nsfwLevel"],
+                                        "target_nsfw_level": level_strategy[
+                                            "nsfwLevel"
+                                        ],
                                         "actual_nsfw_level": item.get("nsfwLevel", 1),
                                     }
                                 results.append(result)
 
             except Exception as e:
-                self.logger.error(f"NSFW level search failed for level {level_strategy}: {e}")
+                self.logger.error(
+                    f"NSFW level search failed for level {level_strategy}: {e}"
+                )
                 continue
 
         return results
@@ -570,7 +956,9 @@ class CivitaiSearch(SearchBackend):
         candidate_prefix = candidate_lower.split(".")[0]
         target_prefix = target_lower.split(".")[0]
 
-        if candidate_prefix.startswith(target_prefix) or target_prefix.startswith(candidate_prefix):
+        if candidate_prefix.startswith(target_prefix) or target_prefix.startswith(
+            candidate_prefix
+        ):
             return True
 
         # Fuzzy matching for common NSFW naming patterns
@@ -619,7 +1007,11 @@ class CivitaiSearch(SearchBackend):
             for item in data.get("items", []):
                 for version in item.get("modelVersions", []):
                     for file_info in version.get("files", []):
-                        if file_info.get("name", "").lower().startswith(query.lower().split()[0]):
+                        if (
+                            file_info.get("name", "")
+                            .lower()
+                            .startswith(query.lower().split()[0])
+                        ):
                             result = self._create_result_from_match(
                                 item, version, filename, model_type, "fuzzy"
                             )
@@ -657,7 +1049,10 @@ class CivitaiSearch(SearchBackend):
                     headers["Authorization"] = f"Bearer {self.api_key}"
 
                 response = requests.get(
-                    f"{self.base_url}/models", params=params, headers=headers, timeout=30
+                    f"{self.base_url}/models",
+                    params=params,
+                    headers=headers,
+                    timeout=30,
                 )
 
                 if response.status_code != 200:
@@ -764,7 +1159,16 @@ class CivitaiSearch(SearchBackend):
 
         # Also add individual words from query as potential tags
         for word in query_lower.split():
-            if len(word) > 2 and word not in ["and", "the", "for", "with", "v1", "v2", "v3", "xl"]:
+            if len(word) > 2 and word not in [
+                "and",
+                "the",
+                "for",
+                "with",
+                "v1",
+                "v2",
+                "v3",
+                "xl",
+            ]:
                 if word not in found_tags:
                     found_tags.append(word)
 
@@ -804,7 +1208,9 @@ class CivitaiSearch(SearchBackend):
         # Normalize separators and remove extension
         base = self._normalize_filename(filename)
         # Remove common extensions
-        base = re.sub(r"\.(safetensors|ckpt|pth|pt|bin|onnx)$", "", base, flags=re.IGNORECASE)
+        base = re.sub(
+            r"\.(safetensors|ckpt|pth|pt|bin|onnx)$", "", base, flags=re.IGNORECASE
+        )
         # Replace underscores, backslashes, forward slashes, and dots with spaces
         query = re.sub(r"[\\/_.]+", " ", base)
         return query.strip()
@@ -818,6 +1224,7 @@ class CivitaiSearch(SearchBackend):
             "controlnet": "Controlnet",
             "upscale_models": "Upscaler",
             "clip": "TextualInversion",  # Approximation
+            "embeddings": "TextualInversion",
             "unet": "Checkpoint",  # Approximation
         }
         return type_mapping.get(model_type)
@@ -835,7 +1242,12 @@ class CivitaiSearch(SearchBackend):
         return None
 
     def _create_result_from_match(
-        self, result: Dict, version: Dict, filename: str, model_type: str, confidence: str
+        self,
+        result: Dict,
+        version: Dict,
+        filename: str,
+        model_type: str,
+        confidence: str,
     ) -> SearchResult:
         """Create SearchResult from an exact Civitai API match and its specific version."""
         return SearchResult(
@@ -860,37 +1272,884 @@ class CivitaiSearch(SearchBackend):
         except Exception:
             return name
 
+    def _calculate_file_hash(self, file_path: str) -> Optional[str]:
+        """
+        Calculate SHA256 hash of a local model file efficiently using streaming.
+
+        Args:
+            file_path: Path to the model file
+
+        Returns:
+            SHA256 hash as hex string, or None if calculation fails
+        """
+        sha256_hash = hashlib.sha256()
+        try:
+            with open(file_path, "rb") as f:
+                # Read file in chunks to handle large files efficiently
+                for chunk in iter(lambda: f.read(4096), b""):
+                    sha256_hash.update(chunk)
+            return sha256_hash.hexdigest()
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate hash for {file_path}: {e}")
+            return None
+
+    def search_by_hash(self, file_path: str, filename: str) -> Optional[SearchResult]:
+        """
+        Search Civitai using SHA256 hash via /api/v1/model-versions/by-hash/{sha256} endpoint.
+
+        Args:
+            file_path: Path to local file for hash calculation
+            filename: Original filename for context
+
+        Returns:
+            SearchResult if found by hash, None otherwise
+        """
+        self.logger.info(f"Attempting hash lookup for file: {filename}")
+
+        # Calculate hash of local file
+        file_hash = self._calculate_file_hash(file_path)
+        if not file_hash:
+            self.logger.warning(f"Could not calculate hash for {file_path}")
+            return None
+
+        self.logger.info(f"Calculated SHA256 hash: {file_hash[:16]}... for {filename}")
+
+        try:
+            headers = {}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+
+            # Use the Civitai hash lookup endpoint
+            response = requests.get(
+                f"{self.base_url}/model-versions/by-hash/{file_hash}",
+                headers=headers,
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+
+                # Extract model information from hash lookup result
+                model_id = data.get("modelId")
+                version_id = data.get("id")
+                model_name = data.get("model", {}).get("name", "Unknown Model")
+                version_name = data.get("name", f"Version {version_id}")
+
+                # Get the primary file information
+                primary_file = data.get("files", [{}])[0] if data.get("files") else {}
+
+                self.logger.info(
+                    f"Hash lookup successful: Found {model_name} (ID: {model_id}, Version: {version_id})"
+                )
+
+                return SearchResult(
+                    status="FOUND",
+                    filename=filename,  # Use original filename from search
+                    source="civitai",
+                    civitai_id=model_id,
+                    version_id=version_id,
+                    civitai_name=model_name,
+                    version_name=version_name,
+                    download_url=f"https://civitai.com/api/download/models/{version_id}",
+                    confidence="exact",  # Hash match is 100% confidence
+                    type=self._infer_model_type_from_data(data.get("model", {})),
+                    metadata={
+                        "search_attempts": 1,
+                        "found_by": "hash_lookup",
+                        "hash": file_hash,
+                        "hash_lookup_endpoint": f"/api/v1/model-versions/by-hash/{file_hash}",
+                    },
+                )
+            elif response.status_code == 404:
+                self.logger.info(f"No model found with hash {file_hash[:16]}...")
+                return None
+            else:
+                self.logger.warning(
+                    f"Hash lookup API error: {response.status_code} - {response.text}"
+                )
+                return None
+
+        except Exception as e:
+            self.logger.error(f"Hash lookup failed for {file_hash[:16]}...: {e}")
+            return None
+
+    def _try_hash_fallback(self, model_info: Dict[str, Any]) -> Optional[SearchResult]:
+        """
+        Try hash-based fallback when other search methods fail.
+
+        This method checks if we have a local file path and attempts hash lookup
+        using the Civitai /api/v1/model-versions/by-hash/{sha256} endpoint.
+
+        Args:
+            model_info: Dictionary containing model information
+
+        Returns:
+            SearchResult if hash lookup succeeds, None otherwise
+        """
+        filename = model_info["filename"]
+
+        # Check if we have a local file path to work with
+        # The model_info might contain a 'local_path' field, or we might need to
+        # construct one based on the ComfyUI directory structure
+        local_path = model_info.get("local_path")
+
+        if not local_path:
+            # Try to construct local path based on ComfyUI directory
+            # This is a common pattern in the codebase
+            comfyui_root = model_info.get(
+                "comfyui_root", "/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable"
+            )
+            model_type = model_info.get("type", "checkpoints")
+
+            # Map model types to their directory structure in ComfyUI
+            type_to_dir = {
+                "checkpoints": "models/checkpoints",
+                "loras": "models/loras",
+                "vae": "models/vae",
+                "controlnet": "models/controlnet",
+                "upscale_models": "models/upscale_models",
+                "embeddings": "models/embeddings",
+                "clip": "models/clip",
+            }
+
+            model_dir = type_to_dir.get(model_type, "models/checkpoints")
+            local_path = f"{comfyui_root}/{model_dir}/{filename}"
+
+        self.logger.info(f"Attempting hash fallback for local file: {local_path}")
+
+        # Check if file exists
+        if not os.path.exists(local_path):
+            self.logger.debug(f"Local file not found for hash lookup: {local_path}")
+            return None
+
+        # Check file size - skip very small files that are unlikely to be model files
+        try:
+            file_size = os.path.getsize(local_path)
+            if file_size < 1024 * 1024:  # Less than 1MB
+                self.logger.debug(
+                    f"File too small for hash lookup ({file_size} bytes): {local_path}"
+                )
+                return None
+        except OSError as e:
+            self.logger.warning(f"Could not get file size for {local_path}: {e}")
+            return None
+
+        # Attempt hash lookup
+        return self.search_by_hash(local_path, filename)
+
 
 class QwenSearch(SearchBackend):
-    """Qwen-based agentic search backend (placeholder implementation).
+    """Qwen-based agentic search backend with smart pattern recognition.
 
     For testability and CI stability, this backend currently returns NOT_FOUND
     with a clear metadata reason. The prompt builder is provided for future use
     and unit tests that validate its contents.
     """
 
-    def __init__(self, temp_dir: Optional[str] = None, logger=None):
+    def __init__(
+        self,
+        temp_dir: Optional[str] = None,
+        cache_dir: Optional[str] = None,
+        logger=None,
+    ):
         super().__init__(logger)
         self.temp_dir = Path(temp_dir or config.temp_dir)
         self.temp_dir.mkdir(exist_ok=True, parents=True)
+        self.cache_dir = (
+            Path(cache_dir) if cache_dir else Path(config.temp_dir) / "qwen_cache"
+        )
+        self.cache_dir.mkdir(exist_ok=True, parents=True)
+        self.qwen_binary = config.search.qwen_binary or os.environ.get(
+            "QWEN_BINARY", "qwen"
+        )
+
+        # Initialize Tavily API client for web search
+        self.tavily_client = TavilyAPI(logger=self.logger)
+
+        # Smart pattern recognition for known HF models
+        self.hf_model_patterns = self._init_hf_patterns()
+        self.enable_pattern_recognition = True
 
     def get_name(self) -> str:
         return "qwen"
 
+    def _init_hf_patterns(self) -> Dict[str, List[str]]:
+        """Initialize known HuggingFace model patterns for smart recognition."""
+        return {
+            # SAM (Segment Anything Model) variants
+            "sam_patterns": [
+                r"sam_.*\.pth$",
+                r"sam_.*\.pt$",
+                r"segment_anything.*\.pth$",
+                r"facebook_sam.*\.pth$",
+            ],
+            # RIFE (Real-time Intermediate Flow Estimation) models
+            "rife_patterns": [
+                r"rife_.*\.pth$",
+                r"rife_.*\.pt$",
+                r"rife.*\.pth$",
+                r"rife.*\.pt$",
+            ],
+            # ControlNet and control models
+            "controlnet_patterns": [
+                r"control_.*\.pth$",
+                r"controlnet.*\.pth$",
+                r"control_net.*\.pth$",
+                r"openpose.*\.pth$",
+                r"canny.*\.pth$",
+            ],
+            # Upscaling models commonly on HF
+            "upscaler_patterns": [
+                r".*nmkd.*\.pth$",
+                r".*esrgan.*\.pth$",
+                r".*realesrgan.*\.pth$",
+                r".*lanczos.*\.pth$",
+                r".*4x.*\.pth$",
+            ],
+            # CLIP and text encoder models
+            "clip_patterns": [
+                r"clip.*\.pt$",
+                r"clip.*\.pth$",
+                r"text_encoder.*\.pth$",
+                r"openai.*clip.*\.pth$",
+            ],
+            # VAE models commonly on HF
+            "vae_patterns": [
+                r".*kl_f8.*\.pt$",
+                r".*kl_f16.*\.pth$",
+                r".*vae.*\.pt$",
+                r".*variational.*\.pt$",
+            ],
+            # Common HF model prefixes
+            "hf_prefixes": [
+                "facebook_",
+                "microsoft_",
+                "openai_",
+                "google_",
+                "stability_",
+                "runwayml_",
+                "cs3244-",
+                "lian_",
+                "nitrosocke_",
+                "gsdf_",
+                "taming-transformers-",
+            ],
+            # Scientific/research model indicators
+            "research_patterns": [
+                r".*diffusers.*\.pt$",
+                r".*transformers.*\.pt$",
+                r".*huggingface.*\.pt$",
+                r".*checkpoint.*\.safetensors$",
+            ],
+        }
+
+    def _detect_hf_pattern(self, filename: str) -> Optional[str]:
+        """Detect if filename matches known HuggingFace model patterns.
+
+        Returns:
+            Pattern name if matched, None otherwise
+        """
+        filename_lower = filename.lower()
+
+        # Check against regex patterns
+        for pattern_type, patterns in self.hf_model_patterns.items():
+            if pattern_type.endswith("_patterns"):
+                for pattern in patterns:
+                    if re.match(pattern, filename_lower, re.IGNORECASE):
+                        self.logger.info(
+                            f"Pattern match: {filename} matches {pattern_type} pattern: {pattern}"
+                        )
+                        return pattern_type
+
+        # Check against prefixes
+        hf_prefixes = self.hf_model_patterns.get("hf_prefixes", [])
+        for prefix in hf_prefixes:
+            if filename_lower.startswith(prefix.lower()):
+                self.logger.info(
+                    f"Prefix match: {filename} starts with HF prefix: {prefix}"
+                )
+                return "hf_prefix_match"
+
+        return None
+
+    def _perform_web_search_fallback(
+        self, model_info: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Perform web search fallback using Tavily API when local search fails.
+
+        Args:
+            model_info: Model information dictionary
+
+        Returns:
+            List of web search results with repository information
+        """
+        filename = model_info["filename"]
+
+        self.logger.info(f"Performing web search fallback for: {filename}")
+
+        if not self.tavily_client.is_available():
+            self.logger.warning("Tavily API not available for web search fallback")
+            return []
+
+        try:
+            # Search for HuggingFace repositories containing this model
+            hf_results = self.tavily_client.search_huggingface_models(filename)
+
+            if hf_results:
+                self.logger.info(
+                    f"Found {len(hf_results)} HuggingFace results via web search"
+                )
+                return hf_results
+
+            # If no HF results, try broader repository search
+            repo_results = self.tavily_client.search_model_repositories(filename)
+
+            if repo_results:
+                self.logger.info(
+                    f"Found {len(repo_results)} repository results via web search"
+                )
+                return repo_results
+
+            self.logger.info(f"No web search results found for: {filename}")
+            return []
+
+        except Exception as e:
+            self.logger.error(f"Web search fallback failed for {filename}: {e}")
+            return []
+
+    def _extract_repos_from_web_results(
+        self, web_results: List[Dict[str, Any]], filename: str
+    ) -> List[Dict[str, Any]]:
+        """Extract repository information from web search results.
+
+        Args:
+            web_results: Results from web search
+            filename: Target model filename
+
+        Returns:
+            List of repository candidates with metadata
+        """
+        repos = []
+        target_base = filename.rsplit(".", 1)[0].lower()
+
+        for result in web_results:
+            url = result.get("url", "")
+            title = result.get("title", "")
+            content = result.get("content", "")
+
+            # Look for HuggingFace repository URLs
+            if "huggingface.co" in url:
+                # Extract repo information from URL
+                repo_match = re.search(r"huggingface\.co/([^/]+)/([^/?]+)", url)
+                if repo_match:
+                    username = repo_match.group(1)
+                    repo_name = repo_match.group(2)
+
+                    # Calculate relevance score
+                    score = self._calculate_web_repo_score(
+                        username, repo_name, target_base, title, content
+                    )
+
+                    repo_info = {
+                        "type": "huggingface",
+                        "username": username,
+                        "repo_name": repo_name,
+                        "full_name": f"{username}/{repo_name}",
+                        "url": url,
+                        "title": title,
+                        "content": content[:500],  # Limit content length
+                        "score": score,
+                        "search_metadata": result.get("search_metadata", {}),
+                    }
+                    repos.append(repo_info)
+
+            # Look for GitHub repository URLs
+            elif "github.com" in url:
+                # Extract repo information from GitHub URL
+                repo_match = re.search(r"github\.com/([^/]+)/([^/?]+)", url)
+                if repo_match:
+                    username = repo_match.group(1)
+                    repo_name = repo_match.group(2)
+
+                    score = self._calculate_web_repo_score(
+                        username, repo_name, target_base, title, content
+                    )
+
+                    repo_info = {
+                        "type": "github",
+                        "username": username,
+                        "repo_name": repo_name,
+                        "full_name": f"{username}/{repo_name}",
+                        "url": url,
+                        "title": title,
+                        "content": content[:500],
+                        "score": score,
+                        "search_metadata": result.get("search_metadata", {}),
+                    }
+                    repos.append(repo_info)
+
+        # Sort by score and return top candidates
+        repos.sort(key=lambda x: x["score"], reverse=True)
+        return repos[:10]  # Limit to top 10 candidates
+
+    def _calculate_web_repo_score(
+        self, username: str, repo_name: str, target_base: str, title: str, content: str
+    ) -> int:
+        """Calculate relevance score for a repository based on web search results.
+
+        Args:
+            username: Repository owner username
+            repo_name: Repository name
+            target_base: Target model filename base
+            title: Page title from search result
+            content: Page content snippet
+
+        Returns:
+            Relevance score (0-100)
+        """
+        score = 0
+        target_lower = target_base.lower()
+        title_lower = title.lower()
+        content_lower = content.lower()
+
+        # Base score for repository format
+        score += 20
+
+        # Score based on repo name similarity
+        repo_lower = repo_name.lower()
+        if repo_lower == target_lower:
+            score += 50  # Exact match
+        elif target_lower in repo_lower or repo_lower in target_lower:
+            score += 35  # Contains match
+        else:
+            # Check for partial word matches
+            target_words = set(target_lower.split("_"))
+            repo_words = set(repo_lower.split("_"))
+            common_words = target_words.intersection(repo_words)
+            if common_words:
+                score += 25
+
+        # Score based on title relevance
+        if target_lower in title_lower:
+            score += 15
+
+        # Score based on content relevance
+        if target_lower in content_lower:
+            score += 10
+
+        # Bonus for known model-related keywords in content
+        model_keywords = ["model", "checkpoint", "safetensors", "diffusion", "ai", "ml"]
+        content_words = content_lower.split()
+        for keyword in model_keywords:
+            if keyword in content_words:
+                score += 5
+
+        # Bonus for file extension mentions
+        model_extensions = [".safetensors", ".ckpt", ".pt", ".bin", ".pth"]
+        for ext in model_extensions:
+            if ext in content_lower:
+                score += 3
+
+        return min(score, 100)  # Cap at 100
+
+    def _format_web_search_results(
+        self, repo_candidates: List[Dict[str, Any]], filename: str
+    ) -> Dict[str, Any]:
+        """Format web search results for Qwen consumption.
+
+        Args:
+            repo_candidates: Repository candidates from web search
+            filename: Target model filename
+
+        Returns:
+            Formatted results for Qwen
+        """
+        if not repo_candidates:
+            return {
+                "status": "NOT_FOUND",
+                "metadata": {
+                    "web_search_attempts": 0,
+                    "reason": "No repositories found via web search",
+                    "filename": filename,
+                },
+            }
+
+        # Format top candidates for Qwen
+        formatted_candidates = []
+        for repo in repo_candidates[:5]:  # Top 5 candidates
+            candidate = {
+                "source": repo["type"],
+                "repository": repo["full_name"],
+                "url": repo["url"],
+                "title": repo["title"],
+                "match_score": repo["score"] / 100.0,  # Normalize to 0-1
+                "confidence": "medium" if repo["score"] > 70 else "low",
+                "metadata": {
+                    "username": repo["username"],
+                    "repo_name": repo["repo_name"],
+                    "search_strategy": repo.get("search_metadata", {}),
+                },
+            }
+            formatted_candidates.append(candidate)
+
+        return {
+            "status": "UNCERTAIN",
+            "candidates": formatted_candidates,
+            "reason": f"Found {len(repo_candidates)} repositories via web search, manual verification needed",
+            "metadata": {
+                "web_search_attempts": len(repo_candidates),
+                "filename": filename,
+                "top_candidate_score": (
+                    repo_candidates[0]["score"] if repo_candidates else 0
+                ),
+            },
+        }
+
+    def _is_likely_hf_model(
+        self, filename: str, model_type: str = ""
+    ) -> Tuple[bool, str]:
+        """Determine if model is likely hosted on HuggingFace.
+
+        Args:
+            filename: Model filename
+            model_type: Model type from workflow
+
+        Returns:
+            Tuple of (is_likely_hf, reason)
+        """
+        pattern_match = self._detect_hf_pattern(filename)
+
+        if pattern_match:
+            return True, f"Pattern match: {pattern_match}"
+
+        # Check model type indicators
+        if model_type.lower() in ["checkpoints", "controlnet", "embeddings"]:
+            # Many base models and controlnets are on HF
+            if any(
+                keyword in filename.lower()
+                for keyword in [
+                    "controlnet",
+                    "clip",
+                    "text_encoder",
+                    "transformer",
+                    "unet",
+                ]
+            ):
+                return True, "Model type and filename suggest HF hosting"
+
+        # Check for common HF repository patterns in filename
+        hf_repo_patterns = [
+            "stabilityai",
+            "facebookresearch",
+            "microsoft",
+            "openai",
+            "runwayml",
+            "google",
+            "huggingface",
+            "diffusers",
+        ]
+
+        if any(repo in filename.lower() for repo in hf_repo_patterns):
+            return True, "Contains HF repository identifiers"
+
+        return False, "No HF patterns detected"
+
+    def _should_skip_civitai(
+        self, filename: str, model_type: str = ""
+    ) -> Tuple[bool, str]:
+        """Determine if Civitai search should be skipped for this model.
+
+        Args:
+            filename: Model filename
+            model_type: Model type from workflow
+
+        Returns:
+            Tuple of (should_skip, reason)
+        """
+        if not self.enable_pattern_recognition:
+            return False, "Pattern recognition disabled"
+
+        is_likely_hf, reason = self._is_likely_hf_model(filename, model_type)
+
+        if is_likely_hf:
+            skip_reason = f"Likely HF model - skipping Civitai. Reason: {reason}"
+            self.logger.info(
+                f"Early termination decision for {filename}: {skip_reason}"
+            )
+            return True, skip_reason
+
+        return False, "Should search Civitai"
+
     def search(self, model_info: Dict[str, Any]) -> SearchResult:
         filename = model_info["filename"]
-        # Placeholder behavior expected by unit tests
-        return SearchResult(
-            status="NOT_FOUND",
-            filename=filename,
-            metadata={"reason": "not implemented yet"},
+        model_type = model_info.get("type", "")
+
+        # Enhanced filename validation with early return for INVALID_FILENAME
+        is_valid, sanitized_filename, error_reason = validate_and_sanitize_filename(
+            filename
         )
+        if not is_valid:
+            self.logger.warning(
+                f"Invalid filename detected: {filename} - {error_reason}"
+            )
+            return SearchResult(
+                status="INVALID_FILENAME",
+                filename=filename,
+                type=model_type,
+                error_message=error_reason,
+                metadata={
+                    "validation_reason": error_reason,
+                    "original_filename": filename,
+                },
+            )
+
+        filename = sanitized_filename
+
+        if not config.search.enable_qwen:
+            return SearchResult(
+                status="NOT_FOUND",
+                filename=filename,
+                metadata={"reason": "Qwen backend disabled via configuration"},
+            )
+
+        # Smart Pattern Recognition: Check if model is likely on HF
+        if self.enable_pattern_recognition:
+            should_skip_civitai, skip_reason = self._should_skip_civitai(
+                filename, model_type
+            )
+            if should_skip_civitai:
+                self.logger.info(
+                    f"Pattern recognition: Skipping Civitai for {filename}. {skip_reason}"
+                )
+
+                # Return a result indicating HF-only search should be performed
+                return SearchResult(
+                    status="NOT_FOUND",
+                    filename=filename,
+                    type=model_type,
+                    metadata={
+                        "reason": "Pattern recognition: Likely HF model",
+                        "pattern_skip_civitai": True,
+                        "skip_reason": skip_reason,
+                        "search_strategy": "HF-only",
+                        "pattern_recognized": True,
+                    },
+                )
+
+        cached_result = self._load_cached_result(filename)
+        if cached_result:
+            # Add pattern recognition info to cached result
+            if self.enable_pattern_recognition:
+                should_skip_civitai, skip_reason = self._should_skip_civitai(
+                    filename, model_type
+                )
+                if should_skip_civitai:
+                    if cached_result.metadata is None:
+                        cached_result.metadata = {}
+                    cached_result.metadata["pattern_recognized_from_cache"] = True
+                    cached_result.metadata["cached_skip_reason"] = skip_reason
+            return cached_result
+
+        # Check if web search should be performed before Qwen execution
+        web_search_results = None
+        if self.tavily_client.is_available():
+            self.logger.info(f"Performing pre-Qwen web search for: {filename}")
+            web_results = self._perform_web_search_fallback(model_info)
+
+            if web_results:
+                # Extract and format repository candidates
+                repo_candidates = self._extract_repos_from_web_results(
+                    web_results, filename
+                )
+
+                if repo_candidates and repo_candidates[0]["score"] > 80:
+                    # High confidence result found via web search
+                    self.logger.info(
+                        f"High-confidence web search result found for {filename}: {repo_candidates[0]['full_name']}"
+                    )
+
+                    # Format as SearchResult for immediate return
+                    top_repo = repo_candidates[0]
+
+                    if top_repo["type"] == "huggingface":
+                        # Construct HF download URL
+                        download_url = f"https://huggingface.co/{top_repo['full_name']}/resolve/main/{filename}"
+                        confidence = "high" if top_repo["score"] > 90 else "medium"
+
+                        return SearchResult(
+                            status="FOUND",
+                            filename=filename,
+                            source="huggingface",
+                            download_url=download_url,
+                            confidence=confidence,
+                            type=model_type,
+                            metadata={
+                                "found_by": "web_search",
+                                "repository": top_repo["full_name"],
+                                "web_search_score": top_repo["score"],
+                                "search_attempts": 1,
+                                "web_search_used": True,
+                            },
+                        )
+
+                # Store web search results for Qwen evaluation
+                web_search_results = self._format_web_search_results(
+                    repo_candidates, filename
+                )
+                self.logger.info(
+                    f"Web search found {len(repo_candidates)} candidates for Qwen evaluation"
+                )
+
+        prompt = self._build_agentic_prompt(model_info, web_search_results)
+
+        command = [self.qwen_binary]
+
+        extra_args = self._collect_extra_args()
+        if extra_args:
+            command.extend(extra_args)
+
+        self.logger.info("Executing Qwen search via: %s", " ".join(command))
+
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                timeout=config.search.qwen_timeout,
+                text=True,
+                input=prompt,
+            )
+        except FileNotFoundError:
+            self.logger.error("Qwen binary not found: %s", self.qwen_binary)
+            return SearchResult(
+                status="NOT_FOUND",
+                filename=filename,
+                metadata={"reason": f"Qwen binary not found: {self.qwen_binary}"},
+            )
+        except subprocess.TimeoutExpired:
+            self.logger.error(
+                "Qwen search timed out after %s seconds", config.search.qwen_timeout
+            )
+            return SearchResult(
+                status="ERROR",
+                filename=filename,
+                error_message=f"Qwen agent timed out after {config.search.qwen_timeout} seconds",
+            )
+
+        if completed.returncode != 0:
+            self.logger.error(
+                "Qwen binary exited with %s: %s",
+                completed.returncode,
+                completed.stderr.strip(),
+            )
+            return SearchResult(
+                status="NOT_FOUND",
+                filename=filename,
+                metadata={
+                    "reason": "Qwen agent returned non-zero exit code",
+                    "stderr": completed.stderr.strip(),
+                },
+            )
+
+        qwen_payload = self._parse_qwen_stdout(completed.stdout)
+        if qwen_payload is None:
+            self.logger.warning(
+                "Qwen agent produced no consumable output for %s", filename
+            )
+            return SearchResult(
+                status="NOT_FOUND",
+                filename=filename,
+                metadata={"reason": "Qwen agent produced no output"},
+            )
+
+        parsed_result = self._annotate_result(
+            self._parse_qwen_result(qwen_payload, filename),
+            cached=False,
+        )
+        self._store_cached_result(filename, qwen_payload)
+        return parsed_result
 
     def _build_agentic_prompt(
-        self, filename: str, model_type: str, node_type: str, result_file: Path
+        self,
+        model_info: Dict[str, Any],
+        web_search_results: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """Build comprehensive agentic search prompt for Qwen."""
-        return f"""You are an autonomous AI model discovery agent. Your task is to find the correct download source for a ComfyUI model file using intelligent search strategies.
+        """Build comprehensive agentic search prompt for Qwen with pattern recognition."""
+        filename = model_info.get("filename", "")
+        model_type = model_info.get("type", "")
+        node_type = model_info.get("node_type", "")
+
+        # Smart pattern recognition for HF models
+        pattern_info = ""
+        if self.enable_pattern_recognition:
+            should_skip_civitai, skip_reason = self._should_skip_civitai(
+                filename, model_type
+            )
+            if should_skip_civitai:
+                pattern_info = f"""
+SMART PATTERN RECOGNITION RESULTS:
+- Pattern Recognition: ACTIVE - Model detected as likely HuggingFace-hosted
+- Early Termination Decision: SKIP Civitai search
+- Reason: {skip_reason}
+- Recommended Strategy: Go directly to HuggingFace search (Phase 2 only)
+- Expected Success Rate: HIGH for HuggingFace-hosted models
+
+IMPORTANT: Based on pattern recognition, do NOT search Civitai (Phase 1). 
+Proceed directly to Phase 2: HUGGINGFACE SEARCH ONLY.
+"""
+            else:
+                pattern_info = f"""
+SMART PATTERN RECOGNITION RESULTS:
+- Pattern Recognition: ACTIVE - No HF patterns detected
+- Early Termination Decision: SEARCH Civitai (normal workflow)
+- Reason: {skip_reason}
+- Recommended Strategy: Full Civitai + HuggingFace search (Phase 1 + Phase 2)
+"""
+        else:
+            pattern_info = """
+SMART PATTERN RECOGNITION: DISABLED
+- Proceeding with standard search workflow
+- Will search both Civitai and HuggingFace
+"""
+
+        # Add web search context if available
+        web_search_context = ""
+        if web_search_results:
+            if web_search_results.get(
+                "status"
+            ) == "UNCERTAIN" and web_search_results.get("candidates"):
+                candidates = web_search_results["candidates"]
+                web_search_context = f"""
+
+=== WEB SEARCH RESULTS (Pre-search Context) ===
+The following repositories were found via web search with varying confidence levels:
+
+"""
+                for i, candidate in enumerate(candidates[:5], 1):
+                    web_search_context += f"""{i}. {candidate['repository']} ({candidate['source']})
+   URL: {candidate['url']}
+   Match Score: {candidate['match_score']:.2f}
+   Confidence: {candidate['confidence']}
+   Title: {candidate.get('title', 'N/A')}
+   
+"""
+                web_search_context += """
+IMPORTANT: These candidates were found via web search and should be verified. 
+You can use these as starting points for your search, but still perform your own verification.
+"""
+            elif web_search_results.get("status") == "FOUND":
+                web_search_context = f"""
+
+=== WEB SEARCH RESULT (High Confidence) ===
+A high-confidence match was found via web search but requires Qwen verification:
+Repository: {web_search_results.get('metadata', {}).get('repository', 'Unknown')}
+Score: {web_search_results.get('metadata', {}).get('web_search_score', 0)}
+You should prioritize verifying this result.
+"""
+
+        return f"""You are an autonomous AI model discovery agent. Your task is to find the correct download source for a ComfyUI model file using intelligent search strategies.{pattern_info}
 
 INPUT DATA:
 - Filename: {filename}
@@ -903,7 +2162,7 @@ ENVIRONMENT:
 - You have access to: bash, web_search, web_fetch tools
 
 YOUR MISSION:
-Find where to download this EXACT file, or confirm it doesn't exist on Civitai/HuggingFace.
+Find where to download this EXACT file, or confirm it doesn't exist on Civitai/HuggingFace.{web_search_context}
 
 SEARCH STRATEGY (Execute in order):
 
@@ -956,8 +2215,6 @@ SEARCH STRATEGY (Execute in order):
    - GitHub: Use release asset URL or raw.githubusercontent.com
 
 === PHASE 3: OUTPUT RESULT ===
-
-Write to {result_file}:
 
 SUCCESS - Found on Civitai:
 {{{{
@@ -1014,16 +2271,18 @@ NOT FOUND:
 INVALID:
 {{{{
   "status": "INVALID_FILENAME",
-  "reason": "Filename contains invalid characters or is malformed"
+  "reason": "Filename contains invalid characters or is malformed",
+  "metadata": {{{{
+    "reason": "explanation"
+  }}}}
 }}}}
 
 CRITICAL RULES:
 1. Filename validation must be EXACT match
 2. Try multiple strategies before giving up
-3. ALWAYS write output JSON to {result_file}
-4. Log your reasoning clearly
-5. If uncertain, return UNCERTAIN status with candidates
-6. Maximum 15 minutes timeout
+3. Return EXACTLY ONE JSON object as your final output with no additional commentary
+4. If uncertain, return UNCERTAIN status with candidates
+5. Maximum 15 minutes timeout
 
 BEGIN AGENTIC SEARCH NOW. Think step by step and log your progress."""
 
@@ -1032,7 +2291,9 @@ BEGIN AGENTIC SEARCH NOW. Think step by step and log your progress."""
         filename = model_info.get("filename", "")
         return f"Qwen Search Prompt for {filename}"
 
-    def _parse_qwen_result(self, qwen_result: Dict[str, Any], filename: str) -> SearchResult:
+    def _parse_qwen_result(
+        self, qwen_result: Dict[str, Any], filename: str
+    ) -> SearchResult:
         """Parse Qwen's search results into SearchResult object."""
         status = qwen_result.get("status", "ERROR")
 
@@ -1093,20 +2354,530 @@ BEGIN AGENTIC SEARCH NOW. Think step by step and log your progress."""
             error_message=qwen_result.get("error_message"),
         )
 
+    def _collect_extra_args(self) -> List[str]:
+        """Collect additional CLI arguments from config and environment."""
+        args: List[str] = []
+        if config.search.qwen_extra_args:
+            args.extend(config.search.qwen_extra_args)
+        extra_from_env = os.environ.get("QWEN_EXTRA_ARGS")
+        if extra_from_env:
+            try:
+                args.extend(shlex.split(extra_from_env))
+            except ValueError as exc:
+                self.logger.warning("Failed to parse QWEN_EXTRA_ARGS: %s", exc)
+        return args
+
+    def _cache_file_path(self, filename: str) -> Path:
+        return self.cache_dir / f"{sanitize_filename(filename)}-qwen.json"
+
+    def _load_cached_result(self, filename: str) -> Optional[SearchResult]:
+        """Load cached Qwen result if within TTL."""
+        cache_file = self._cache_file_path(filename)
+        if not cache_file.exists():
+            return None
+
+        ttl = max(config.search.qwen_cache_ttl, 0)
+        age = time.time() - cache_file.stat().st_mtime
+        if ttl and age > ttl:
+            try:
+                cache_file.unlink()
+            except OSError:
+                pass
+            return None
+
+        try:
+            with open(cache_file, encoding="utf-8") as fh:
+                payload = json.load(fh)
+        except Exception as exc:
+            self.logger.warning("Failed to read Qwen cache for %s: %s", filename, exc)
+            try:
+                cache_file.unlink()
+            except OSError:
+                pass
+            return None
+
+        qwen_result = payload.get("result") if isinstance(payload, dict) else None
+        if not isinstance(qwen_result, dict):
+            return None
+
+        parsed = self._parse_qwen_result(qwen_result, filename)
+        return self._annotate_result(parsed, cached=True)
+
+    def _store_cached_result(self, filename: str, payload: Dict[str, Any]) -> None:
+        """Persist raw Qwen payload for future reuse."""
+        cache_file = self._cache_file_path(filename)
+        envelope = {"cached_at": time.time(), "result": payload}
+        try:
+            with open(cache_file, "w", encoding="utf-8") as fh:
+                json.dump(envelope, fh, indent=2, ensure_ascii=False)
+                fh.write("\n")
+        except Exception as exc:
+            self.logger.warning("Unable to store Qwen cache for %s: %s", filename, exc)
+
+    def _annotate_result(self, result: SearchResult, cached: bool) -> SearchResult:
+        """Ensure metadata flags that Qwen handled the lookup."""
+        metadata = result.metadata or {}
+        metadata.setdefault("found_by", "qwen")
+        if cached:
+            metadata["cached"] = True
+        elif "cached" in metadata:
+            metadata.pop("cached", None)
+        result.metadata = metadata
+        return result
+
+    def _parse_qwen_stdout(self, stdout: str) -> Optional[Dict[str, Any]]:
+        """Parse the Qwen CLI stdout as JSON."""
+        output = stdout.strip()
+        if not output:
+            return None
+
+        try:
+            return json.loads(output)
+        except json.JSONDecodeError:
+            self.logger.debug("Qwen stdout is not valid JSON; length=%s", len(output))
+            return None
+
 
 class HuggingFaceSearch(SearchBackend):
-    """HuggingFace search backend (placeholder)."""
+    """HuggingFace search backend with web search and file verification."""
+
+    def __init__(self, logger=None):
+        super().__init__(logger)
+        self.tavily_api_key = os.getenv("TAVILY_API_KEY")
+        self.hf_token = os.getenv("HF_TOKEN")
 
     def get_name(self) -> str:
         return "huggingface"
 
     def search(self, model_info: Dict[str, Any]) -> SearchResult:
+        """
+        Search for a model on HuggingFace using web search and file verification.
+
+        Args:
+            model_info: Dictionary containing model information (filename, type, etc.)
+
+        Returns:
+            SearchResult with model information if found, or NOT_FOUND/ERROR status
+        """
         filename = model_info["filename"]
-        return SearchResult(
-            status="NOT_FOUND",
-            filename=filename,
-            metadata={"reason": "not implemented yet"},
+        model_type = model_info.get("type", "")
+
+        # Enhanced filename validation with early return for INVALID_FILENAME
+        is_valid, sanitized_filename, error_reason = validate_and_sanitize_filename(
+            filename
         )
+        if not is_valid:
+            self.logger.warning(
+                f"Invalid filename detected: {filename} - {error_reason}"
+            )
+            return SearchResult(
+                status="INVALID_FILENAME",
+                filename=filename,
+                type=model_type,
+                error_message=error_reason,
+                metadata={
+                    "validation_reason": error_reason,
+                    "original_filename": filename,
+                },
+            )
+
+        filename = sanitized_filename
+
+        self.logger.info(f"Searching HuggingFace for model: {filename}")
+
+        try:
+            # Step 1: Web search using Tavily API
+            search_results = self._web_search_huggingface(filename)
+            if not search_results:
+                return SearchResult(
+                    status="NOT_FOUND",
+                    filename=filename,
+                    type=model_type,
+                    metadata={
+                        "reason": "No HuggingFace repositories found in web search",
+                        "search_attempts": 1,
+                    },
+                )
+
+            # Step 2: Extract repository names from search results
+            repo_candidates = self._extract_repos_from_search_results(
+                search_results, filename
+            )
+            if not repo_candidates:
+                return SearchResult(
+                    status="NOT_FOUND",
+                    filename=filename,
+                    type=model_type,
+                    metadata={
+                        "reason": "No valid HuggingFace repositories found in search results",
+                        "search_attempts": 1,
+                    },
+                )
+
+            # Step 3: Verify repositories and find matching files
+            for repo_name in repo_candidates:
+                try:
+                    verified_result = self._verify_repository_and_find_file(
+                        repo_name, filename
+                    )
+                    if verified_result:
+                        self.logger.info(
+                            f"Found model in HuggingFace repository: {repo_name}"
+                        )
+                        return verified_result
+                except Exception as e:
+                    self.logger.warning(f"Failed to verify repository {repo_name}: {e}")
+                    continue
+
+            # If we get here, no valid files were found
+            return SearchResult(
+                status="NOT_FOUND",
+                filename=filename,
+                type=model_type,
+                metadata={
+                    "reason": "No matching model files found in verified repositories",
+                    "search_attempts": 1,
+                    "repos_checked": repo_candidates,
+                },
+            )
+
+        except Exception as e:
+            self.logger.error(f"HuggingFace search failed: {e}")
+            return SearchResult(
+                status="ERROR",
+                filename=filename,
+                type=model_type,
+                error_message=str(e),
+            )
+
+    def _web_search_huggingface(self, filename: str) -> List[Dict[str, Any]]:
+        """
+        Use Tavily API to search for HuggingFace models.
+
+        Args:
+            filename: Model filename to search for
+
+        Returns:
+            List of search results from Tavily API
+        """
+        if not self.tavily_api_key:
+            self.logger.warning("TAVILY_API_KEY not found in environment")
+            return []
+
+        # Prepare search queries
+        base_name = filename.rsplit(".", 1)[0]  # Remove extension
+        queries = [
+            f'"{base_name}" site:huggingface.co',
+            f'"{base_name}" model huggingface',
+            f'"{base_name}" stable diffusion huggingface',
+        ]
+
+        all_results = []
+
+        for query in queries:
+            try:
+                self.logger.debug(f"Searching with query: {query}")
+
+                # Make request to Tavily API
+                response = requests.post(
+                    "https://api.tavily.com/search",
+                    json={
+                        "api_key": self.tavily_api_key,
+                        "query": query,
+                        "search_depth": "basic",
+                        "include_domains": ["huggingface.co"],
+                        "max_results": 10,
+                    },
+                    timeout=30,
+                )
+
+                if response.status_code != 200:
+                    self.logger.warning(
+                        f"Tavily API returned status {response.status_code}"
+                    )
+                    continue
+
+                data = response.json()
+                results = data.get("results", [])
+                all_results.extend(results)
+
+                # If we get good results, don't try more queries
+                if results:
+                    break
+
+            except Exception as e:
+                self.logger.warning(f"Tavily search failed for query '{query}': {e}")
+                continue
+
+        return all_results
+
+    def _extract_repos_from_search_results(
+        self, search_results: List[Dict[str, Any]], target_filename: str
+    ) -> List[str]:
+        """
+        Extract HuggingFace repository names from search results.
+
+        Args:
+            search_results: Results from Tavily API
+            target_filename: Target model filename
+
+        Returns:
+            List of repository names in format "username/repo-name"
+        """
+        repos = []
+        target_base = target_filename.rsplit(".", 1)[0].lower()
+
+        for result in search_results:
+            url = result.get("url", "")
+
+            # Look for HuggingFace repository URLs
+            if "huggingface.co" in url:
+                # Extract repo name from URL
+                # Expected format: https://huggingface.co/username/repo-name/tree/main/path/to/file
+                # or: https://huggingface.co/username/repo-name
+                match = re.search(r"huggingface\.co/([^/]+)/([^/?]+)", url)
+                if match:
+                    repo_name = f"{match.group(1)}/{match.group(2)}"
+
+                    # Remove any trailing path components
+                    repo_name = (
+                        repo_name.split("/")[0]
+                        + "/"
+                        + repo_name.split("/")[1].split("?")[0].split("#")[0]
+                    )
+
+                    if repo_name not in repos:
+                        repos.append(repo_name)
+                        self.logger.debug(f"Extracted repository: {repo_name}")
+
+        # Prioritize repositories with names matching to target filename
+        repos.sort(
+            key=lambda x: self._calculate_repo_score(x, target_base), reverse=True
+        )
+        return repos[:5]  # Limit to top 5 candidates
+
+    def _calculate_repo_score(self, repo_name: str, target_filename: str) -> int:
+        """
+        Calculate a relevance score for a repository based on name similarity.
+
+        Args:
+            repo_name: Repository name in format "username/repo-name"
+            target_filename: Target model filename (without extension)
+
+        Returns:
+            Relevance score (higher is better)
+        """
+        repo_parts = repo_name.lower().split("/")
+        if len(repo_parts) < 2:
+            return 0
+
+        repo_short_name = repo_parts[1]
+        target_lower = target_filename.lower()
+
+        # Exact match gets highest score
+        if repo_short_name == target_lower:
+            return 100
+
+        # Contains match gets good score
+        if target_lower in repo_short_name or repo_short_name in target_lower:
+            return 80
+
+        # Partial match gets lower score
+        for word in target_lower.split("_"):
+            if word in repo_short_name:
+                return 60
+
+        return 30
+
+    def _verify_repository_and_find_file(
+        self, repo_name: str, target_filename: str
+    ) -> Optional[SearchResult]:
+        """
+        Verify a HuggingFace repository and find the target model file.
+
+        Args:
+            repo_name: Repository name in format "username/repo-name"
+            target_filename: Target model filename
+
+        Returns:
+            SearchResult if file is found, None otherwise
+        """
+        try:
+            # Import huggingface_hub here to avoid import errors if not available
+            try:
+                from huggingface_hub import HfApi, RepositoryNotFoundError, hf_hub_url
+            except ImportError:
+                self.logger.error("huggingface_hub library not available")
+                return None
+
+            # Initialize HF API with token if available
+            hf_api = HfApi(token=self.hf_token)
+
+            # Get repository info
+            try:
+                repo_info = hf_api.repo_info(repo_name)
+            except RepositoryNotFoundError:
+                self.logger.debug(f"Repository not found: {repo_name}")
+                return None
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to get repository info for {repo_name}: {e}"
+                )
+                return None
+
+            # List all files in the repository
+            try:
+                repo_files = hf_api.list_repo_files(repo_name, repo_type="model")
+            except Exception as e:
+                self.logger.warning(f"Failed to list files for {repo_name}: {e}")
+                return None
+
+            # Find matching files
+            target_base = target_filename.rsplit(".", 1)[0].lower()
+            matching_files = []
+
+            for file_info in repo_files:
+                file_path = (
+                    file_info.path if hasattr(file_info, "path") else str(file_info)
+                )
+                file_name = os.path.basename(file_path)
+
+                # Check if file name matches our target (with common model extensions)
+                if self._is_matching_model_file(file_name, target_base):
+                    file_size = getattr(file_info, "size", 0)
+                    matching_files.append((file_path, file_size))
+
+            if not matching_files:
+                return None
+
+            # Select the best match (prefer exact name match, then largest file)
+            best_file = self._select_best_file(matching_files, target_filename)
+            if not best_file:
+                return None
+
+            file_path, file_size = best_file
+
+            # Construct download URL
+            download_url = hf_hub_url(
+                repo_name=repo_name, filename=file_path, repo_type="model"
+            )
+
+            # Determine confidence based on filename match
+            confidence = (
+                "exact"
+                if os.path.basename(file_path).lower() == target_filename.lower()
+                else "fuzzy"
+            )
+
+            return SearchResult(
+                status="FOUND",
+                filename=target_filename,
+                source="huggingface",
+                download_url=download_url,
+                confidence=confidence,
+                type=self._infer_model_type_from_filename(target_filename),
+                metadata={
+                    "repo": repo_name,
+                    "file_path": file_path,
+                    "file_size": file_size,
+                    "search_attempts": 1,
+                },
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error verifying repository {repo_name}: {e}")
+            return None
+
+    def _is_matching_model_file(self, file_name: str, target_base: str) -> bool:
+        """
+        Check if a file matches our target model file.
+
+        Args:
+            file_name: File name from repository
+            target_base: Target filename base (without extension)
+
+        Returns:
+            True if file matches target
+        """
+        file_lower = file_name.lower()
+        target_lower = target_base.lower()
+
+        # Remove extension for comparison
+        file_base = file_lower.rsplit(".", 1)[0] if "." in file_lower else file_lower
+
+        # Exact match
+        if file_base == target_lower:
+            return True
+
+        # Check for common model extensions
+        valid_extensions = [".safetensors", ".ckpt", ".pt", ".bin", ".pth", ".onnx"]
+        if any(file_lower.endswith(ext) for ext in valid_extensions):
+            # Check if target is contained in filename or vice versa
+            if target_lower in file_base or file_base in target_lower:
+                return True
+
+        return False
+
+    def _select_best_file(
+        self, matching_files: List[Tuple[str, int]], target_filename: str
+    ) -> Optional[Tuple[str, int]]:
+        """
+        Select the best matching file from a list of candidates.
+
+        Args:
+            matching_files: List of (file_path, file_size) tuples
+            target_filename: Target filename
+
+        Returns:
+            Best file tuple or None
+        """
+        if not matching_files:
+            return None
+
+        target_base = target_filename.lower()
+
+        # First, try to find exact name match
+        for file_path, file_size in matching_files:
+            file_name = os.path.basename(file_path).lower()
+            if (
+                file_name == target_base
+                or file_name == target_base + ".safetensors"
+                or file_name == target_base + ".ckpt"
+            ):
+                return (file_path, file_size)
+
+        # If no exact match, prefer larger files (likely to be main model)
+        return max(matching_files, key=lambda x: x[1])
+
+    def _infer_model_type_from_filename(self, filename: str) -> str:
+        """
+        Infer model type from filename.
+
+        Args:
+            filename: Model filename
+
+        Returns:
+            Model type string
+        """
+        filename_lower = filename.lower()
+
+        # Check for specific patterns in filename
+        if "lora" in filename_lower or "loras" in filename_lower:
+            return "loras"
+        elif "vae" in filename_lower:
+            return "vae"
+        elif "controlnet" in filename_lower or "control" in filename_lower:
+            return "controlnet"
+        elif (
+            "upscale" in filename_lower
+            or "esrgan" in filename_lower
+            or "realesrgan" in filename_lower
+        ):
+            return "upscale_models"
+        elif "embed" in filename_lower:
+            return "embeddings"
+        else:
+            return "checkpoints"
 
 
 class ModelSearch:
@@ -1143,13 +2914,27 @@ class ModelSearch:
         }
 
         # Conditionally register ModelScope backend
-        if MODELSCOPE_AVAILABLE and ModelScopeSearch and config.copilot.enable_modelscope:
-            self.logger.info("ModelScope backend enabled and available, adding to search backends.")
+        if (
+            MODELSCOPE_AVAILABLE
+            and ModelScopeSearch
+            and config.copilot.enable_modelscope
+        ):
+            self.logger.info(
+                "ModelScope backend enabled and available, adding to search backends."
+            )
             self.backends["modelscope"] = ModelScopeSearch(logger=self.logger)
-        elif MODELSCOPE_AVAILABLE and ModelScopeSearch and not config.copilot.enable_modelscope:
-            self.logger.info("ModelScope backend available but disabled in configuration.")
+        elif (
+            MODELSCOPE_AVAILABLE
+            and ModelScopeSearch
+            and not config.copilot.enable_modelscope
+        ):
+            self.logger.info(
+                "ModelScope backend available but disabled in configuration."
+            )
         elif MODELSCOPE_AVAILABLE and not ModelScopeSearch:
-            self.logger.warning("ModelScope package available but ModelScopeSearch import failed.")
+            self.logger.warning(
+                "ModelScope package available but ModelScopeSearch import failed."
+            )
         else:
             self.logger.info("ModelScope backend not available.")
 
@@ -1215,7 +3000,9 @@ class ModelSearch:
             # Mark attempt in state manager
             if self.state_manager:
                 self.state_manager.mark_download_attempted(
-                    filename, model_info, result.__dict__ if result.status == "FOUND" else None
+                    filename,
+                    model_info,
+                    result.__dict__ if result.status == "FOUND" else None,
                 )
 
             # Return if found or if it's a critical error (don't try other backends)
@@ -1316,7 +3103,9 @@ class ModelSearch:
         available_backends = set(self.backends.keys())
 
         # Filter out invalid backends
-        valid_order = [backend for backend in configured_order if backend in available_backends]
+        valid_order = [
+            backend for backend in configured_order if backend in available_backends
+        ]
 
         # Log warnings for invalid backends
         invalid_backends = [

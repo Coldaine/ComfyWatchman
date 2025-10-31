@@ -270,7 +270,8 @@ class ComfyFixerCore:
         self.logger.info("=== Searching for Missing Models ===")
 
         if search_backends is None:
-            search_backends = ["civitai"]  # Default to Civitai
+            backend_order = config.search.backend_order
+            search_backends = list(backend_order) if backend_order else ["civitai"]
 
         search_results = self.search.search_multiple_models(
             missing_models, backends=search_backends, use_cache=True

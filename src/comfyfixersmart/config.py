@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import shlex
+
 import tomllib
 
 
@@ -28,6 +30,11 @@ class SearchConfig:
     known_models_map: str = "civitai_tools/config/known_models.json"
     civitai_use_direct_id: bool = True
     min_confidence_threshold: int = 50
+    enable_qwen: bool = True
+    qwen_timeout: int = 900  # seconds
+    qwen_cache_ttl: int = 30 * 24 * 3600  # 30 days
+    qwen_binary: str = field(default_factory=lambda: os.getenv("QWEN_BINARY", "qwen"))
+    qwen_extra_args: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -115,6 +122,11 @@ class Config:
             "WanVideoVAELoader": "vae",
             "WanVideoModelLoader": "diffusion_models",
             "WanVideoControlnetLoader": "controlnet",
+            "TextualInversionLoader": "embeddings",
+            "TextualInversionApply": "embeddings",
+            "EmbeddingLoader": "embeddings",
+            "EmbeddingSelector": "embeddings",
+            "TextEmbeddingLoader": "embeddings",
         }
     )
 
@@ -190,6 +202,24 @@ class Config:
                         attr = attr_info
                         value = env_value
                     setattr(self.download, attr, value)
+                except ValueError:
+                    print(f"Warning: Invalid value for {env_key}: {env_value}", file=sys.stderr)
+
+        # Apply search config environment overrides
+        search_env_map = {
+            "ENABLE_QWEN": ("enable_qwen", lambda v: v.lower() in ("true", "1", "yes")),
+            "QWEN_TIMEOUT": ("qwen_timeout", int),
+            "QWEN_CACHE_TTL": ("qwen_cache_ttl", int),
+            "QWEN_BINARY": ("qwen_binary", str),
+            "QWEN_EXTRA_ARGS": ("qwen_extra_args", lambda v: shlex.split(v)),
+        }
+
+        for env_key, attr_info in search_env_map.items():
+            env_value = os.getenv(env_key)
+            if env_value is not None:
+                try:
+                    attr, converter = attr_info
+                    setattr(self.search, attr, converter(env_value))
                 except ValueError:
                     print(f"Warning: Invalid value for {env_key}: {env_value}", file=sys.stderr)
 

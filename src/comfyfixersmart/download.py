@@ -295,7 +295,9 @@ class DownloadManager:
             raise ValueError(
                 "ComfyUI root is not configured. Set COMFYUI_ROOT env var or comfyui_root in config."
             )
-        return str(models_dir / model_type / filename)
+        target_dir = models_dir / model_type
+        target_dir.mkdir(parents=True, exist_ok=True)
+        return str(target_dir / filename)
 
     def generate_download_script(
         self, search_results: List[Dict[str, Any]], run_id: Optional[str] = None
