@@ -20,6 +20,8 @@ ComfyWatchman provides **Python APIs and tools designed for AI agents** to analy
 - 🎯 **Granular Control** - Agents decide when to scan, search, or download
 - 📊 **Structured Returns** - All functions return JSON/dataclass results for agent decision-making
 - 🔧 **DirectID Backend** - Known model lookup database for instant resolution
+- 🧠 **Embedding Awareness** - Detects textual inversion references and queues them automatically
+- 🕒 **Guardrailed Scheduler** - Optional background automation with GPU VRAM safety checks
 - 🔌 **Integration Ready** - Adapters for ComfyUI-Copilot and other tools
 
 ## 🚀 Quick Start for AI Agents

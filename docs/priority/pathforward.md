@@ -86,12 +86,18 @@ else:
 
     multi_results = self.search_multi_strategy(model_info)
 
-    if multi_results and len(multi_results) > 0:
-        # Return best match (already sorted by confidence)
+    if multi_results:
         best_result = multi_results[0]
+        if best_result.metadata is None:
+            best_result.metadata = {}
+        best_result.metadata["search_attempts"] = max(
+            2, best_result.metadata.get("search_attempts", 1)
+        )
         self.logger.info(
-            f"Multi-strategy found: {best_result.civitai_name} "
-            f"(ID: {best_result.civitai_id}, confidence: {best_result.confidence})"
+            "Multi-strategy found: %s (ID: %s, confidence: %s)",
+            best_result.civitai_name,
+            best_result.civitai_id,
+            best_result.confidence,
         )
         return best_result
 
@@ -113,6 +119,32 @@ else:
     )
 ```
 
+**Also handle the zero-results branch:**
+```python
+if not results:
+    self.logger.info("Simple search returned zero results, attempting multi-strategy search...")
+    multi_results = self.search_multi_strategy(model_info)
+
+    if multi_results:
+        best_result = multi_results[0]
+        if best_result.metadata is None:
+            best_result.metadata = {}
+        best_result.metadata["search_attempts"] = max(
+            2, best_result.metadata.get("search_attempts", 1)
+        )
+        return best_result
+
+    return SearchResult(
+        status="NOT_FOUND",
+        filename=filename,
+        type=model_type,
+        metadata={
+            "search_attempts": 2,
+            "reason": "Simple + multi-strategy both failed",
+        },
+    )
+```
+
 #### Testing Strategy
 
 **Test Case 1: NSFW Model with Explicit Terms**
@@ -125,6 +157,7 @@ model_info = {
 result = civitai_search.search(model_info)
 # Expected: FOUND (via multi-strategy, not simple search)
 # Should find model ID 1091495
+# metadata["search_attempts"] == 2
 ```
 
 **Test Case 2: Regular Model (Should Use Simple Search)**
@@ -136,6 +169,7 @@ model_info = {
 
 result = civitai_search.search(model_info)
 # Expected: FOUND (via simple search, multi-strategy not needed)
+# metadata["search_attempts"] == 1
 ```
 
 **Test Case 3: Non-existent Model**
@@ -147,14 +181,28 @@ model_info = {
 
 result = civitai_search.search(model_info)
 # Expected: NOT_FOUND (after both simple and multi-strategy attempts)
-# metadata should show search_attempts=2
+# metadata["search_attempts"] == 2
+```
+
+**Test Case 4: Empty Simple Search Results**
+```python
+model_info = {
+    "filename": "blocked_by_filter_v1.safetensors",
+    "type": "loras"
+}
+
+result = civitai_search.search(model_info)
+# Mock simple search to return [] and multi-strategy to return one candidate.
+# Expected: Found result from cascade, metadata["search_attempts"] == 2
 ```
 
 #### Success Criteria
 - [ ] Multi-strategy search called when simple search returns no exact match
+- [ ] Multi-strategy search called when simple search returns zero results
 - [ ] NSFW models with explicit terms found successfully
 - [ ] Simple models still found quickly (no performance regression)
 - [ ] Logging shows which strategy found the model
+- [ ] `metadata["search_attempts"]` reflects total attempts (1 for simple, 2+ after cascade)
 - [ ] All existing tests still pass
 - [ ] New integration test verifies multi-strategy execution
 
@@ -235,15 +283,9 @@ def add_known_model(model_name: str, civitai_url: str):
 
 **Option C: Auto-populate on Success (Best Long-term)**
 ```python
-# In search.py, after successful multi-strategy search:
-
-if result.status == "FOUND" and result.confidence == "fuzzy":
-    # This was hard to find - cache it for next time
-    direct_backend.add_known_model(
-        name=result.filename,
-        civitai_id=result.civitai_id,
-        auto_added=True
-    )
+# Requires new API: DirectIDBackend.add_known_model()
+# Guarded to validate input and persist safely to JSON.
+# Call after successful multi-strategy search once the helper exists.
 ```
 
 #### Decision Point
@@ -252,6 +294,8 @@ if result.status == "FOUND" and result.confidence == "fuzzy":
 - If multi-strategy search finds everything → known_models.json is optional
 - If some models still fail → implement Option C (auto-populate)
 - If performance is slow → implement Option B (helper script)
+- Any debugging improvements should extend `src/comfyfixersmart/civitai_tools/search_debugger.py`
+  and the existing bash wrapper instead of introducing parallel tooling.
 
 ---
 
@@ -261,67 +305,35 @@ if result.status == "FOUND" and result.confidence == "fuzzy":
 **Complexity:** HIGH (AI agent integration, error handling)
 **Impact:** MEDIUM (Catches the remaining ~10% of failed searches)
 
+#### Configuration Dependency
+
+Ensure `ComfyFixerCore` honors `config.search.backend_order` so Qwen runs first when enabled:
+```python
+if search_backends is None:
+    search_backends = config.search.backend_order
+```
+
+**Testing / Acceptance**
+- Unit test: instantiate `ComfyFixerCore`, leave `search_backends=None`, set `config.search.backend_order = ["qwen", "civitai"]`, and assert `ModelSearch.search_model` is invoked with `qwen` first (mock/log expectations).
+- Integration smoke: run `comfywatchman --auto` with Qwen enabled and confirm log ordering shows Qwen before Civitai.
+
 #### Current State
 
-`QwenSearch` exists but returns placeholder `NOT_FOUND`:
-```python
-# search.py:880
-def search(self, model_info: Dict[str, Any]) -> SearchResult:
-    filename = model_info["filename"]
-    return SearchResult(
-        status="NOT_FOUND",
-        filename=filename,
-        metadata={"reason": "not implemented yet"},
-    )
-```
+- `QwenSearch.search()` now shells out to the configured Qwen binary, writes prompts/results to disk, and parses the returned JSON into `SearchResult` objects.
+- Cached responses are stored in `$TEMP_DIR/qwen_cache` for 30 days and marked with `metadata["cached"] = True`.
+- Helper CLI: `scripts/run_qwen_search.py` executes a single lookup for manual validation (`--type`, `--node-type`, `--temp-dir`, `--cache-dir` supported).
 
-#### What to Build
+#### Usage & Configuration Notes
 
-**Phase 1B Goal:** Make Qwen actually call an LLM and search intelligently
+- `config.search.enable_qwen`, `qwen_timeout`, `qwen_cache_ttl`, and `qwen_binary` control runtime behavior (overridable via `ENABLE_QWEN`, `QWEN_TIMEOUT`, `QWEN_CACHE_TTL`, `QWEN_BINARY`).
+- Additional CLI flags can be injected with `QWEN_EXTRA_ARGS` or `config.search.qwen_extra_args`.
+- When the binary is unavailable or exits non-zero, the backend logs the error and returns `NOT_FOUND` so downstream backends can proceed.
 
-**Integration Points:**
-1. Qwen receives `model_info` that failed multi-strategy search
-2. Qwen has access to:
-   - `known_models.json` (check if manually added)
-   - `search_by_id()` (if it discovers a Civitai ID)
-   - `search_multi_strategy()` (can retry with different parameters)
-   - Web search via Tavily API
-3. Qwen returns `SearchResult` with high confidence or UNCERTAIN status
-
-**Implementation:**
-```python
-def search(self, model_info: Dict[str, Any]) -> SearchResult:
-    filename = model_info["filename"]
-    model_type = model_info.get("type", "")
-
-    # Build agentic prompt
-    prompt = self._build_agentic_prompt(filename, model_type)
-
-    # Write prompt to temp file for agent execution
-    result_file = self.temp_dir / f"{sanitize_filename(filename)}_result.json"
-    prompt_file = self.temp_dir / f"{sanitize_filename(filename)}_prompt.txt"
-
-    with open(prompt_file, "w") as f:
-        f.write(prompt)
-
-    # Execute Qwen agent (via qwen2.5-coder or similar)
-    try:
-        result = self._execute_qwen_agent(prompt_file, result_file, timeout=900)
-        return self._parse_qwen_result(result, filename)
-    except TimeoutError:
-        return SearchResult(
-            status="ERROR",
-            filename=filename,
-            error_message="Qwen agent timed out after 15 minutes"
-        )
-```
-
-#### Success Criteria
-- [ ] Qwen actually invokes LLM (not placeholder)
-- [ ] >80% accuracy on models that failed multi-strategy
-- [ ] Graceful degradation (system works if Qwen unavailable)
-- [ ] Result caching (30-day TTL)
-- [ ] Can discover models via web search + HuggingFace
+#### Validation Checklist
+- [x] Qwen backend invokes the real CLI (no placeholder responses).
+- [x] Graceful degradation when agent unavailable or times out.
+- [x] Cached responses reused within 30-day TTL.
+- [x] Manual verification possible via `scripts/run_qwen_search.py`.
 
 ---
 
@@ -333,78 +345,15 @@ def search(self, model_info: Dict[str, Any]) -> SearchResult:
 
 #### Current State
 
-Embeddings are not detected or downloaded:
-```python
-# Workflow JSON might contain:
-{
-  "inputs": {
-    "text": "photo of a woman, embedding:easy_negative"
-  }
-}
+- `WorkflowScanner.extract_models_from_workflow()` recognises `embedding:<name>` patterns across widget values and node inputs, adding `ModelReference` entries that target `models/embeddings/<name>.pt`.
+- Search pipeline maps the `embeddings` model type to Civitai's `TextualInversion` filter, and download targets ensure the `models/embeddings/` directory is created automatically.
+- CLI helper `scripts/find_embeddings.py` lists detected embeddings within one or more workflow files for manual inspection.
 
-# Current scanner.py: Doesn't detect "embedding:easy_negative"
-# Current search.py: Doesn't filter by TextualInversion type
-```
-
-#### What to Build
-
-**1. Detection** (`scanner.py`)
-```python
-def extract_models_from_workflow(self, workflow_path: str) -> List[Dict]:
-    # Add regex pattern:
-    embedding_pattern = r"embedding:(\w+)"
-
-    for match in re.finditer(embedding_pattern, text):
-        embedding_name = match.group(1)
-        models.append({
-            "filename": f"{embedding_name}.pt",  # or .safetensors
-            "type": "embeddings",
-            "node_id": node_id,
-            "workflow": workflow_path
-        })
-```
-
-**2. Search** (`search.py`)
-```python
-def _get_type_filter(self, model_type: str) -> Optional[str]:
-    type_mapping = {
-        "checkpoints": "Checkpoint",
-        "loras": "LORA",
-        "vae": "VAE",
-        "embeddings": "TextualInversion",  # Add this
-        # ...
-    }
-    return type_mapping.get(model_type)
-```
-
-**3. Download** (`download.py`)
-```python
-# Already handles this via model_type field:
-target_dir = config.models_dir / model_type
-# embeddings → ComfyUI/models/embeddings/
-```
-
-#### Testing
-```python
-test_workflow = {
-    "nodes": {
-        "1": {
-            "inputs": {
-                "text": "photo, embedding:easy_negative"
-            }
-        }
-    }
-}
-
-# Should detect:
-# {"filename": "easy_negative.pt", "type": "embeddings"}
-
-# Should search Civitai with type filter:
-# GET /api/v1/models?query=easy_negative&types=TextualInversion
-
-# Should download to:
-# ComfyUI/models/embeddings/easy_negative.pt
-```
+#### Validation Checklist
+- [x] Embedding references are surfaced during workflow scans.
+- [x] Search requests include `types=TextualInversion` for embedding models.
+- [x] Downloads land in `ComfyUI/models/embeddings/`, creating the directory when necessary.
+- [x] CLI output confirms which textual inversions a workflow requires.
 
 ---
 
@@ -414,77 +363,19 @@ test_workflow = {
 **Complexity:** HIGH (Background daemon, resource monitoring)
 **Impact:** HIGH (Makes tool truly automatic)
 
-#### What to Build
+#### Current State
 
-**New Module:** `src/comfyfixersmart/scheduler.py`
+- `Scheduler` (see `src/comfyfixersmart/scheduler.py`) runs `ComfyFixerCore` on a timed interval, with optional GPU VRAM guard using `nvidia-smi`.
+- CLI flags `--scheduler`, `--scheduler-interval`, `--scheduler-min-vram`, and `--scheduler-disable-vram-guard` control scheduling behavior. The loop runs in the foreground until interrupted.
+- Runs respect existing CLI options: `--no-script`, `--verify-urls`, workflow overrides, and custom backend lists.
 
-```python
-class Scheduler:
-    """
-    Background scheduler that runs workflow analysis at intervals.
-
-    Features:
-    - Configurable interval (default: 120 minutes)
-    - VRAM guard (skip if GPU memory < threshold)
-    - Machine awake detection (skip if sleeping/hibernating)
-    - Graceful shutdown on SIGTERM
-    - State persistence (next run time, last results)
-    """
-
-    def __init__(
-        self,
-        interval_minutes: int = 120,
-        min_vram_gb: float = 8.0,
-        enable_vram_guard: bool = True
-    ):
-        self.interval = timedelta(minutes=interval_minutes)
-        self.min_vram_gb = min_vram_gb
-        self.enable_vram_guard = enable_vram_guard
-
-    def start(self):
-        """Start background scheduler loop"""
-
-    def stop(self):
-        """Graceful shutdown"""
-
-    def _should_run(self) -> Tuple[bool, str]:
-        """Check if conditions met to run analysis"""
-        # Check VRAM available
-        # Check machine awake
-        # Check not running already
-```
-
-**CLI Integration:**
+#### Usage
 ```bash
-# Start scheduler in background
-comfywatchman --scheduler
+# Run scheduler every 2 hours with default VRAM guard (8 GB)
+comfywatchman --scheduler --scheduler-interval 120
 
-# Stop scheduler
-comfywatchman --scheduler-stop
-
-# Check scheduler status
-comfywatchman --scheduler-status
-```
-
-**Configuration:** `config/default.toml`
-```toml
-[schedule]
-enabled = false
-interval_minutes = 120
-min_vram_gb = 8.0
-enable_vram_guard = true
-```
-
-#### Use Case
-```bash
-# User starts scheduler once:
-comfywatchman --scheduler
-
-# System runs every 2 hours automatically:
-# - Scans ComfyUI/user/workflows for new .json files
-# - Identifies missing models
-# - Searches and downloads automatically
-# - User never has to run the tool manually
+# Run every 30 minutes without VRAM guard (e.g., CPU-only machines)
+comfywatchman --scheduler --scheduler-interval 30 --scheduler-disable-vram-guard
 ```
 
 ---
@@ -615,7 +506,7 @@ grep -r "multi.strategy\|search_attempts" src/comfyfixersmart/state_manager.py
 
 After running the searches above, verify:
 
-- [ ] Multi-strategy is only defined, never called (confirms Feature 1 is needed)
+- [ ] Multi-strategy is currently only defined, never called (confirms Feature 1 is needed)
 - [ ] No config option exists to enable multi-strategy (confirms it's hardcoded off)
 - [ ] DirectIDBackend is only called from one place in search.py
 - [ ] known_models.json either doesn't exist or is empty/minimal

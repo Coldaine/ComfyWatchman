@@ -8,6 +8,12 @@ Replace the naive Civitai search with an autonomous Qwen agent that intelligentl
 
 **Solution**: Let Qwen autonomously iterate through search strategies until finding correct match or exhaustively confirming NOT_FOUND.
 
+## Quick Start
+
+- Configure `QWEN_BINARY` (defaults to `qwen`) and optional `QWEN_EXTRA_ARGS`.
+- Run a single lookup with `scripts/run_qwen_search.py <filename> --type <model_type>`.
+- Cached responses are stored under `$TEMP_DIR/qwen_cache` for 30 days.
+
 ## Research Agent Feedback (Grade: 8/10)
 
 ### Key Insights Discovered:
