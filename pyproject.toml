@@ -4,27 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfywatchman"
-version = "2.0.0"
-description = "Incremental ComfyUI model downloader with intelligent search and verification"
+version = "3.0.0"
+description = "A LangGraph-orchestrated intelligent workflow assistant for ComfyUI"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 authors = [
     {name = "ComfyWatchman Team", email = "comfywatchman@example.com"},
 ]
 maintainers = [
     {name = "ComfyWatchman Team", email = "comfywatchman@example.com"},
 ]
-keywords = ["comfyui", "stable-diffusion", "model-downloader", "automation", "ai"]
+keywords = ["comfyui", "stable-diffusion", "langgraph", "automation", "ai", "workflow-assistant"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -33,7 +30,12 @@ classifiers = [
 ]
 dependencies = [
     "requests>=2.25.0",
-    "tomli>=1.2.0; python_version < '3.11'",
+    "langgraph>=1.0.0",
+    "langchain>=0.1.0",
+    "psutil>=5.9.0",
+    "apscheduler>=3.10.0",
+    "jinja2>=3.1.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -41,68 +43,24 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
-    "ruff>=0.1.0",  # Unified linter and formatter (replaces Black + flake8)
-    "mypy>=0.950",
-    "sphinx>=4.0.0",
-    "sphinx-rtd-theme>=1.0.0",
-]
-# Documentation dependencies
-docs = [
-    "sphinx>=4.0.0",
-    "sphinx-rtd-theme>=1.0.0",
-]
-# Core Copilot dependencies needed for validation and repair
-copilot = [
-    "sqlalchemy>=1.4.0,<2.0",
-    "python-dotenv>=0.19.0",
-    "openai>=1.5.0",
-    "aiohttp>=3.8.0",
-    "httpx>=0.24.0",
-]
-# ModelScope-specific dependencies
-modelscope = [
-    "modelscope>=1.28.0",
-]
-# Includes all optional dependencies for complete functionality
-full = [
-    "sqlalchemy>=1.4.0,<2.0",
-    "python-dotenv>=0.19.0",
-    "openai>=1.5.0",
-    "aiohttp>=3.8.0",
-    "httpx>=0.24.0",
-    "modelscope>=1.28.0",
-    "safetensors>=0.4.2",
-    "onnx>=1.14.0",
-]
-inspector = [
-    "safetensors>=0.4.2",
-    "onnx>=1.14.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/yourusername/comfywatchman"
-Documentation = "https://comfywatchman.readthedocs.io/"
 Repository = "https://github.com/yourusername/comfywatchman.git"
 Issues = "https://github.com/yourusername/comfywatchman/issues"
 Changelog = "https://github.com/yourusername/comfywatchman/blob/main/CHANGELOG.md"
 
 [project.scripts]
-comfywatchman = "comfyfixersmart.cli:main"
-comfy-inspect = "comfyfixersmart.inspector.cli:main"
-
-[tool.setuptools]
-zip-safe = false
-include-package-data = true
+comfywatchman = "comfywatchman.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-exclude = ["tests*", "docs*"]
-
-[tool.setuptools.package-data]
-comfyfixersmart = ["config/*.toml", "templates/*"]
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -116,26 +74,15 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 
-[[tool.mypy.overrides]]
-module = "tests.*"
-ignore_errors = true
-
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --cov=comfywatchman --cov-report=html --cov-report=term-missing"
+addopts = "-ra -q"
 testpaths = ["tests"]
 python_files = "test_*.py"
-python_classes = "Test*"
-python_functions = "test_*"
 
-[tool.coverage.run]
-source = ["src/comfyfixersmart"]
-omit = ["*/tests/*", "*/test_*.py"]
-
-# Ruff - Unified linter and formatter (replaces Black, flake8, isort, pyupgrade)
 [tool.ruff]
 line-length = 100
-target-version = "py37"
+target-version = "py310"
 exclude = [
     ".git",
     "__pycache__",
@@ -145,42 +92,20 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
-    "scripts",
-    "src/copilot_backend",  # External submodule - do not format
-    "setup.py",
-    "usage_examples.py",
-    "tests",
-    "docs",
+    "archives",
 ]
 
 [tool.ruff.lint]
-# Enable pycodestyle (E/W), pyflakes (F), isort (I), and pyupgrade (UP)
 select = ["E", "F", "W", "I", "UP"]
-ignore = [
-    "E501",  # line too long (handled by formatter)
-    "UP006", # non-pep585-annotation (not valid for py37 target)
-    "UP045", # non-pep604-annotation-optional (not valid for py37 target)
-]
-
-# Allow autofix for all enabled rules (when `--fix`) is provided.
+ignore = ["E501"]
 fixable = ["ALL"]
 unfixable = []
-
-# Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-[tool.ruff.lint.per-file-ignores]
-# Allow unused imports in package namespace initializers
-"src/comfyfixersmart/__init__.py" = ["F401"]
-"src/comfyfixersmart/**/__init__.py" = ["F401"]
-# Allow long lines in complex prompt strings and JSON formatting
-"src/comfyfixersmart/search.py" = ["E501"]
-
 [tool.ruff.lint.isort]
-known-first-party = ["comfyfixersmart"]
+known-first-party = ["comfywatchman"]
 
 [tool.ruff.format]
-# Use Black-compatible formatting
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false

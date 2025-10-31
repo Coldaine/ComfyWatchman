@@ -25,7 +25,7 @@ import sys
 # Add src to path to import new modules
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from comfyfixersmart.state_manager import StateManager, DownloadAttempt, DownloadStatus
+from comfywatchman.state_manager import StateManager, DownloadAttempt, DownloadStatus
 
 
 def load_old_state(state_dir: Path) -> Optional[Dict[str, Any]]:

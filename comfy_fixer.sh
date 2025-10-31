@@ -31,7 +31,7 @@ error() {
 
 # Check if new system is available
 check_new_system() {
-    if python3 -c "from comfyfixersmart.config import config; from comfyfixersmart.cli import create_parser" 2>/dev/null; then
+    if python3 -c "from comfywatchman.config import config; from comfywatchman.cli import create_parser" 2>/dev/null; then
         return 0
     else
         return 1
@@ -77,7 +77,7 @@ To migrate:
   1. python3 scripts/migrate_config.py
   2. python3 scripts/migrate_state.py --backup
   3. python3 scripts/validate_migration.py
-  4. Use: python3 -m comfyfixersmart.cli
+  4. Use: python3 -m comfywatchman.cli
 
 Documentation: docs/migration-guide.md
 Cheat sheet: docs/migration-cheat-sheet.md
@@ -171,7 +171,7 @@ main() {
         translated_args=$(translate_args "$@")
 
         # Run new system
-        exec python3 -m comfyfixersmart.cli $translated_args
+        exec python3 -m comfywatchman.cli $translated_args
 
     elif check_legacy_system; then
         log "🔄 Using legacy ComfyFixerSmart system"

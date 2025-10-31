@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyWatchman Dashboard</title>
+    <style>
+        body { font-family: sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        th { background-color: #f2f2f2; }
+        .status-ready { color: green; }
+        .status-missing_models { color: orange; }
+        .status-missing_nodes { color: red; }
+        .status-missing_models_and_nodes { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>ComfyWatchman Dashboard</h1>
+    <p>Last Updated: {{ last_updated }}</p>
+    <table>
+        <tr>
+            <th>Workflow</th>
+            <th>Status</th>
+            <th>Missing Models</th>
+            <th>Missing Custom Nodes</th>
+            <th>Last Checked</th>
+        </tr>
+        {% for name, data in workflows.items() %}
+        <tr>
+            <td>{{ name }}</td>
+            <td class="status-{{ data.status }}">{{ data.status }}</td>
+            <td>{{ data.missing_models|join(', ') }}</td>
+            <td>{{ data.missing_nodes|join(', ') }}</td>
+            <td>{{ data.last_checked }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

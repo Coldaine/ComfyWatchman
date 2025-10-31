@@ -24,8 +24,8 @@ import json
 # Add src to path to import new modules
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from comfyfixersmart.config import Config
-from comfyfixersmart.state_manager import StateManager
+from comfywatchman.config import Config
+from comfywatchman.state_manager import StateManager
 
 
 class MigrationValidator:
@@ -173,9 +173,9 @@ class MigrationValidator:
     def validate_new_system_import(self) -> bool:
         """Validate that new system modules can be imported."""
         try:
-            from comfyfixersmart.config import Config
-            from comfyfixersmart.state_manager import StateManager
-            from comfyfixersmart.cli import create_parser
+            from comfywatchman.config import Config
+            from comfywatchman.state_manager import StateManager
+            from comfywatchman.cli import create_parser
 
             # Try to create config and state manager
             config = Config()

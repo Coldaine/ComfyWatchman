@@ -21,7 +21,7 @@ Adds a **safe-by-default model metadata inspector** to ComfyWatchman that allows
 ### Module Structure
 
 ```
-src/comfyfixersmart/inspector/
+src/comfywatchman/inspector/
 ├── __init__.py          # Public API (inspect_file, inspect_paths)
 ├── inspector.py         # Core inspection logic (569 lines)
 ├── cli.py              # Standalone CLI with rich output formatting
@@ -42,7 +42,7 @@ src/comfyfixersmart/inspector/
    - Enables diffing and version control
 
 3. **Multiple Entry Points**
-   - Library API: `from comfyfixersmart.inspector import inspect_file`
+   - Library API: `from comfywatchman.inspector import inspect_file`
    - Main CLI: `comfywatchman inspect model.safetensors`
    - Standalone: `comfy-inspect model.safetensors` (console script)
 
@@ -116,7 +116,7 @@ return exit_code
 
 **Library Usage:**
 ```python
-from comfyfixersmart.inspector import inspect_file, inspect_paths
+from comfywatchman.inspector import inspect_file, inspect_paths
 
 # Single file
 result = inspect_file("model.safetensors", do_hash=True)
@@ -261,7 +261,7 @@ Typical inspection times:
 
 1. **Main CLI Integration:**
    ```python
-   # src/comfyfixersmart/cli.py
+   # src/comfywatchman/cli.py
    if args.command == 'inspect':
        return _run_inspect_command(args)
    ```
@@ -270,12 +270,12 @@ Typical inspection times:
    ```toml
    # pyproject.toml
    [project.scripts]
-   comfy-inspect = "comfyfixersmart.inspector.cli:main"
+   comfy-inspect = "comfywatchman.inspector.cli:main"
    ```
 
 3. **Library Import:**
    ```python
-   from comfyfixersmart.inspector import inspect_file, inspect_paths
+   from comfywatchman.inspector import inspect_file, inspect_paths
    ```
 
 **Backward Compatibility:**
@@ -349,7 +349,7 @@ pytest tests/unit/test_inspector.py -v
 pytest tests/unit/test_inspector.py::test_inspect_file_safetensors_metadata -v
 
 # With coverage
-pytest tests/unit/test_inspector.py --cov=comfyfixersmart.inspector --cov-report=term
+pytest tests/unit/test_inspector.py --cov=comfywatchman.inspector --cov-report=term
 ```
 
 ### Try the Feature
@@ -370,13 +370,13 @@ comfy-inspect model.safetensors --summary
 
 ```bash
 # Type checking
-mypy src/comfyfixersmart/inspector/
+mypy src/comfywatchman/inspector/
 
 # Linting
-flake8 src/comfyfixersmart/inspector/
+flake8 src/comfywatchman/inspector/
 
 # Formatting check
-black --check src/comfyfixersmart/inspector/
+black --check src/comfywatchman/inspector/
 ```
 
 ## Verification Checklist

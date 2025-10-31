@@ -22,7 +22,6 @@ This project is designed to **complement and integrate with** [ComfyUI-Copilot](
 *   **ComfyUI Root:** The tool operates on a ComfyUI installation located at `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/`. All model downloads are placed within this directory structure.
 *   **API Keys:** The tool requires API keys which are stored in `~/.secrets` and loaded into the environment.
     *   `CIVITAI_API_KEY`: Required for Civitai API search.
-    *   `TAVILY_API_KEY`: Required for the Qwen agent's web search fallback.
     *   `HF_TOKEN`: Optional for accessing private models on HuggingFace.
 
 ---
@@ -34,7 +33,7 @@ This section is for AI agents contributing to the `ComfyWatchman` source code.
 ### 2.1. Architecture Overview
 The codebase follows a clean, modular architecture with a clear separation of concerns.
 
-*   `src/comfyfixersmart/`:
+*   `src/comfywatchman/`:
     *   `cli.py`: Main CLI entry point (`comfywatchman` command).
     *   `core.py`: The `ComfyFixerCore` orchestrator class.
     *   `scanner.py`: Handles workflow parsing and model extraction.

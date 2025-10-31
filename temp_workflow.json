@@ -1,0 +1,10 @@
+{
+    "nodes": [
+        {
+            "type": "CheckpointLoaderSimple",
+            "properties": {
+                "ckpt_name": "Ana_de_Armas_FLUX_v1-000061.safetensors"
+            }
+        }
+    ]
+}

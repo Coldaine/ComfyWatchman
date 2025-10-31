@@ -1,11 +1,29 @@
-"""ComfyWatchman package.
+"""
+ComfyFixerSmart - Incremental ComfyUI Model Downloader
 
-Temporary shim package pointing to the existing implementation while
-the codebase transitions from ComfyFixerSmart to ComfyWatchman.
+A comprehensive tool for analyzing ComfyUI workflows and downloading missing models
+from Civitai and other sources.
 """
 
-try:
-    # Re-export version if present in legacy package
-    from comfyfixersmart import __version__  # type: ignore
-except Exception:
-    __version__ = "0.0.0"
+__version__ = "2.0.0"
+__author__ = "ComfyFixerSmart Team"
+__description__ = "Incremental ComfyUI model downloader with enhanced state management"
+__url__ = "https://github.com/darthsith/ComfyFixerSmart"
+__license__ = "MIT"
+
+# Migration information
+MIGRATION_TARGET_VERSION = "2.0.0"
+LEGACY_VERSION_SUPPORT = "1.x"
+COMPATIBILITY_LAYER_ACTIVE = True
+
+
+def get_version_info():
+    """Get detailed version information."""
+    return {
+        "version": __version__,
+        "migration_target": MIGRATION_TARGET_VERSION,
+        "legacy_support": LEGACY_VERSION_SUPPORT,
+        "compatibility_layer": COMPATIBILITY_LAYER_ACTIVE,
+        "description": __description__,
+        "author": __author__,
+    }

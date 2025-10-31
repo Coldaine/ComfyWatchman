@@ -16,7 +16,7 @@ sys.path.insert(0, 'src')
 # Set the API key from environment
 os.environ['CIVITAI_API_KEY'] = os.environ.get('CIVITAI_API_KEY', '')
 
-from comfyfixersmart.search import CivitaiSearch
+from comfywatchman.search import CivitaiSearch
 
 
 def download_model_by_id(model_id: int, output_dir: str = "./downloads"):
