@@ -23,7 +23,6 @@ This project is designed to **complement and integrate with** [ComfyUI-Copilot](
 *   **ComfyUI Root:** The tool operates on a ComfyUI installation located at `/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable/`. All model downloads are placed within this directory structure.
 *   **API Keys:** The tool requires API keys which are stored in `~/.secrets` and loaded into the environment.
     *   `CIVITAI_API_KEY`: Required for Civitai API search.
-    *   `TAVILY_API_KEY`: Required for the Qwen agent's web search fallback.
     *   `HF_TOKEN`: required for accessing private models on HuggingFace.
 
 ---

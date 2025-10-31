@@ -278,9 +278,16 @@ class TestHuggingFaceSearch:
 
     def test_huggingface_search_currently_returns_not_found(self):
         """Test that HuggingFaceSearch currently returns NOT_FOUND (placeholder implementation)."""
+        # Skip test if huggingface_hub is not available
+        try:
+            from huggingface_hub import HfApi
+        except ImportError:
+            self.skipTest("huggingface_hub library not available")
+            return
+            
         search = HuggingFaceSearch()
         result = search.search({"filename": "model.safetensors"})
-
+    
         assert result.status == "NOT_FOUND"
         assert result.filename == "model.safetensors"
         assert "not implemented yet" in result.metadata["reason"]

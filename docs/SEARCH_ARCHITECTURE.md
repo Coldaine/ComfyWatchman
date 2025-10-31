@@ -335,6 +335,8 @@ export HF_TOKEN="your-hf-token"  # Optional, for private models
 export MODELSCOPE_API_KEY="your-ms-key"
 ```
 
+> Note: Tavily is consumed by Qwen's native `web_search` tool. ComfyWatchman does not require or maintain a bespoke Tavily integration for web search. Any internal Tavily wrappers are strictly optional for pre-search context and may be removed in favor of relying solely on Qwen.
+
 ### Backend Configuration
 
 ```python

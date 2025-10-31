@@ -50,15 +50,24 @@ class TavilyAPI:
 
     Provides robust web search capabilities with proper error handling,
     rate limiting, and result parsing for ComfyUI model discovery.
+    Primary web search is performed by Qwen via its native `web_search` tool
+    (Tavily built-in). This lightweight client is optional and only used to
+    prefetch context for Qwen or provide fallback behavior when desired.
     """
 
     def __init__(self, api_key: Optional[str] = None, logger=None):
         """Initialize Tavily API client.
 
+    Note: Tavily API key is pre-configured in the Qwen environment.
+    ComfyWatchman does not implement a bespoke Tavily integration; Qwen
+    consumes Tavily natively. This client assumes TAVILY_API_KEY is set
+    and is provided only for optional pre-search context.
+
         Args:
             api_key: Tavily API key (defaults to TAVILY_API_KEY env var)
             logger: Logger instance
         """
+        # API key is pre-configured in Qwen environment - no setup needed in this repo
         self.api_key = api_key or os.getenv("TAVILY_API_KEY")
         self.base_url = "https://api.tavily.com"
         self.logger = logger or get_logger("TavilyAPI")
@@ -1439,12 +1448,7 @@ class CivitaiSearch(SearchBackend):
 
 
 class QwenSearch(SearchBackend):
-    """Qwen-based agentic search backend with smart pattern recognition.
-
-    For testability and CI stability, this backend currently returns NOT_FOUND
-    with a clear metadata reason. The prompt builder is provided for future use
-    and unit tests that validate its contents.
-    """
+    """Qwen-based agentic search backend with smart pattern recognition."""
 
     def __init__(
         self,

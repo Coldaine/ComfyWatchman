@@ -51,17 +51,30 @@ from comfyfixersmart.civitai_tools.direct_downloader import CivitaiDirectDownloa
 scanner = WorkflowScanner()
 models = scanner.extract_models_from_workflow("workflow.json")
 
-# 2. Search for a missing model
+# 2. Search for a missing model (now with Qwen intelligence)
 search = ModelSearch()
-result = search.search_model({"filename": "model.safetensors"})
+result = search.search_model({"filename": "rife49.pth"})  # Automatically detects HuggingFace model
 
 # 3. Download if found
 if result.status == "FOUND":
-    downloader = CivitaiDirectDownloader()
-    download_result = downloader.download_by_id(
-        result.civitai_id,
-        result.version_id
-    )
+    if result.source == "civitai":
+        downloader = CivitaiDirectDownloader()
+        download_result = downloader.download_by_id(
+            result.civitai_id,
+            result.version_id
+        )
+    elif result.source == "huggingface":
+        # New: HuggingFace download support
+        hf_downloader = HuggingFaceDownloader()
+        download_result = hf_downloader.download_from_repo(
+            result.repo_name,
+            result.file_path
+        )
+elif result.status == "UNCERTAIN":
+    # New: Handle uncertain matches with human review
+    print(f"Multiple candidates found for {result.filename}")
+    for candidate in result.candidates:
+        print(f"- {candidate['source']}: {candidate['name']} (confidence: {candidate['match_score']})")
 ```
 
 ### Configuration
@@ -73,6 +86,41 @@ export CIVITAI_API_KEY="your-api-key"
 export COMFYUI_ROOT="/path/to/comfyui"
 export HF_TOKEN="your-huggingface-token"  # Optional
 ```
+
+### New Qwen Search Features
+
+ComfyWatchman now includes advanced AI-powered search capabilities:
+
+#### 🤖 Qwen Agentic Search
+- **Intelligent Pattern Recognition**: Automatically detects model types and sources from filenames
+- **Multi-Phase Search Strategy**: Civitai API → Web Search → HuggingFace verification
+- **Exact Filename Validation**: Prevents downloading wrong models with strict matching
+
+#### 🔍 Smart Pattern Recognition
+The system recognizes common model patterns:
+- `rife*.pth` → Frame interpolation models (HuggingFace)
+- `sam_*.pth` → Facebook SAM models (HuggingFace)
+- `*.safetensors` → Checkpoints (Civitai primary)
+- `*.pt` → Various model types with context-aware routing
+
+#### 🌐 Web search via Qwen
+When Civitai doesn't have exact matches, the system:
+- Uses Qwen's built-in web_search tool to search HuggingFace and GitHub
+- Extracts repository information from search results
+- Verifies file existence before download
+- Provides confidence scoring for uncertain matches
+
+#### 🔐 Hash-Based Fallback
+For models already downloaded locally:
+- Calculates SHA256 hashes
+- Uses hash lookup for model identification
+- Enables identification without known filenames
+
+#### ✅ Enhanced Filename Validation
+Early detection and rejection of invalid filenames:
+- URL parameters (`?modelVersionId=123`)
+- Invalid characters and special symbols
+- Prevents wasted API calls on malformed inputs
 
 ## 📖 Documentation
 
@@ -98,7 +146,7 @@ Phase 2 (optimization layer) and Phase 3 (ecosystem integrations) remain future 
 
 - **[Vision](docs/vision.md)** — Where ComfyWatchman is headed (LLM + RAG, hardware‑aware reviews, safety, and automation philosophy)
 - **[Proposed Architecture](docs/architecture.md)** — Component design for LLM‑assisted review, local knowledge pack/RAG, and end‑to‑end orchestration
-- **[Search Architecture](docs/SEARCH_ARCHITECTURE.md)** — Agentic search system (Qwen + Tavily), multi-source federation (Civitai, HuggingFace), and doubt handling
+- **[Search Architecture](docs/SEARCH_ARCHITECTURE.md)** — Agentic search system (Qwen web search), multi-source federation (Civitai, HuggingFace), and doubt handling
 
 ### Research & Strategic Direction
 
@@ -109,7 +157,7 @@ Phase 2 (optimization layer) and Phase 3 (ecosystem integrations) remain future 
 
 ### Search System Details
 
-- **[Search Architecture](docs/SEARCH_ARCHITECTURE.md)** — Complete guide to agentic search with Qwen + Tavily
+- **[Search Architecture](docs/SEARCH_ARCHITECTURE.md)** — Complete guide to agentic search with Qwen
 - **[Qwen Search Plan](docs/planning/QWEN_SEARCH_IMPLEMENTATION_PLAN.md)** — Original implementation plan and requirements
 - **[Qwen Operator Guide](docs/planning/QWEN_PROMPT.md)** — Prompt engineering and agent instructions
 - **[Agent Guide](docs/planning/AGENT_GUIDE.md)** — Guide for AI agents using ComfyWatchman
@@ -130,7 +178,6 @@ Planned: Automatic, continuously updated Workflow Health Report (supersedes `wor
 
 - HuggingFace token (for private models)
 - Qwen CLI (for agentic search - recommended)
-- Tavily API key (for web search fallback)
 
 ## 🔧 How AI Agents Use It
 
