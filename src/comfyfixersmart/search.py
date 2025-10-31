@@ -45,254 +45,6 @@ except ImportError:
     ModelScopeSearch = None
 
 
-class TavilyAPI:
-    """Tavily Web Search API client for model discovery.
-
-    Provides robust web search capabilities with proper error handling,
-    rate limiting, and result parsing for ComfyUI model discovery.
-    Primary web search is performed by Qwen via its native `web_search` tool
-    (Tavily built-in). This lightweight client is optional and only used to
-    prefetch context for Qwen or provide fallback behavior when desired.
-    """
-
-    def __init__(self, api_key: Optional[str] = None, logger=None):
-        """Initialize Tavily API client.
-
-    Note: Tavily API key is pre-configured in the Qwen environment.
-    ComfyWatchman does not implement a bespoke Tavily integration; Qwen
-    consumes Tavily natively. This client assumes TAVILY_API_KEY is set
-    and is provided only for optional pre-search context.
-
-        Args:
-            api_key: Tavily API key (defaults to TAVILY_API_KEY env var)
-            logger: Logger instance
-        """
-        # API key is pre-configured in Qwen environment - no setup needed in this repo
-        self.api_key = api_key or os.getenv("TAVILY_API_KEY")
-        self.base_url = "https://api.tavily.com"
-        self.logger = logger or get_logger("TavilyAPI")
-        self._session = requests.Session()
-
-    def is_available(self) -> bool:
-        """Check if Tavily API is available and configured."""
-        return bool(self.api_key)
-
-    def search(
-        self,
-        query: str,
-        search_depth: str = "basic",
-        max_results: int = 10,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        timeout: int = 30,
-    ) -> Optional[List[Dict[str, Any]]]:
-        """Perform web search using Tavily API.
-
-        Args:
-            query: Search query string
-            search_depth: Search depth ("basic" or "advanced")
-            max_results: Maximum number of results to return
-            include_domains: Domains to include in search
-            exclude_domains: Domains to exclude from search
-            timeout: Request timeout in seconds
-
-        Returns:
-            List of search results or None if search fails
-        """
-        if not self.api_key:
-            self.logger.warning("TAVILY_API_KEY not available")
-            return None
-
-        payload = {
-            "api_key": self.api_key,
-            "query": query,
-            "search_depth": search_depth,
-            "max_results": max_results,
-        }
-
-        if include_domains:
-            payload["include_domains"] = include_domains
-
-        if exclude_domains:
-            payload["exclude_domains"] = exclude_domains
-
-        self.logger.debug(f"Performing Tavily search: {query}")
-
-        try:
-            response = self._session.post(
-                f"{self.base_url}/search",
-                json=payload,
-                timeout=timeout,
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                results = data.get("results", [])
-                self.logger.info(
-                    f"Tavily search successful: {len(results)} results for query '{query}'"
-                )
-                return results
-            elif response.status_code == 401:
-                self.logger.error("Tavily API authentication failed - check API key")
-                return None
-            elif response.status_code == 429:
-                self.logger.warning("Tavily API rate limit exceeded")
-                return None
-            else:
-                self.logger.warning(
-                    f"Tavily API returned status {response.status_code}: {response.text}"
-                )
-                return None
-
-        except requests.exceptions.Timeout:
-            self.logger.error(f"Tavily search timed out after {timeout} seconds")
-            return None
-        except requests.exceptions.RequestException as e:
-            self.logger.error(f"Tavily search request failed: {e}")
-            return None
-        except Exception as e:
-            self.logger.error(f"Unexpected Tavily search error: {e}")
-            return None
-
-    def search_huggingface_models(
-        self,
-        model_filename: str,
-        max_results: int = 10,
-    ) -> List[Dict[str, Any]]:
-        """Search for HuggingFace models related to the given filename.
-
-        Args:
-            model_filename: Model filename to search for
-            max_results: Maximum number of results to return
-
-        Returns:
-            List of search results focused on HuggingFace
-        """
-        if not self.is_available():
-            return []
-
-        # Extract base name without extension
-        base_name = (
-            model_filename.rsplit(".", 1)[0]
-            if "." in model_filename
-            else model_filename
-        )
-
-        # Prepare search queries with different strategies
-        queries = [
-            f'"{base_name}" site:huggingface.co',
-            f'"{base_name}" model huggingface',
-            f'"{base_name}" stable diffusion huggingface',
-            f'"{base_name}" file:safetensors OR file:ckpt site:huggingface.co',
-        ]
-
-        all_results = []
-        seen_urls = set()
-
-        for query in queries:
-            try:
-                results = self.search(
-                    query=query,
-                    max_results=max_results,
-                    include_domains=["huggingface.co"],
-                )
-
-                if results:
-                    # Add search metadata to each result
-                    for result in results:
-                        url = result.get("url", "")
-                        if url not in seen_urls:
-                            result["search_query"] = query
-                            result["search_strategy"] = self._determine_search_strategy(
-                                model_filename
-                            )
-                            all_results.append(result)
-                            seen_urls.add(url)
-
-                    # If we get good results, don't try more queries
-                    if len(results) >= max_results // 2:
-                        break
-
-            except Exception as e:
-                self.logger.warning(f"Tavily search failed for query '{query}': {e}")
-                continue
-
-        self.logger.info(
-            f"HuggingFace model search for '{model_filename}': {len(all_results)} unique results"
-        )
-        return all_results
-
-    def search_model_repositories(
-        self,
-        model_filename: str,
-    ) -> List[Dict[str, Any]]:
-        """Search for model repositories (HuggingFace, GitHub) containing the model.
-
-        Args:
-            model_filename: Model filename to search for
-
-        Returns:
-            List of repository search results
-        """
-        if not self.is_available():
-            return []
-
-        base_name = (
-            model_filename.rsplit(".", 1)[0]
-            if "." in model_filename
-            else model_filename
-        )
-
-        # Search for repositories containing this model
-        queries = [
-            f'"{base_name}" site:huggingface.co OR site:github.com',
-            f'"{model_filename}" repository',
-            f'"{base_name}" model download',
-        ]
-
-        all_results = []
-        for query in queries:
-            try:
-                results = self.search(
-                    query=query,
-                    max_results=15,
-                )
-                if results:
-                    all_results.extend(results)
-            except Exception as e:
-                self.logger.warning(f"Repository search failed for '{query}': {e}")
-                continue
-
-        return all_results
-
-    def _determine_search_strategy(self, filename: str) -> str:
-        """Determine the search strategy based on filename patterns.
-
-        Args:
-            filename: Model filename
-
-        Returns:
-            Search strategy identifier
-        """
-        filename_lower = filename.lower()
-
-        if any(
-            pattern in filename_lower for pattern in ["rife", "frame", "interpolation"]
-        ):
-            return "rife_specific"
-        elif any(
-            pattern in filename_lower for pattern in ["sam", "segment", "anything"]
-        ):
-            return "sam_specific"
-        elif any(
-            pattern in filename_lower for pattern in ["nmkd", "superscale", "upscale"]
-        ):
-            return "upscaler_specific"
-        elif any(pattern in filename_lower for pattern in ["controlnet", "control"]):
-            return "controlnet_specific"
-        else:
-            return "general_search"
-
 
 @dataclass
 class SearchResult:
@@ -1467,9 +1219,6 @@ class QwenSearch(SearchBackend):
             "QWEN_BINARY", "qwen"
         )
 
-        # Initialize Tavily API client for web search
-        self.tavily_client = TavilyAPI(logger=self.logger)
-
         # Smart pattern recognition for known HF models
         self.hf_model_patterns = self._init_hf_patterns()
         self.enable_pattern_recognition = True
@@ -1575,51 +1324,6 @@ class QwenSearch(SearchBackend):
                 return "hf_prefix_match"
 
         return None
-
-    def _perform_web_search_fallback(
-        self, model_info: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """Perform web search fallback using Tavily API when local search fails.
-
-        Args:
-            model_info: Model information dictionary
-
-        Returns:
-            List of web search results with repository information
-        """
-        filename = model_info["filename"]
-
-        self.logger.info(f"Performing web search fallback for: {filename}")
-
-        if not self.tavily_client.is_available():
-            self.logger.warning("Tavily API not available for web search fallback")
-            return []
-
-        try:
-            # Search for HuggingFace repositories containing this model
-            hf_results = self.tavily_client.search_huggingface_models(filename)
-
-            if hf_results:
-                self.logger.info(
-                    f"Found {len(hf_results)} HuggingFace results via web search"
-                )
-                return hf_results
-
-            # If no HF results, try broader repository search
-            repo_results = self.tavily_client.search_model_repositories(filename)
-
-            if repo_results:
-                self.logger.info(
-                    f"Found {len(repo_results)} repository results via web search"
-                )
-                return repo_results
-
-            self.logger.info(f"No web search results found for: {filename}")
-            return []
-
-        except Exception as e:
-            self.logger.error(f"Web search fallback failed for {filename}: {e}")
-            return []
 
     def _extract_repos_from_web_results(
         self, web_results: List[Dict[str, Any]], filename: str
@@ -1954,55 +1658,8 @@ class QwenSearch(SearchBackend):
                     cached_result.metadata["cached_skip_reason"] = skip_reason
             return cached_result
 
-        # Check if web search should be performed before Qwen execution
+        # Pre-Qwen web search has been removed; rely on Qwen's own tools.
         web_search_results = None
-        if self.tavily_client.is_available():
-            self.logger.info(f"Performing pre-Qwen web search for: {filename}")
-            web_results = self._perform_web_search_fallback(model_info)
-
-            if web_results:
-                # Extract and format repository candidates
-                repo_candidates = self._extract_repos_from_web_results(
-                    web_results, filename
-                )
-
-                if repo_candidates and repo_candidates[0]["score"] > 80:
-                    # High confidence result found via web search
-                    self.logger.info(
-                        f"High-confidence web search result found for {filename}: {repo_candidates[0]['full_name']}"
-                    )
-
-                    # Format as SearchResult for immediate return
-                    top_repo = repo_candidates[0]
-
-                    if top_repo["type"] == "huggingface":
-                        # Construct HF download URL
-                        download_url = f"https://huggingface.co/{top_repo['full_name']}/resolve/main/{filename}"
-                        confidence = "high" if top_repo["score"] > 90 else "medium"
-
-                        return SearchResult(
-                            status="FOUND",
-                            filename=filename,
-                            source="huggingface",
-                            download_url=download_url,
-                            confidence=confidence,
-                            type=model_type,
-                            metadata={
-                                "found_by": "web_search",
-                                "repository": top_repo["full_name"],
-                                "web_search_score": top_repo["score"],
-                                "search_attempts": 1,
-                                "web_search_used": True,
-                            },
-                        )
-
-                # Store web search results for Qwen evaluation
-                web_search_results = self._format_web_search_results(
-                    repo_candidates, filename
-                )
-                self.logger.info(
-                    f"Web search found {len(repo_candidates)} candidates for Qwen evaluation"
-                )
 
         prompt = self._build_agentic_prompt(model_info, web_search_results)
 
@@ -2080,6 +1737,8 @@ class QwenSearch(SearchBackend):
         model_info: Dict[str, Any],
         web_search_results: Optional[Dict[str, Any]] = None,
     ) -> str:
+        # Added by Gemini on 2025-10-30
+        # This primer was added to give the Qwen agent more detailed instructions on how to use the Hugging Face CLI.
         """Build comprehensive agentic search prompt for Qwen with pattern recognition."""
         filename = model_info.get("filename", "")
         model_type = model_info.get("type", "")
@@ -2112,7 +1771,7 @@ SMART PATTERN RECOGNITION RESULTS:
 - Recommended Strategy: Full Civitai + HuggingFace search (Phase 1 + Phase 2)
 """
         else:
-            pattern_info = """
+            pattern_info = f"""
 SMART PATTERN RECOGNITION: DISABLED
 - Proceeding with standard search workflow
 - Will search both Civitai and HuggingFace
@@ -2139,7 +1798,7 @@ The following repositories were found via web search with varying confidence lev
    Title: {candidate.get('title', 'N/A')}
    
 """
-                web_search_context += """
+                web_search_context += f"""
 IMPORTANT: These candidates were found via web search and should be verified. 
 You can use these as starting points for your search, but still perform your own verification.
 """
@@ -2162,7 +1821,6 @@ INPUT DATA:
 
 ENVIRONMENT:
 - CIVITAI_API_KEY is available in environment (from ~/.secrets)
-- TAVILY_API_KEY is available for web search
 - You have access to: bash, web_search, web_fetch tools
 
 YOUR MISSION:
@@ -2200,7 +1858,65 @@ SEARCH STRATEGY (Execute in order):
 
 === PHASE 2: WEB SEARCH + HUGGINGFACE (If Civitai fails) ===
 
-1. Use Tavily web search with smart patterns:
+### **Hugging Face Primer for an AI Agent**
+
+You have access to the `hf` command-line tool to interact with the Hugging Face Hub. Here is your guide on how to use it to find and download models.
+
+**Your primary workflow for Hugging Face will be:**
+1.  Use `web_search` to find the correct repository ID (`repo_id`).
+2.  Use the `hf` tool to list the files in that repository to find the exact filename.
+3.  Use the `hf` tool to download the specific file you need.
+
+---
+
+#### **Step 1: Find the Repository ID (`repo_id`)**
+
+The `hf` tool does not have a search command. You must first use `web_search` to find the `repo_id`, which is in the format `author/repository_name`.
+
+**Example Web Search Queries:**
+*   To find the SDXL base model: `"sd_xl_base_1.0.safetensors" site:huggingface.co`
+*   To find a RIFE model: `"rife frame interpolation" model huggingface`
+
+Your goal is to find the official repository, for example: `stabilityai/stable-diffusion-xl-base-1.0`.
+
+---
+
+#### **Step 2: List Files in the Repository**
+
+Once you have the `repo_id`, you must verify that the file you need exists in the repository and get its exact path. Use the `hf download` command with the `--dry-run` flag for this.
+
+**Command:**
+```bash
+hf download --dry-run <repo_id>
+```
+
+**Example:** To list all files in the `stabilityai/stable-diffusion-xl-base-1.0` repository:
+```bash
+hf download --dry-run stabilityai/stable-diffusion-xl-base-1.0
+```
+The output will be a list of all files in that repository. Look through this list to find the exact filename you need, for example, `sd_xl_base_1.0.safetensors`.
+
+---
+
+#### **Step 3: Download the Specific File**
+
+After you have the `repo_id` and the exact `path/to/file/in/repo`, you can download it.
+
+**Command:**
+```bash
+hf download <repo_id> <path/to/file/in/repo> --local-dir <your/local/directory>
+```
+
+**Example:** To download the `sd_xl_base_1.0.safetensors` file to the `/tmp/models` directory:
+```bash
+hf download stabilityai/stable-diffusion-xl-base-1.0 sd_xl_base_1.0.safetensors --local-dir /tmp/models
+```
+
+This command will download the specified file into the directory you provide. Always use the `--local-dir` flag to control where the file is saved.
+
+---
+
+1. Use your web_search tool with smart patterns:
    - If "rife*.pth" → "rife frame interpolation huggingface"
    - If "sam_*.pth" → "facebook sam segment anything huggingface"
    - If "*NMKD*" → "nmkd upscaler huggingface github"
@@ -2447,7 +2163,6 @@ class HuggingFaceSearch(SearchBackend):
 
     def __init__(self, logger=None):
         super().__init__(logger)
-        self.tavily_api_key = os.getenv("TAVILY_API_KEY")
         self.hf_token = os.getenv("HF_TOKEN")
 
     def get_name(self) -> str:
@@ -2489,131 +2204,17 @@ class HuggingFaceSearch(SearchBackend):
 
         self.logger.info(f"Searching HuggingFace for model: {filename}")
 
-        try:
-            # Step 1: Web search using Tavily API
-            search_results = self._web_search_huggingface(filename)
-            if not search_results:
-                return SearchResult(
-                    status="NOT_FOUND",
-                    filename=filename,
-                    type=model_type,
-                    metadata={
-                        "reason": "No HuggingFace repositories found in web search",
-                        "search_attempts": 1,
-                    },
-                )
-
-            # Step 2: Extract repository names from search results
-            repo_candidates = self._extract_repos_from_search_results(
-                search_results, filename
-            )
-            if not repo_candidates:
-                return SearchResult(
-                    status="NOT_FOUND",
-                    filename=filename,
-                    type=model_type,
-                    metadata={
-                        "reason": "No valid HuggingFace repositories found in search results",
-                        "search_attempts": 1,
-                    },
-                )
-
-            # Step 3: Verify repositories and find matching files
-            for repo_name in repo_candidates:
-                try:
-                    verified_result = self._verify_repository_and_find_file(
-                        repo_name, filename
-                    )
-                    if verified_result:
-                        self.logger.info(
-                            f"Found model in HuggingFace repository: {repo_name}"
-                        )
-                        return verified_result
-                except Exception as e:
-                    self.logger.warning(f"Failed to verify repository {repo_name}: {e}")
-                    continue
-
-            # If we get here, no valid files were found
-            return SearchResult(
-                status="NOT_FOUND",
-                filename=filename,
-                type=model_type,
-                metadata={
-                    "reason": "No matching model files found in verified repositories",
-                    "search_attempts": 1,
-                    "repos_checked": repo_candidates,
-                },
-            )
-
-        except Exception as e:
-            self.logger.error(f"HuggingFace search failed: {e}")
-            return SearchResult(
-                status="ERROR",
-                filename=filename,
-                type=model_type,
-                error_message=str(e),
-            )
-
-    def _web_search_huggingface(self, filename: str) -> List[Dict[str, Any]]:
-        """
-        Use Tavily API to search for HuggingFace models.
-
-        Args:
-            filename: Model filename to search for
-
-        Returns:
-            List of search results from Tavily API
-        """
-        if not self.tavily_api_key:
-            self.logger.warning("TAVILY_API_KEY not found in environment")
-            return []
-
-        # Prepare search queries
-        base_name = filename.rsplit(".", 1)[0]  # Remove extension
-        queries = [
-            f'"{base_name}" site:huggingface.co',
-            f'"{base_name}" model huggingface',
-            f'"{base_name}" stable diffusion huggingface',
-        ]
-
-        all_results = []
-
-        for query in queries:
-            try:
-                self.logger.debug(f"Searching with query: {query}")
-
-                # Make request to Tavily API
-                response = requests.post(
-                    "https://api.tavily.com/search",
-                    json={
-                        "api_key": self.tavily_api_key,
-                        "query": query,
-                        "search_depth": "basic",
-                        "include_domains": ["huggingface.co"],
-                        "max_results": 10,
-                    },
-                    timeout=30,
-                )
-
-                if response.status_code != 200:
-                    self.logger.warning(
-                        f"Tavily API returned status {response.status_code}"
-                    )
-                    continue
-
-                data = response.json()
-                results = data.get("results", [])
-                all_results.extend(results)
-
-                # If we get good results, don't try more queries
-                if results:
-                    break
-
-            except Exception as e:
-                self.logger.warning(f"Tavily search failed for query '{query}': {e}")
-                continue
-
-        return all_results
+        # Direct discovery via web search has been removed from this backend.
+        # Discovery is handled by the Qwen agent; this backend focuses on verification when given a repo.
+        return SearchResult(
+            status="NOT_FOUND",
+            filename=filename,
+            type=model_type,
+            metadata={
+                "reason": "Direct HuggingFace discovery is disabled; rely on Qwen for repository discovery",
+                "search_attempts": 0,
+            },
+        )
 
     def _extract_repos_from_search_results(
         self, search_results: List[Dict[str, Any]], target_filename: str
@@ -2622,7 +2223,7 @@ class HuggingFaceSearch(SearchBackend):
         Extract HuggingFace repository names from search results.
 
         Args:
-            search_results: Results from Tavily API
+            search_results: Results from a generic web search tool
             target_filename: Target model filename
 
         Returns:

@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ModelScope search backend** - Alternative to Civitai with fallback download capability
 - **Agentic search orchestration** via Qwen agent with multi-phase approach:
   - Phase 1: Structured search with Civitai API
-  - Phase 2: Web search via Tavily for extended discovery
+  - Phase 2: Web search via agent tools for extended discovery
   - Phase 3: HuggingFace hub integration
   - Decision-making for best download source
 - Enhanced search architecture with configurable backend ordering

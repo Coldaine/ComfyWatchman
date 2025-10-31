@@ -1,8 +1,8 @@
 """
 Unit tests for new search features in ComfyFixerSmart.
 
-Tests TavilyAPI integration, enhanced CivitaiSearch features, QwenSearch pattern recognition,
-HuggingFaceSearch web search and verification, and related functionality.
+Tests enhanced CivitaiSearch features, QwenSearch pattern recognition,
+HuggingFaceSearch verification helpers, and related functionality.
 """
 
 import json
@@ -15,7 +15,6 @@ import pytest
 import requests
 
 from comfyfixersmart.search import (
-    TavilyAPI,
     CivitaiSearch,
     QwenSearch,
     HuggingFaceSearch,
@@ -24,214 +23,7 @@ from comfyfixersmart.search import (
 )
 
 
-class TestTavilyAPI:
-    """Test TavilyAPI client functionality."""
-
-    def test_tavily_api_initialization(self):
-        """Test TavilyAPI initialization."""
-        api = TavilyAPI()
-        assert api.base_url == "https://api.tavily.com"
-        assert hasattr(api, 'api_key')
-        assert hasattr(api, '_session')
-
-    def test_tavily_api_is_available_with_key(self):
-        """Test is_available when API key is set."""
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            assert api.is_available() is True
-
-    def test_tavily_api_is_available_without_key(self):
-        """Test is_available when API key is not set."""
-        with patch.dict(os.environ, {}, clear=True):
-            api = TavilyAPI()
-            assert api.is_available() is False
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_success(self, mock_post):
-        """Test successful web search."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "results": [
-                {"url": "https://example.com", "title": "Test Result", "content": "Test content"}
-            ]
-        }
-        mock_post.return_value = mock_response
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            results = api.search("test query")
-
-            assert results is not None
-            assert len(results) == 1
-            assert results[0]["url"] == "https://example.com"
-            mock_post.assert_called_once()
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_no_api_key(self, mock_post):
-        """Test search when API key is not available."""
-        api = TavilyAPI()
-        results = api.search("test query")
-
-        assert results is None
-        mock_post.assert_not_called()
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_authentication_error(self, mock_post):
-        """Test search with authentication error."""
-        mock_response = Mock()
-        mock_response.status_code = 401
-        mock_response.text = "Unauthorized"
-        mock_post.return_value = mock_response
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "invalid_key"}):
-            api = TavilyAPI()
-            results = api.search("test query")
-
-            assert results is None
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_rate_limit(self, mock_post):
-        """Test search with rate limit error."""
-        mock_response = Mock()
-        mock_response.status_code = 429
-        mock_response.text = "Rate limited"
-        mock_post.return_value = mock_response
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            results = api.search("test query")
-
-            assert results is None
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_timeout(self, mock_post):
-        """Test search with timeout."""
-        mock_post.side_effect = requests.exceptions.Timeout("Timeout")
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            results = api.search("test query")
-
-            assert results is None
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_request_exception(self, mock_post):
-        """Test search with general request exception."""
-        mock_post.side_effect = requests.exceptions.RequestException("Network error")
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            results = api.search("test query")
-
-            assert results is None
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_unexpected_error(self, mock_post):
-        """Test search with unexpected error."""
-        mock_post.side_effect = Exception("Unexpected error")
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            results = api.search("test query")
-
-            assert results is None
-
-    def test_tavily_api_search_huggingface_models_no_api_key(self):
-        """Test HuggingFace model search without API key."""
-        api = TavilyAPI()
-        results = api.search_huggingface_models("test_model.safetensors")
-
-        assert results == []
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_huggingface_models_success(self, mock_post):
-        """Test successful HuggingFace model search."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "results": [
-                {
-                    "url": "https://huggingface.co/user/repo",
-                    "title": "Test Model",
-                    "content": "Model description"
-                }
-            ]
-        }
-        mock_post.return_value = mock_response
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            results = api.search_huggingface_models("test_model.safetensors")
-
-            assert len(results) == 1
-            assert results[0]["url"] == "https://huggingface.co/user/repo"
-            assert "search_query" in results[0]
-            assert "search_strategy" in results[0]
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_huggingface_models_multiple_queries(self, mock_post):
-        """Test HuggingFace model search with multiple query strategies."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"results": []}
-        mock_post.return_value = mock_response
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            results = api.search_huggingface_models("test_model.safetensors")
-
-            # Should try multiple queries
-            assert mock_post.call_count == 3  # Three different query strategies
-
-    def test_tavily_api_search_model_repositories_no_api_key(self):
-        """Test model repository search without API key."""
-        api = TavilyAPI()
-        results = api.search_model_repositories("test_model.safetensors")
-
-        assert results == []
-
-    @patch("requests.Session.post")
-    def test_tavily_api_search_model_repositories_success(self, mock_post):
-        """Test successful model repository search."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "results": [
-                {
-                    "url": "https://github.com/user/repo",
-                    "title": "Test Repo",
-                    "content": "Repository description"
-                }
-            ]
-        }
-        mock_post.return_value = mock_response
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            api = TavilyAPI()
-            results = api.search_model_repositories("test_model.safetensors")
-
-            assert len(results) == 1
-            assert results[0]["url"] == "https://github.com/user/repo"
-
-    def test_tavily_api_determine_search_strategy(self):
-        """Test search strategy determination."""
-        api = TavilyAPI()
-
-        # Test RIFE pattern
-        assert api._determine_search_strategy("rife49.pth") == "rife_specific"
-
-        # Test SAM pattern
-        assert api._determine_search_strategy("sam_vit_b.pth") == "sam_specific"
-
-        # Test upscaler pattern
-        assert api._determine_search_strategy("4xNMKDSuperscale.pth") == "upscaler_specific"
-
-        # Test ControlNet pattern
-        assert api._determine_search_strategy("controlnet_canny.pth") == "controlnet_specific"
-
-        # Test general pattern
-        assert api._determine_search_strategy("some_model.pth") == "general_search"
+# Legacy web-search tests removed.
 
 
 class TestEnhancedCivitaiSearch:
@@ -594,40 +386,9 @@ class TestHuggingFaceSearchWebVerification:
         search = HuggingFaceSearch()
 
         assert search.get_name() == "huggingface"
-        assert hasattr(search, 'tavily_api_key')
         assert hasattr(search, 'hf_token')
-
-    @patch("requests.post")
-    def test_huggingface_search_web_search_success(self, mock_post):
-        """Test web search functionality."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "results": [
-                {
-                    "url": "https://huggingface.co/user/repo",
-                    "title": "Test Model",
-                    "content": "Model description"
-                }
-            ]
-        }
-        mock_post.return_value = mock_response
-
-        with patch.dict(os.environ, {"TAVILY_API_KEY": "test_key"}):
-            search = HuggingFaceSearch()
-            results = search._web_search_huggingface("test_model.safetensors")
-
-            assert len(results) == 1
-            assert results[0]["url"] == "https://huggingface.co/user/repo"
-
-    @patch("requests.post")
-    def test_huggingface_search_web_search_no_api_key(self, mock_post):
-        """Test web search without API key."""
-        search = HuggingFaceSearch()
-        results = search._web_search_huggingface("test_model.safetensors")
-
-        assert results == []
-        mock_post.assert_not_called()
+        
+    # Web search tests removed; direct web search is no longer part of this backend.
 
     def test_huggingface_search_extract_repos_from_results(self):
         """Test repository extraction from search results."""
