@@ -34,7 +34,7 @@ This section is for AI agents contributing to the `ComfyWatchman` source code.
 ### 2.1. Architecture Overview
 The codebase follows a clean, modular architecture with a clear separation of concerns.
 
-*   `src/comfyfixersmart/`:
+*   `src/comfywatchman/`:
     *   `cli.py`: Main CLI entry point (`comfywatchman` command).
     *   `core.py`: The `ComfyFixerCore` orchestrator class.
     *   `scanner.py`: Handles workflow parsing and model extraction.
@@ -90,7 +90,7 @@ This section shows how AI agents invoke ComfyWatchman's Python APIs programmatic
 
 **Workflow Scanning:**
 ```python
-from comfyfixersmart.scanner import WorkflowScanner
+from comfywatchman.scanner import WorkflowScanner
 
 scanner = WorkflowScanner()
 models = scanner.extract_models_from_workflow("/path/to/workflow.json")
@@ -99,7 +99,7 @@ models = scanner.extract_models_from_workflow("/path/to/workflow.json")
 
 **Model Search:**
 ```python
-from comfyfixersmart.search import ModelSearch, SearchResult
+from comfywatchman.search import ModelSearch, SearchResult
 
 search = ModelSearch()
 result = search.search_model({"filename": "model.safetensors", "type": "checkpoint"})
@@ -108,7 +108,7 @@ result = search.search_model({"filename": "model.safetensors", "type": "checkpoi
 
 **Model Downloads (Automatic - Default Behavior):**
 ```python
-from comfyfixersmart.core import ComfyFixerCore
+from comfywatchman.core import ComfyFixerCore
 
 # The core workflow automatically downloads models by default
 core = ComfyFixerCore()
@@ -116,7 +116,7 @@ run = core.run_workflow_analysis()
 # Downloads happen automatically with hash verification to correct directories
 
 # For manual control, use the low-level API:
-from comfyfixersmart.civitai_tools.direct_downloader import CivitaiDirectDownloader
+from comfywatchman.civitai_tools.direct_downloader import CivitaiDirectDownloader
 
 downloader = CivitaiDirectDownloader(download_dir="/path/to/ComfyUI/models/checkpoints")
 result = downloader.download_by_id(
@@ -128,7 +128,7 @@ result = downloader.download_by_id(
 
 **Local Inventory:**
 ```python
-from comfyfixersmart.inventory import ModelInventory
+from comfywatchman.inventory import ModelInventory
 
 inventory = ModelInventory(models_dir="/path/to/ComfyUI/models")
 local_models = inventory.build_inventory()

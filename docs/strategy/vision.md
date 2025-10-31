@@ -62,6 +62,7 @@ It is a CRITICAL goal, that we are able to, given an image, review the metadata 
   1. **Auto-Inpaint Frontend:** Plug-and-play mask generation chain (SAM + Florence today, but designed for swappable detectors/growth nodes) that supports automatic masking and controlled mask growth without manual painting.
   2. **Image-Cycling Frontend:** Workflow loader that targets one or more folders, feeds images one at a time (not batch style), and advances via random/seed changes between runs. This frontend depends on Workflow Schema #3.
   3. **Dynamic Prompt Generator:** Node bundle (LLM vision optional, tagger optional, preferred LLM for prompt creation) that analyzes the current image, produces descriptive tags, and emits positive/negative prompts tailored to the Image-Cycling Frontend.
+> **Note:** The implementation of these schemas was deferred during the initial Phase 2 development to focus on core resolution and knowledge-basing features. This should be prioritized as a fast-follow task.
 - **Usage Guardrail:** These schemas inform full refactors or explicit requests only; they should not auto-modify existing workflows without the owner's direction.
 
 ### Phase 3 — Extended LLM + RAG Vision (Original Stretch Goals)

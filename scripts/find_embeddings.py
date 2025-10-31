@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import List
 
-from comfyfixersmart.scanner import WorkflowScanner
+from comfywatchman.scanner import WorkflowScanner
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -99,7 +99,7 @@ The state management system introduces significant improvements:
 ### 2.1 SqlStateManager Inheritance Issue (P1)
 
 **Severity:** 🔴 **CRITICAL**
-**Location:** `src/comfyfixersmart/adapters/sql_state.py:26-42`
+**Location:** `src/comfywatchman/adapters/sql_state.py:26-42`
 
 #### Issue Description:
 The `SqlStateManager` class inherits from `StateManager` but explicitly bypasses the parent class initialization:
@@ -136,7 +136,7 @@ class SqlStateManager(AbstractStateManager):  # Inherit from AbstractStateManage
 ### 2.2 Placeholder Implementation Issue (P2)
 
 **Severity:** 🟡 **MEDIUM**
-**Location:** `src/comfyfixersmart/adapters/sql_state.py:63-107`
+**Location:** `src/comfywatchman/adapters/sql_state.py:63-107`
 
 #### Issue Description:
 The `_load_state()` and `_save_state()` methods contain only placeholder implementations:
@@ -194,7 +194,7 @@ self.logger.debug(f"API URL: {api_url}")  # Use appropriate log level
 ### 3.2 Interactive Input Blocking (P2)
 
 **Severity:** 🟡 **MEDIUM**
-**Location:** `src/comfyfixersmart/civitai_tools/fuzzy_finder.py:126`
+**Location:** `src/comfywatchman/civitai_tools/fuzzy_finder.py:126`
 
 #### Issue Description:
 The `fuzzy_finder.py` uses blocking `input()` calls which prevent async operation:

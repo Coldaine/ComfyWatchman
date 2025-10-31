@@ -1739,6 +1739,11 @@ class QwenSearch(SearchBackend):
         # Added by Gemini on 2025-10-30
         # This primer was added to give the Qwen agent more detailed instructions on how to use the Hugging Face CLI.
         """Build comprehensive agentic search prompt for Qwen with pattern recognition."""
+        knowledge_base = ""
+        knowledge_dir = Path(__file__).parent / "knowledge"
+        if knowledge_dir.exists():
+            for f in knowledge_dir.glob("*.md"):
+                knowledge_base += f.read_text() + "\n\n"
         filename = model_info.get("filename", "")
         model_type = model_info.get("type", "")
         node_type = model_info.get("node_type", "")
@@ -1811,7 +1816,7 @@ Score: {web_search_results.get('metadata', {}).get('web_search_score', 0)}
 You should prioritize verifying this result.
 """
 
-        return f"""You are an autonomous AI model discovery agent. Your task is to find the correct download source for a ComfyUI model file using intelligent search strategies.{pattern_info}
+        return f"""{knowledge_base}You are an autonomous AI model discovery agent. Your task is to find the correct download source for a ComfyUI model file using intelligent search strategies.{pattern_info}
 
 INPUT DATA:
 - Filename: {filename}

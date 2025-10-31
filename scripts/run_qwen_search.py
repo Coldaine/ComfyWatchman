@@ -13,7 +13,7 @@ import json
 import sys
 from typing import Optional
 
-from comfyfixersmart.search import QwenSearch
+from comfywatchman.search import QwenSearch
 
 
 def build_parser() -> argparse.ArgumentParser:

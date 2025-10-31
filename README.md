@@ -41,9 +41,9 @@ pip install -e .
 ### Agent Usage Example
 
 ```python
-from comfyfixersmart.scanner import WorkflowScanner
-from comfyfixersmart.search import ModelSearch
-from comfyfixersmart.civitai_tools.direct_downloader import CivitaiDirectDownloader
+from comfywatchman.scanner import WorkflowScanner
+from comfywatchman.search import ModelSearch
+from comfywatchman.civitai_tools.direct_downloader import CivitaiDirectDownloader
 
 # Agent calls these functions as needed:
 
@@ -130,7 +130,7 @@ Early detection and rejection of invalid filenames:
 
 We are actively executing **Phase 1: Strengthen Core** from the three-phase roadmap in `docs/CROSSROADS.md`.
 
-- ✅ Completed: consolidated Python package (`src/comfyfixersmart`), unified CLI (`comfywatchman` command), agentic search pipeline (Qwen → Civitai → web fallback), state-backed download manager, and TOML/env-based configuration.
+- ✅ Completed: consolidated Python package (`src/comfywatchman`), unified CLI (`comfywatchman` command), agentic search pipeline (Qwen → Civitai → web fallback), state-backed download manager, and TOML/env-based configuration.
 - 🔄 In Progress: documentation polish and developer onboarding materials (this README + `docs/` refresh), packaging cleanup for PyPI, and CLI ergonomics.
 - ⏳ Not Yet Started (Phase 1 items): external plugin API surface, optional telemetry hooks, extended integration examples.
 

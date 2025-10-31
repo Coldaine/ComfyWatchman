@@ -171,7 +171,7 @@ class DownloadScriptGenerator:
             "  ",
             "  if command -v python3 &> /dev/null; then",
             '    python3 -c "',
-            "from src.comfyfixersmart.state_manager import StateManager",
+            "from src.comfywatchman.state_manager import StateManager",
             "sm = StateManager()",
             "sm.update_download_status('$filename', '$status', file_path='$file_path')",
             '" 2>/dev/null || true',
@@ -223,7 +223,7 @@ class DownloadScriptGenerator:
         return [
             "echo '========================================'",
             "echo 'Download complete! Check state with:'",
-            "echo '  python3 -c \"from src.comfyfixersmart.state_manager import StateManager; print(StateManager().get_stats())\"'",
+            "echo '  python3 -c \"from src.comfywatchman.state_manager import StateManager; print(StateManager().get_stats())\"'",
             "",
         ]
 

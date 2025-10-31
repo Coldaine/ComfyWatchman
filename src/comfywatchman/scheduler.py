@@ -9,6 +9,8 @@ import time
 from datetime import datetime, timedelta
 from typing import List, Optional
 
+import psutil
+
 from .config import config
 from .core import ComfyFixerCore
 from .logging import get_logger
@@ -113,7 +115,21 @@ class Scheduler:
                     self.min_vram_gb,
                 )
                 return False
+        if not self._is_comfyui_running():
+            self.logger.info("Skipping run: ComfyUI process not found.")
+            return False
         return True
+
+    def _is_comfyui_running(self) -> bool:
+        """Check if a ComfyUI-like process is running."""
+        for proc in psutil.process_iter(['name', 'cmdline']):
+            try:
+                # Heuristic check for ComfyUI. This might need adjustment.
+                if 'python' in proc.info['name'] and any('main.py' in part for part in proc.info['cmdline']):
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        return False
 
     def _detect_vram_gb(self) -> Optional[float]:
         """Return available GPU memory (GB) using nvidia-smi; None if unknown."""

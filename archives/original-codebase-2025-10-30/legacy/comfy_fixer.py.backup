@@ -1,7 +1,0 @@
-omfy_fixer.py</path>
-<content"># Initialize logger and state manager
-logger = get_logger("ComfyFixerSmart")
-state_manager = StateManager(config.state_dir, logger=logger)
-
-# Feature flags (will be overridden by args if needed)
-ENABLE_CLAUDE_VERIFICATION = config.enable_claude_verification

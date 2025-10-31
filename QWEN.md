@@ -77,10 +77,10 @@ pytest tests/
 ```
 
 ### Main Entry Points
-- `comfyfixersmart.cli:main` - Command line interface
-- `comfyfixersmart.core:ComfyFixerCore` - Main orchestrator class
-- `comfyfixersmart.search:ModelSearch` - Search orchestration
-- `comfyfixersmart.scanner:WorkflowScanner` - Workflow parsing
+- `comfywatchman.cli:main` - Command line interface
+- `comfywatchman.core:ComfyFixerCore` - Main orchestrator class
+- `comfywatchman.search:ModelSearch` - Search orchestration
+- `comfywatchman.scanner:WorkflowScanner` - Workflow parsing
 
 ## Key Design Patterns
 
@@ -105,7 +105,7 @@ Automatically maps ComfyUI node types to appropriate model directories:
 - Prevents duplicate downloads of the same model
 
 ## File Structure
-- `src/comfyfixersmart/` - Main Python package
+- `src/comfywatchman/` - Main Python package
 - `tests/` - Unit and integration tests
 - `docs/` - Documentation files
 - `config/` - Configuration files and examples

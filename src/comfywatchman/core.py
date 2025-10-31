@@ -25,7 +25,8 @@ from .logging import get_logger
 from .scanner import WorkflowScanner
 from .search import ModelSearch, SearchResult
 from .state_manager import JsonStateManager
-from .utils import save_json_file
+from .utils import save_json_file, load_json_file
+from .dashboard import generate_dashboard
 
 
 @dataclass
@@ -158,11 +159,12 @@ class ComfyFixerCore:
                 self._complete_run("completed", "No models found in workflows")
                 return self.current_run
 
-            # Step 3: Find missing models
+            # Step 3: Find missing models and nodes
             missing_models = self._find_missing_models(all_models, local_inventory)
+            missing_nodes = self._find_missing_nodes(all_node_types)
 
-            if not missing_models:
-                self._complete_run("completed", "All models are available locally")
+            if not missing_models and not missing_nodes:
+                self._complete_run("completed", "All models and custom nodes are available locally")
                 return self.current_run
 
             # Step 4: Search for missing models
@@ -178,6 +180,9 @@ class ComfyFixerCore:
                 else:
                     # Default mode: automatic downloads
                     download_summary = self._download_models(search_results)
+
+            # Update master status report before completing
+            self._update_master_status_report(workflows, missing_models, missing_nodes)
 
             # Complete successfully
             self._complete_run("completed")
@@ -196,14 +201,17 @@ class ComfyFixerCore:
         self.current_run.workflows_scanned = len(workflows)
         return workflows
 
-    def _analyze_models(self, workflows: List[str]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        """Extract models from workflows and build inventory."""
-        self.logger.info("=== Analyzing Models ===")
+    def _analyze_models(self, workflows: List[str]) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, set]] :
+        """Extract models and node types from workflows and build inventory."""
+        self.logger.info("=== Analyzing Models and Nodes ===")
 
-        # Extract all models
+        # Extract all models and node types
         all_models = []
+        all_node_types = {}
         for workflow in workflows:
-            models = self.scanner.extract_models_from_workflow(workflow)
+            models, _, node_types = self.scanner.extract_models_from_workflow(workflow, return_node_types=True)
+            workflow_name = os.path.basename(workflow)
+            all_node_types[workflow_name] = node_types
             # Convert ModelReference objects to dicts for compatibility
             for model in models:
                 all_models.append(
@@ -211,7 +219,7 @@ class ComfyFixerCore:
                         "filename": model.filename,
                         "type": model.type,
                         "node_type": model.node_type,
-                        "workflow": os.path.basename(model.workflow_path),
+                        "workflow": workflow_name,
                     }
                 )
 
@@ -220,7 +228,7 @@ class ComfyFixerCore:
         # Build local inventory
         local_inventory = self.inventory.build_inventory()
 
-        return all_models, local_inventory
+        return all_models, local_inventory, all_node_types
 
     def _find_missing_models(
         self, all_models: List[Dict[str, Any]], local_inventory: Dict[str, Any]
@@ -262,6 +270,26 @@ class ComfyFixerCore:
             self.current_run.missing_file = str(missing_file)
 
         return missing
+
+    def _find_missing_nodes(self, all_node_types: Dict[str, set]) -> Dict[str, List[str]]:
+        """Find missing custom nodes for each workflow."""
+        self.logger.info("=== Finding Missing Custom Nodes ===")
+        custom_node_inventory = self.inventory.build_custom_node_inventory()
+        missing_nodes = {}
+
+        for workflow_name, node_types in all_node_types.items():
+            workflow_missing = []
+            for node_type in node_types:
+                if node_type not in self.inventory.BUILTIN_NODE_TYPES and node_type not in custom_node_inventory:
+                    workflow_missing.append(node_type)
+
+            if workflow_missing:
+                missing_nodes[workflow_name] = workflow_missing
+
+        if missing_nodes:
+            self.logger.info(f"Found missing custom nodes in {len(missing_nodes)} workflows.")
+
+        return missing_nodes
 
     def _search_missing_models(
         self, missing_models: List[Dict[str, Any]], search_backends: Optional[List[str]]
@@ -307,12 +335,24 @@ class ComfyFixerCore:
             self.logger.info("No models to download")
             return None
 
-        # Convert SearchResult objects to dicts
-        results_dict = [result.__dict__ for result in search_results]
+        # Separate certain and uncertain results
+        to_download = []
+        for result in search_results:
+            if result.status == "FOUND":
+                to_download.append(result.__dict__)
+            elif result.status == "UNCERTAIN":
+                self.logger.warning(f"Uncertain search result for '{result.filename}':")
+                candidates = result.metadata.get("candidates", [])
+                for i, candidate in enumerate(candidates, 1):
+                    self.logger.warning(f"  Candidate {i}: {candidate.get('name', 'Unknown')} at {candidate.get('url', 'No URL')}")
 
-        # Execute automatic downloads
+        if not to_download:
+            self.logger.info("No certain models to download.")
+            return None
+
+        # Execute automatic downloads for certain results
         download_summary = self.download_manager.download_models_automatically(
-            results_dict, run_id=self.current_run.run_id
+            to_download, run_id=self.current_run.run_id
         )
 
         # Update run statistics
@@ -365,6 +405,38 @@ class ComfyFixerCore:
 
         if status == "completed":
             self._log_completion_summary()
+
+    def _update_master_status_report(self, workflows: List[str], missing_models: List[Dict[str, Any]], missing_nodes: Dict[str, List[str]]):
+        """Update the master status report with the latest run info."""
+        report_path = config.output_dir / "master_status_report.json"
+        report = load_json_file(report_path) or {}
+
+        missing_models_by_workflow = {}
+        for model in missing_models:
+            workflow_name = model.get("workflow", "unknown")
+            if workflow_name not in missing_models_by_workflow:
+                missing_models_by_workflow[workflow_name] = []
+            missing_models_by_workflow[workflow_name].append(model['filename'])
+
+        for workflow_path in workflows:
+            workflow_name = os.path.basename(workflow_path)
+
+            status = "ready"
+            if workflow_name in missing_models_by_workflow:
+                status = "missing_models"
+            if workflow_name in missing_nodes:
+                status = "missing_nodes" if status == "ready" else "missing_models_and_nodes"
+
+            report[workflow_name] = {
+                "last_checked": datetime.now().isoformat(),
+                "status": status,
+                "missing_models": missing_models_by_workflow.get(workflow_name, []),
+                "missing_nodes": missing_nodes.get(workflow_name, [])
+            }
+
+        save_json_file(report_path, report)
+        self.logger.info(f"Master status report updated at {report_path}")
+        generate_dashboard()
 
     def _log_completion_summary(self):
         """Log completion summary."""

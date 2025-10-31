@@ -13,8 +13,8 @@ from pathlib import Path
 # Add the source directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from comfyfixersmart.utils import validate_and_sanitize_filename, sanitize_filename
-from comfyfixersmart.search import (
+from comfywatchman.utils import validate_and_sanitize_filename, sanitize_filename
+from comfywatchman.search import (
     SearchResult,
     CivitaiSearch,
     QwenSearch,

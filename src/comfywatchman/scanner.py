@@ -218,16 +218,17 @@ class WorkflowScanner:
             copilot_validation_report=validation_report,
         )
 
-    def extract_models_from_workflow(self, workflow_path: str, return_node_count: bool = False):
+    def extract_models_from_workflow(self, workflow_path: str, return_node_count: bool = False, return_node_types: bool = False):
         """
         Parse workflow and extract model references.
 
         Args:
             workflow_path: Path to the workflow JSON file
             return_node_count: If True, return tuple of (models, node_count)
+            return_node_types: If True, include a set of node types in the return value.
 
         Returns:
-            List of ModelReference objects, or tuple if return_node_count=True
+            List of ModelReference objects, or a tuple with additional info if requested.
         """
         try:
             with open(workflow_path, encoding="utf-8") as f:
@@ -235,10 +236,12 @@ class WorkflowScanner:
 
             models = []
             nodes = data.get("nodes", [])
+            node_types: Set[str] = set()
             seen_embeddings: Set[str] = set()
 
             for node in nodes:
                 node_type = node.get("type", "")
+                node_types.add(node_type)
                 node_id = node.get("id", "")
 
                 # Check widgets_values for model filenames
@@ -304,13 +307,17 @@ class WorkflowScanner:
                                 )
                             )
 
-            if return_node_count:
+            if return_node_types:
+                return models, len(nodes), node_types
+            elif return_node_count:
                 return models, len(nodes)
             return models
 
         except (json.JSONDecodeError, OSError) as e:
             self.logger.error(f"Error parsing workflow {workflow_path}: {e}")
-            if return_node_count:
+            if return_node_types:
+                return [], 0, set()
+            elif return_node_count:
                 return [], 0
             return []
 

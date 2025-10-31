@@ -1,6 +1,6 @@
 import os
-from comfyfixersmart.config import config
-from comfyfixersmart.search import ModelSearch
+from comfywatchman.config import config
+from comfywatchman.search import ModelSearch
 
 config.comfyui_root = "/home/coldaine/StableDiffusionWorkflow/ComfyUI-stable"
 config.search.backend_order = ["civitai"]

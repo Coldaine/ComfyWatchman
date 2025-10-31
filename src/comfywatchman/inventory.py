@@ -36,9 +36,16 @@ class ModelInfo:
     validation_errors: List[str]
 
 
+# A non-exhaustive list of built-in ComfyUI nodes. This helps differentiate custom nodes.
+BUILTIN_NODE_TYPES = [
+    "KSampler", "CheckpointLoader", "CheckpointLoaderSimple", "EmptyLatentImage",
+    "CLIPTextEncode", "VAEDecode", "VAEEncode", "SaveImage", "LoadImage",
+    # Add more common built-in nodes here as needed
+]
+
 class ModelInventory:
     """
-    Comprehensive model inventory management for ComfyUI models.
+    Comprehensive model and custom node inventory management for ComfyUI.
 
     Handles building inventories with validation, state tracking integration,
     and comparison operations.
@@ -47,6 +54,7 @@ class ModelInventory:
     def __init__(
         self,
         models_dir: Optional[str] = None,
+        custom_nodes_dir: Optional[str] = None,
         state_manager: Optional[StateManager] = None,
         logger=None,
     ):
@@ -66,6 +74,39 @@ class ModelInventory:
             raise ValueError("models_dir must be provided or configured in config")
         self.state_manager = state_manager
         self.logger = logger or get_logger("ModelInventory")
+
+        if custom_nodes_dir:
+            self.custom_nodes_dir = Path(custom_nodes_dir)
+        elif config.custom_nodes_dir:
+            self.custom_nodes_dir = config.custom_nodes_dir
+        else:
+            self.custom_nodes_dir = None
+
+    def build_custom_node_inventory(self, use_cache: bool = True) -> Set[str]:
+        """Build an inventory of installed custom nodes."""
+        cache_key = "custom_node_inventory"
+        if use_cache and self.state_manager:
+            cached_inventory = self.state_manager.get_state(cache_key)
+            if cached_inventory:
+                self.logger.info("Loaded custom node inventory from cache.")
+                return set(cached_inventory)
+
+        if not self.custom_nodes_dir or not self.custom_nodes_dir.exists():
+            self.logger.warning("Custom nodes directory not configured or does not exist.")
+            return set()
+
+        custom_nodes = set()
+        for item in self.custom_nodes_dir.iterdir():
+            if item.is_dir():
+                # This is a simple heuristic. A more robust implementation would
+                # inspect the contents of the directory for specific files.
+                custom_nodes.add(item.name)
+
+        if self.state_manager:
+            self.state_manager.set_state(cache_key, list(custom_nodes))
+
+        self.logger.info(f"Found {len(custom_nodes)} installed custom nodes.")
+        return custom_nodes
 
     def build_inventory(
         self, include_state_tracking: bool = True, min_file_size: int = 1_000_000

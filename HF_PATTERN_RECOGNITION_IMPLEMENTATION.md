@@ -8,7 +8,7 @@ I have successfully implemented smart pattern recognition for known HuggingFace 
 
 ### 1. Pattern Detection System
 
-**Location**: `src/comfyfixersmart/search.py` - QwenSearch class
+**Location**: `src/comfywatchman/search.py` - QwenSearch class
 
 **Key Features**:
 - **Comprehensive Pattern Lists**: Created extensive regex patterns and prefix lists for known HF model families

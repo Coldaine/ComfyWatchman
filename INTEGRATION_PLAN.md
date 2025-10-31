@@ -23,7 +23,7 @@ PR #5 added sophisticated Python-based download tools (`CivitaiDirectDownloader`
 
 ### Phase 1: Search Layer Integration
 
-**File: `src/comfyfixersmart/search.py`**
+**File: `src/comfywatchman/search.py`**
 
 **Changes to `CivitaiSearch.search()` method:**
 
@@ -58,7 +58,7 @@ def search(self, model_info: Dict[str, Any]) -> SearchResult:
 
 ### Phase 2: Download Layer Integration
 
-**File: `src/comfyfixersmart/download.py`**
+**File: `src/comfywatchman/download.py`**
 
 **Replace `DownloadManager` with automatic Python downloads:**
 
@@ -159,7 +159,7 @@ def generate_download_script(
 
 ### Phase 3: Core Workflow Updates
 
-**File: `src/comfyfixersmart/core.py`**
+**File: `src/comfywatchman/core.py`**
 
 **Replace `_generate_download_script()` with automatic downloads:**
 ```python
@@ -212,7 +212,7 @@ def run_workflow_analysis(...):
 
 ### Phase 4: Configuration Updates
 
-**File: `src/comfyfixersmart/config.py`**
+**File: `src/comfywatchman/config.py`**
 
 **Add simple download configuration:**
 ```python
@@ -241,7 +241,7 @@ class Config:
 
 ### Phase 5: HuggingFace Implementation
 
-**New File: `src/comfyfixersmart/civitai_tools/hf_downloader.py`**
+**New File: `src/comfywatchman/civitai_tools/hf_downloader.py`**
 
 ```python
 """
@@ -278,7 +278,7 @@ class HFDownloader:
         return filepath
 ```
 
-**Update `src/comfyfixersmart/search.py`:**
+**Update `src/comfywatchman/search.py`:**
 ```python
 class HuggingFaceSearch(SearchBackend):
     """HuggingFace Hub search backend."""

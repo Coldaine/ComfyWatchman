@@ -35,7 +35,7 @@ from PIL import Image
 
 # Add ComfyFixerSmart source to path for utilities
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
-from comfyfixersmart.utils import validate_civitai_response
+from comfywatchman.utils import validate_civitai_response
 
 # Configuration
 OUTPUT_DIR = "output/workflow_finder"

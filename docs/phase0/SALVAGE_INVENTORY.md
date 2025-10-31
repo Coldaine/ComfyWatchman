@@ -41,7 +41,7 @@ See `docs/phase0/README.md` for usage examples and function contracts.
 
 | Path | Reason |
 |------|--------|
-| `archives/original-codebase-2025-10-30/src/comfyfixersmart/*` | CLI-centric architecture incompatible with vision |
+| `archives/original-codebase-2025-10-30/src/comfywatchman/*` | CLI-centric architecture incompatible with vision |
 | `archives/original-codebase-2025-10-30/civitai_tools/*` | Monolithic design, utilities extracted to `salvage_utilities.py` |
 | `archives/original-codebase-2025-10-30/legacy/*` | Obsolete prototypes |
 | All old `docs/*` | Outdated documentation, replaced by phase-based structure |

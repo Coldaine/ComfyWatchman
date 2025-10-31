@@ -33,7 +33,7 @@ This section is for AI agents contributing to the `ComfyWatchman` source code.
 ### 2.1. Architecture Overview
 The codebase follows a clean, modular architecture with a clear separation of concerns.
 
-*   `src/comfyfixersmart/`:
+*   `src/comfywatchman/`:
     *   `cli.py`: Main CLI entry point (`comfywatchman` command).
     *   `core.py`: The `ComfyFixerCore` orchestrator class.
     *   `scanner.py`: Handles workflow parsing and model extraction.

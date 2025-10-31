@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from comfyfixersmart.search import QwenSearch
+from comfywatchman.search import QwenSearch
 
 def test_pattern_recognition():
     """Test the pattern recognition functionality."""

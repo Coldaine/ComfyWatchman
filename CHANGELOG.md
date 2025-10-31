@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Memory-safe inspection without loading full tensors
   - Comprehensive CLI with `--format`, `--hash`, `--recursive`, `--unsafe` options
 - `comfywatchman inspect` subcommand for integrated inspection workflow
-- `comfyfixersmart.inspector` library module with safe inspection APIs
+- `comfywatchman.inspector` library module with safe inspection APIs
   - `inspect_file()` - Single file inspection
   - `inspect_paths()` - Batch directory inspection
   - `InspectionResult` dataclass with metadata, tensor info, and hashes
@@ -318,4 +318,4 @@ We use [Semantic Versioning](https://semver.org/):
 
 ---
 
-For the most up-to-date information, check the [GitHub Releases](https://github.com/yourusername/comfyfixersmart/releases) page.
+For the most up-to-date information, check the [GitHub Releases](https://github.com/yourusername/comfywatchman/releases) page.

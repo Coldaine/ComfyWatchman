@@ -5,4 +5,4 @@
 - introduce optional background scheduler with VRAM guard and CLI switches
 
 ## Verification
-- python -m compileall src/comfyfixersmart/search.py src/comfyfixersmart/config.py src/comfyfixersmart/scheduler.py scripts/add_known_model.py scripts/run_qwen_search.py scripts/find_embeddings.py
+- python -m compileall src/comfywatchman/search.py src/comfywatchman/config.py src/comfywatchman/scheduler.py scripts/add_known_model.py scripts/run_qwen_search.py scripts/find_embeddings.py

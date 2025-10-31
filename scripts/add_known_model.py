@@ -12,7 +12,7 @@ import argparse
 import sys
 from typing import Optional
 
-from comfyfixersmart.civitai_tools.direct_id_backend import DirectIDBackend
+from comfywatchman.civitai_tools.direct_id_backend import DirectIDBackend
 
 
 def positive_int(value: str) -> int:
