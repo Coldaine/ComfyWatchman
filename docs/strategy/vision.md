@@ -275,6 +275,7 @@ These constraints are non‑negotiable absent owner amendment:
 5. Redaction mandatory for flagged briefs before storage or embedding.
 
 ### Deferred Capability Boundaries
+
 | Category | Explicitly In Scope (Deferred) | Explicitly Out of Scope (Unless Re‑approved) |
 |----------|--------------------------------|----------------------------------------------|
 | Data Generation | Local test images for benchmarking | Large dataset scraping or unapproved external uploads |
@@ -315,4 +316,3 @@ These constraints are non‑negotiable absent owner amendment:
 - Observability: Central timeline view listing plan → steps → artifacts with drill‑down logs.
 
 > REMINDER: This entire layer is aspirational and **must not** influence scoping, acceptance, or delivery criteria for Phases 1‑3 unless explicitly re‑authorized.
-
