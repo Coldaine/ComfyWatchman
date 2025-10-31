@@ -1669,7 +1669,7 @@ class QwenSearch(SearchBackend):
         if extra_args:
             command.extend(extra_args)
 
-        self.logger.info("Executing Qwen search via: %s", " ".join(command))
+        self.logger.info(f"Executing Qwen search via: {' '.join(command)}")
 
         try:
             completed = subprocess.run(
@@ -1677,7 +1677,6 @@ class QwenSearch(SearchBackend):
                 check=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE,
                 timeout=config.search.qwen_timeout,
                 text=True,
                 input=prompt,

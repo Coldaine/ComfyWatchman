@@ -81,7 +81,7 @@ class Scheduler:
             return
 
         try:
-            self.logger.info("Starting scheduled run at %s", datetime.now().isoformat())
+            self.logger.info(f"Starting scheduled run at {datetime.now().isoformat()}")
             result = self.core.run_workflow_analysis(
                 specific_workflows=specific_workflows,
                 workflow_dirs=workflow_dirs,
@@ -100,7 +100,7 @@ class Scheduler:
 
     def _wait_for_next_cycle(self) -> None:
         next_run = datetime.now() + self.interval
-        self.logger.info("Next run scheduled for %s", next_run.isoformat())
+        self.logger.info(f"Next run scheduled for {next_run.isoformat()}")
         self._stop_event.wait(self.interval.total_seconds())
 
     def _should_run(self) -> bool:
