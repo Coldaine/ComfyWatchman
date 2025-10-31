@@ -32,7 +32,7 @@ This document outlines an architecture that respects the Phase 1 and Phase 2 req
 - Resolver & Verifier
   - **Agentic Search**: Qwen-orchestrated multi-phase search (PRIMARY - see [Search Architecture](SEARCH_ARCHITECTURE.md))
   - **Phase 1**: Civitai API with intelligent keyword extraction and exact filename validation
-  - **Phase 2**: Web search (Tavily) + HuggingFace repository discovery
+  - **Phase 2**: Web search (agent tools) + HuggingFace repository discovery
   - **Doubt Handling**: UNCERTAIN status with candidate list when confidence is low
   - Backends: Pluggable SearchBackend API (Civitai direct, ModelScope experimental)
   - Integrity checks (size, hash if available), resumable downloads
@@ -102,7 +102,7 @@ This document outlines an architecture that respects the Phase 1 and Phase 2 req
 6. Knowledge Pack Refresh: Rebuild document bundle from curated sources if changed.
 7. Resolve: For each `Missing`, use agentic search (Qwen) to orchestrate multi-phase discovery:
    - Phase 1: Civitai API with exact filename validation (max 5-8 attempts)
-   - Phase 2: Tavily web search + HuggingFace repository discovery
+  - Phase 2: Web search + HuggingFace repository discovery
    - Phase 3: Return FOUND, UNCERTAIN (with candidates), or NOT_FOUND
 8. Download: Materialize models with integrity checks; update progress.
 9. Graph: Serialize workflow DAGs for contextual analysis.

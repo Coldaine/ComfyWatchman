@@ -27,6 +27,18 @@ from .logging import get_logger
 from .state_manager import StateManager
 from .utils import get_file_size, sanitize_filename
 
+# Import batch downloader for direct Python downloads
+try:
+    from .civitai_tools.batch_downloader import (
+        CivitaiBatchDownloader,
+        BatchJob,
+        BatchStatus,
+    )
+
+    BATCH_DOWNLOADER_AVAILABLE = True
+except ImportError:
+    BATCH_DOWNLOADER_AVAILABLE = False
+
 
 @dataclass
 class DownloadTask:
@@ -283,7 +295,9 @@ class DownloadManager:
             raise ValueError(
                 "ComfyUI root is not configured. Set COMFYUI_ROOT env var or comfyui_root in config."
             )
-        return str(models_dir / model_type / filename)
+        target_dir = models_dir / model_type
+        target_dir.mkdir(parents=True, exist_ok=True)
+        return str(target_dir / filename)
 
     def generate_download_script(
         self, search_results: List[Dict[str, Any]], run_id: Optional[str] = None
@@ -446,6 +460,247 @@ class DownloadManager:
             return {"error": "No state manager configured"}
 
         return self.state_manager.get_stats()
+
+    def download_models_direct(
+        self, search_results: List[Dict[str, Any]], run_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Download models directly using Python (CivitaiBatchDownloader).
+
+        This method bypasses script generation and downloads models directly
+        with hash verification, proper retry logic, and state tracking.
+
+        Args:
+            search_results: List of search result dictionaries
+            run_id: Run identifier for logging
+
+        Returns:
+            Summary dict with success/failure counts
+        """
+        if not BATCH_DOWNLOADER_AVAILABLE:
+            self.logger.error("CivitaiBatchDownloader not available - cannot perform direct downloads")
+            return {
+                "error": "Batch downloader not available",
+                "successful": 0,
+                "failed": 0,
+                "total": 0,
+            }
+
+        # Convert search results to BatchJob objects
+        jobs = []
+        for result in search_results:
+            # Only process FOUND results with civitai_id
+            if result.get("status") != "FOUND" or not result.get("civitai_id"):
+                continue
+
+            job = BatchJob(
+                model_id=result["civitai_id"],
+                model_name=result.get("filename", f"model_{result['civitai_id']}"),
+                version_id=result.get("version_id"),
+                max_retries=3,
+            )
+            jobs.append(job)
+
+        if not jobs:
+            self.logger.warning("No valid Civitai models to download")
+            return {"successful": 0, "failed": 0, "total": 0, "jobs": []}
+
+        self.logger.info(f"Preparing to download {len(jobs)} models via Python")
+
+        # Determine download directory
+        # Use config.models_dir if available, otherwise use output_dir
+        download_dir = config.models_dir if config.models_dir else self.output_dir
+
+        # Execute batch download
+        downloader = CivitaiBatchDownloader(download_dir=str(download_dir), max_retries=3)
+
+        summary = downloader.download_batch(jobs)
+
+        # Update state manager with download results
+        if self.state_manager:
+            for job in summary.jobs:
+                status = "success" if job.status == BatchStatus.COMPLETED else "failed"
+                file_path = job.result.file_path if job.result and job.result.file_path else None
+
+                self.state_manager.update_download_status(
+                    job.model_name, status, file_path=file_path
+                )
+
+        # Convert to dict and return
+        result_dict = summary.to_dict()
+        self.logger.info(
+            f"Direct download complete: {result_dict['successful']} successful, "
+            f"{result_dict['failed']} failed"
+        )
+
+        return result_dict
+
+    def download_models_automatically(
+        self, search_results: List[Dict[str, Any]], run_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        AUTOMATICALLY download models using Python (CivitaiBatchDownloader).
+
+        This replaces the old script generation workflow. Downloads happen
+        immediately, with real-time progress, hash verification, and state updates.
+
+        Models are downloaded to the correct subdirectories automatically:
+        - ComfyUI/models/checkpoints/ for checkpoints
+        - ComfyUI/models/loras/ for LoRAs
+        - ComfyUI/models/vae/ for VAEs
+        - Uses result.type field to determine folder
+
+        Args:
+            search_results: Search results with download info
+            run_id: Run identifier for logging
+
+        Returns:
+            Summary dict with success/failure counts and file paths
+        """
+        if not BATCH_DOWNLOADER_AVAILABLE:
+            self.logger.error(
+                "CivitaiBatchDownloader not available - cannot perform automatic downloads"
+            )
+            return {
+                "error": "Batch downloader not available",
+                "successful": 0,
+                "failed": 0,
+                "total": 0,
+            }
+
+        self.logger.info("=== Starting Automatic Downloads ===")
+
+        # Convert search results to BatchJob objects, grouped by target directory
+        downloads_by_dir = {}  # {target_dir: [BatchJob, ...]}
+
+        for result in search_results:
+            # Only process FOUND results with civitai_id
+            if result.get("status") != "FOUND" or not result.get("civitai_id"):
+                continue
+
+            # Determine target directory based on model type
+            model_type = result.get("type", "checkpoints")
+            if not model_type:
+                model_type = "checkpoints"
+
+            target_dir = config.models_dir / model_type if config.models_dir else None
+
+            if not target_dir:
+                self.logger.error("ComfyUI models directory not configured, cannot download")
+                continue
+
+            # Ensure directory exists
+            target_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create BatchJob
+            job = BatchJob(
+                model_id=result["civitai_id"],
+                model_name=result.get("filename", f"model_{result['civitai_id']}"),
+                version_id=result.get("version_id"),
+                max_retries=3,
+            )
+
+            # Group by target directory
+            target_dir_str = str(target_dir)
+            if target_dir_str not in downloads_by_dir:
+                downloads_by_dir[target_dir_str] = []
+            downloads_by_dir[target_dir_str].append(job)
+
+        if not downloads_by_dir:
+            self.logger.warning("No models to download")
+            return {"successful": 0, "failed": 0, "skipped": 0, "total": 0}
+
+        # Execute downloads for each target directory
+        all_summaries = []
+        total_successful = 0
+        total_failed = 0
+        total_skipped = 0
+
+        for target_dir_str, jobs in downloads_by_dir.items():
+            self.logger.info(f"Downloading {len(jobs)} models to {target_dir_str}...")
+
+            # Execute batch download with progress
+            downloader = CivitaiBatchDownloader(
+                download_dir=target_dir_str, max_retries=3, delay_between_downloads=1.0
+            )
+
+            summary = downloader.download_batch(jobs, continue_on_failure=True)
+
+            # Update state manager for each download
+            if self.state_manager:
+                for job in summary.jobs:
+                    if job.result:
+                        status = "success" if job.status == BatchStatus.COMPLETED else "failed"
+                        file_path = job.result.file_path if job.result.file_path else None
+                        self.state_manager.update_download_status(
+                            job.model_name, status, file_path=file_path
+                        )
+
+            # Accumulate results
+            total_successful += summary.successful
+            total_failed += summary.failed
+            total_skipped += summary.skipped
+            all_summaries.append(summary)
+
+        # Log final summary
+        self.logger.info("=== Download Summary ===")
+        self.logger.info(f"✓ Successful: {total_successful}")
+        self.logger.info(f"✗ Failed: {total_failed}")
+        self.logger.info(f"⏭ Skipped: {total_skipped}")
+
+        return {
+            "successful": total_successful,
+            "failed": total_failed,
+            "skipped": total_skipped,
+            "total": total_successful + total_failed + total_skipped,
+            "summaries": [s.to_dict() for s in all_summaries],
+        }
+
+    def process_downloads(
+        self, search_results: List[Dict[str, Any]], run_id: Optional[str] = None, mode: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Process downloads based on configured mode.
+
+        This is the main entry point for download orchestration. It routes
+        to either direct Python downloads or script generation based on mode.
+
+        Args:
+            search_results: Search results with download info
+            run_id: Run identifier
+            mode: Override mode (python|script|both), defaults to config or "python"
+
+        Returns:
+            Summary dict with paths/results
+
+        Example:
+            results = manager.process_downloads(search_results, run_id="abc123", mode="python")
+            # Returns: {"direct_downloads": {...}} for python mode
+            # Returns: {"script_path": "..."} for script mode
+            # Returns: both keys for "both" mode
+        """
+        # Determine mode from parameter, config, or default to "python"
+        if mode is None:
+            # Check if config has download mode (future enhancement)
+            mode = getattr(config, "download_mode", "python")
+
+        self.logger.info(f"Processing downloads in mode: {mode}")
+
+        results = {}
+
+        # Execute direct Python downloads
+        if mode in ["python", "both"]:
+            self.logger.info("Executing direct Python downloads...")
+            results["direct_downloads"] = self.download_models_direct(search_results, run_id)
+
+        # Generate download script
+        if mode in ["script", "both"]:
+            self.logger.info("Generating download script...")
+            script_path = self.generate_download_script(search_results, run_id)
+            if script_path:
+                results["script_path"] = script_path
+
+        return results
 
 
 # Convenience functions for backward compatibility

@@ -73,6 +73,7 @@ full = [
     "modelscope>=1.28.0",
     "safetensors>=0.4.2",
     "onnx>=1.14.0",
+    "huggingface_hub>=0.16.0",
 ]
 inspector = [
     "safetensors>=0.4.2",

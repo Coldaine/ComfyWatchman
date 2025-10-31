@@ -35,7 +35,9 @@ def validate_api_key(api_key: str) -> bool:
     return bool(re.match(r"^[a-fA-F0-9]{32}$", api_key))
 
 
-def determine_model_type(node_type: str, custom_mapping: Optional[Dict[str, str]] = None) -> str:
+def determine_model_type(
+    node_type: str, custom_mapping: Optional[Dict[str, str]] = None
+) -> str:
     """
     Map ComfyUI node type to model directory name.
 
@@ -70,6 +72,11 @@ def determine_model_type(node_type: str, custom_mapping: Optional[Dict[str, str]
         "InstantIDModelLoader": "instantid",
         "PulseT5Loader": "pulset5",
         "AestheticScoreLoader": "aesthetic_score",
+        "TextualInversionLoader": "embeddings",
+        "TextualInversionApply": "embeddings",
+        "EmbeddingLoader": "embeddings",
+        "EmbeddingSelector": "embeddings",
+        "TextEmbeddingLoader": "embeddings",
     }
 
     # Use custom mapping if provided, otherwise use defaults
@@ -108,7 +115,9 @@ def validate_model_filename(filename: str) -> bool:
     return True
 
 
-def get_file_checksum(file_path: Union[str, Path], algorithm: str = "sha256") -> Optional[str]:
+def get_file_checksum(
+    file_path: Union[str, Path], algorithm: str = "sha256"
+) -> Optional[str]:
     """
     Calculate checksum of a file.
 
@@ -151,7 +160,9 @@ def validate_url(url: str) -> bool:
 
 
 def validate_civitai_response(
-    response_data: Dict[str, Any], requested_id: Optional[int] = None, endpoint_type: str = "model"
+    response_data: Dict[str, Any],
+    requested_id: Optional[int] = None,
+    endpoint_type: str = "model",
 ) -> Dict[str, Any]:
     """
     Validate Civitai API response and check for ID mismatches.
@@ -177,7 +188,12 @@ def validate_civitai_response(
     Raises:
         ValueError: If validation fails critically
     """
-    result = {"valid": True, "error_message": None, "warning_message": None, "data": response_data}
+    result = {
+        "valid": True,
+        "error_message": None,
+        "warning_message": None,
+        "data": response_data,
+    }
 
     # Check for empty response
     if not response_data:
@@ -193,7 +209,9 @@ def validate_civitai_response(
 
         if not items:
             result["valid"] = False
-            result["error_message"] = f"Image {requested_id} not found (empty items array)"
+            result["error_message"] = (
+                f"Image {requested_id} not found (empty items array)"
+            )
             result["data"] = None
             return result
 
@@ -260,12 +278,16 @@ def fetch_civitai_image(image_id: int, api_key: Optional[str] = None) -> Dict[st
     response = requests.get(url, params=params, headers=headers, timeout=30)
 
     if response.status_code != 200:
-        raise ValueError(f"Civitai API error: HTTP {response.status_code} for image {image_id}")
+        raise ValueError(
+            f"Civitai API error: HTTP {response.status_code} for image {image_id}"
+        )
 
     data = response.json()
 
     # Validate response
-    validation = validate_civitai_response(data, requested_id=image_id, endpoint_type="images")
+    validation = validate_civitai_response(
+        data, requested_id=image_id, endpoint_type="images"
+    )
 
     if not validation["valid"]:
         raise ValueError(validation["error_message"])
@@ -306,7 +328,9 @@ def safe_path_join(base_path: Union[str, Path], *paths: Union[str, Path]) -> Pat
     return result
 
 
-def ensure_directory(path: Union[str, Path], parents: bool = True, exist_ok: bool = True) -> Path:
+def ensure_directory(
+    path: Union[str, Path], parents: bool = True, exist_ok: bool = True
+) -> Path:
     """
     Ensure a directory exists, creating it if necessary.
 
@@ -453,7 +477,9 @@ def build_local_inventory(
     return inventory
 
 
-def extract_models_from_workflow(workflow_path: Union[str, Path]) -> List[Dict[str, Any]]:
+def extract_models_from_workflow(
+    workflow_path: Union[str, Path],
+) -> List[Dict[str, Any]]:
     """
     Extract model references from a ComfyUI workflow JSON file.
 
@@ -533,9 +559,143 @@ def format_file_size(size_bytes: int) -> str:
         return ".1f"
 
 
+def validate_and_sanitize_filename(filename) -> tuple[bool, str, Optional[str]]:
+    """
+    Enhanced filename validation with pattern detection for malformed filenames.
+
+    Detects problematic patterns including URLs, newlines, path traversal attempts,
+    and other security concerns. Returns early validation result to skip expensive API calls.
+
+    Args:
+        filename: Original filename to validate
+
+    Returns:
+        Tuple of (is_valid, sanitized_filename, error_reason)
+        - is_valid: True if filename passes validation
+        - sanitized_filename: Safe version of filename if valid
+        - error_reason: Description of validation failure if invalid
+    """
+    # Handle non-string inputs early
+    if not isinstance(filename, str):
+        return False, "", "Empty or non-string filename"
+
+    if not filename:
+        return False, "", "Empty or non-string filename"
+
+    # Check for excessive length (potential DoS attempt)
+    if len(filename) > 500:
+        return False, "", f"Filename too long ({len(filename)} characters, max 500)"
+
+    # Pattern 1: URL Detection (check first before path traversal)
+    url_patterns = [
+        r"https?://",  # http:// or https://
+        r"ftp://",  # ftp://
+        r"file://",  # file://
+    ]
+
+    for pattern in url_patterns:
+        if re.search(pattern, filename, re.IGNORECASE):
+            return False, "", "URL pattern detected"
+
+    # Pattern 2: Newline characters
+    if any(char in filename for char in ["\n", "\r", "\r\n"]):
+        return False, "", "Newline characters detected in filename"
+
+    # Pattern 3: Path traversal attempts
+    traversal_patterns = [r"\.\./", r"\.\.\\"]
+    for pattern in traversal_patterns:
+        if re.search(pattern, filename):
+            return False, "", "Path traversal pattern detected"
+
+    # Pattern 4: Control characters (ASCII 0-31, excluding TAB=9, LF=10, CR=13)
+    control_chars = set(chr(i) for i in range(32) if i not in [9, 10, 13])
+    control_chars.add("\x7f")  # DEL character
+    if any(char in filename for char in control_chars):
+        return False, "", "Control characters detected in filename"
+
+    # Pattern 5: Suspicious file extensions (before sanitization)
+    # Check for multiple dots in suspicious combinations
+    if filename.count(".") > 1:
+        # Check if it's a double extension pattern
+        parts = filename.split(".")
+        if len(parts) > 2:
+            # If more than 2 parts, check if any middle part looks like an extension
+            for i in range(1, len(parts) - 1):
+                part = parts[i].lower()
+                if part in [
+                    "exe",
+                    "bat",
+                    "cmd",
+                    "com",
+                    "scr",
+                    "pif",
+                    "vbs",
+                    "js",
+                    "jar",
+                    "php",
+                    "asp",
+                    "jsp",
+                    "sh",
+                    "ps1",
+                    "dll",
+                ]:
+                    return (
+                        False,
+                        "",
+                        f"Suspicious file extension pattern detected: .{part}",
+                    )
+
+    # Check for double dots anywhere in the filename
+    if ".." in filename:
+        return False, "", "Suspicious file extension pattern detected"
+
+    # Pattern 6: Excessive special characters (check after other patterns)
+    special_char_count = sum(
+        1 for char in filename if not char.isalnum() and char not in "._-"
+    )
+    if special_char_count > len(filename) * 0.5:  # More than 50% special chars
+        return (
+            False,
+            "",
+            f"Excessive special characters ({special_char_count}/{len(filename)})",
+        )
+
+    # Pattern 7: Null bytes and other dangerous characters
+    if "\x00" in filename:
+        return False, "", "Null bytes detected in filename"
+
+    # Pattern 8: Potential command injection patterns
+    command_patterns = ["$(", "`", ";", "|", "&", "!", "&&", "||"]
+    if any(pattern in filename for pattern in command_patterns):
+        return False, "", f"Potential command injection pattern detected"
+
+    # Pattern 9: HTML/script injection patterns
+    html_patterns = [r"<script", r"</script>", r"javascript:", r"on\w+\s*=", r"<\w+>"]
+    for pattern in html_patterns:
+        if re.search(pattern, filename, re.IGNORECASE):
+            return False, "", f"HTML/script injection pattern detected: {pattern}"
+
+    # Sanitize valid filename
+    sanitized = filename
+
+    # Replace invalid filesystem characters
+    invalid_chars = '<>:"/\\|?*'
+    for char in invalid_chars:
+        sanitized = sanitized.replace(char, "_")
+
+    # Remove leading/trailing whitespace and dots
+    sanitized = sanitized.strip(" .")
+
+    # Ensure it's not empty after sanitization
+    if not sanitized:
+        sanitized = "unnamed_file"
+
+    return True, sanitized, None
+
+
 def sanitize_filename(filename: str) -> str:
     """
-    Sanitize a filename by removing or replacing invalid characters.
+    Legacy compatibility function for filename sanitization.
 
     Args:
         filename: Original filename
@@ -543,24 +703,18 @@ def sanitize_filename(filename: str) -> str:
     Returns:
         Sanitized filename
     """
-    # Replace invalid characters with underscores
-    invalid_chars = '<>:"/\\|?*'
-    sanitized = filename
+    # Handle non-string inputs gracefully
+    if not isinstance(filename, str):
+        return "unnamed_file"
 
-    for char in invalid_chars:
-        sanitized = sanitized.replace(char, "_")
-
-    # Remove leading/trailing whitespace and dots
-    sanitized = sanitized.strip(" .")
-
-    # Ensure it's not empty
-    if not sanitized:
-        sanitized = "unnamed_file"
-
+    # Use the enhanced validation but always return the sanitized result
+    is_valid, sanitized, _ = validate_and_sanitize_filename(filename)
     return sanitized
 
 
-def get_relative_path(file_path: Union[str, Path], base_path: Union[str, Path]) -> Optional[str]:
+def get_relative_path(
+    file_path: Union[str, Path], base_path: Union[str, Path]
+) -> Optional[str]:
     """
     Get relative path from base directory.
 

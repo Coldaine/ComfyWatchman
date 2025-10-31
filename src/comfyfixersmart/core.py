@@ -116,7 +116,7 @@ class ComfyFixerCore:
         specific_workflows: Optional[List[str]] = None,
         workflow_dirs: Optional[List[str]] = None,
         search_backends: Optional[List[str]] = None,
-        generate_script: bool = True,
+        generate_script: bool = False,
         verify_urls: bool = False,
     ) -> WorkflowRun:
         """
@@ -126,7 +126,7 @@ class ComfyFixerCore:
             specific_workflows: List of specific workflow files to analyze
             workflow_dirs: List of directories to scan for workflows
             search_backends: List of search backends to use
-            generate_script: Whether to generate download script
+            generate_script: Whether to generate download script (deprecated, use False for automatic downloads)
             verify_urls: Whether to enable URL verification
 
         Returns:
@@ -168,11 +168,16 @@ class ComfyFixerCore:
             # Step 4: Search for missing models
             search_results = self._search_missing_models(missing_models, search_backends)
 
-            # Step 5: Generate download script (optional)
-            if generate_script and search_results:
-                script_path = self._generate_download_script(search_results)
-                if script_path:
-                    self.current_run.download_script = script_path
+            # Step 5: AUTOMATICALLY DOWNLOAD (no more scripts by default!)
+            if search_results:
+                if generate_script:
+                    # Legacy mode: generate script only (deprecated)
+                    script_path = self._generate_download_script(search_results)
+                    if script_path:
+                        self.current_run.download_script = script_path
+                else:
+                    # Default mode: automatic downloads
+                    download_summary = self._download_models(search_results)
 
             # Complete successfully
             self._complete_run("completed")
@@ -265,7 +270,8 @@ class ComfyFixerCore:
         self.logger.info("=== Searching for Missing Models ===")
 
         if search_backends is None:
-            search_backends = ["civitai"]  # Default to Civitai
+            backend_order = config.search.backend_order
+            search_backends = list(backend_order) if backend_order else ["civitai"]
 
         search_results = self.search.search_multiple_models(
             missing_models, backends=search_backends, use_cache=True
@@ -285,8 +291,52 @@ class ComfyFixerCore:
 
         return search_results
 
+    def _download_models(self, search_results: List[SearchResult]) -> Optional[Dict[str, Any]]:
+        """
+        AUTOMATICALLY download and organize models.
+
+        Models are downloaded to the correct ComfyUI subdirectories based on type:
+        - checkpoints/ for checkpoint models
+        - loras/ for LoRA models
+        - vae/ for VAE models
+        - etc.
+        """
+        self.logger.info("=== Downloading Models ===")
+
+        if not search_results:
+            self.logger.info("No models to download")
+            return None
+
+        # Convert SearchResult objects to dicts
+        results_dict = [result.__dict__ for result in search_results]
+
+        # Execute automatic downloads
+        download_summary = self.download_manager.download_models_automatically(
+            results_dict, run_id=self.current_run.run_id
+        )
+
+        # Update run statistics
+        self.current_run.downloads_generated = download_summary.get("successful", 0)
+
+        # Log results
+        self.logger.info(
+            f"✓ Successfully downloaded: {download_summary.get('successful', 0)} models"
+        )
+        if download_summary.get("failed", 0) > 0:
+            self.logger.warning(
+                f"✗ Failed downloads: {download_summary.get('failed', 0)} models"
+            )
+
+        return download_summary
+
     def _generate_download_script(self, search_results: List[SearchResult]) -> Optional[str]:
-        """Generate download script from search results."""
+        """
+        DEPRECATED: Generate download script from search results.
+
+        This method is kept for backward compatibility only.
+        Normal workflow uses _download_models() instead.
+        """
+        self.logger.warning("Script generation is deprecated, use automatic downloads instead")
         self.logger.info("=== Generating Download Script ===")
 
         # Convert SearchResult objects to dicts
@@ -326,6 +376,9 @@ class ComfyFixerCore:
         self.logger.info(f"Models found: {run.models_found}")
         self.logger.info(f"Models missing: {run.models_missing}")
         self.logger.info(f"Models resolved: {run.models_resolved}")
+
+        if run.downloads_generated > 0:
+            self.logger.info(f"Models downloaded: {run.downloads_generated}")
 
         if run.download_script:
             self.logger.info(f"Download script: {run.download_script}")
@@ -495,7 +548,7 @@ def run_comfy_fixer(
     specific_workflows=None,
     workflow_dirs=None,
     search_backends=None,
-    generate_script=True,
+    generate_script=False,
     verify_urls=False,
     logger=None,
 ):
@@ -506,7 +559,7 @@ def run_comfy_fixer(
         specific_workflows: List of specific workflow files
         workflow_dirs: List of workflow directories
         search_backends: List of search backends to use
-        generate_script: Whether to generate download script
+        generate_script: Whether to generate download script (default False = automatic downloads)
         verify_urls: Whether to verify URLs
         logger: Optional logger instance
 

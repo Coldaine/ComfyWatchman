@@ -21,7 +21,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 # Import for integration
 from .adapters.copilot_validator import CopilotValidator
@@ -54,6 +54,29 @@ class ModelReference:
     workflow_path: str
     node_id: Optional[str] = None
     widget_name: Optional[str] = None
+
+
+EMBEDDING_TOKEN_PATTERN = re.compile(r"embedding:([A-Za-z0-9_\-\.]+)", re.IGNORECASE)
+
+
+def _sanitize_embedding_name(name: str) -> str:
+    cleaned = name.strip()
+    return cleaned.replace(" ", "_")
+
+
+def _extract_embedding_tokens(value: Any) -> List[str]:
+    tokens: List[str] = []
+
+    if isinstance(value, str):
+        tokens.extend(EMBEDDING_TOKEN_PATTERN.findall(value))
+    elif isinstance(value, list):
+        for item in value:
+            tokens.extend(_extract_embedding_tokens(item))
+    elif isinstance(value, dict):
+        for item in value.values():
+            tokens.extend(_extract_embedding_tokens(item))
+
+    return tokens
 
 
 class WorkflowScanner:
@@ -212,6 +235,7 @@ class WorkflowScanner:
 
             models = []
             nodes = data.get("nodes", [])
+            seen_embeddings: Set[str] = set()
 
             for node in nodes:
                 node_type = node.get("type", "")
@@ -239,6 +263,46 @@ class WorkflowScanner:
                             widget_name=f"widgets_values[{i}]",
                         )
                         models.append(model_ref)
+
+                    for embedding_name in _extract_embedding_tokens(value):
+                        normalized_name = _sanitize_embedding_name(embedding_name)
+                        key = normalized_name.lower()
+                        if key in seen_embeddings:
+                            continue
+                        seen_embeddings.add(key)
+                        embed_filename = f"{normalized_name}.pt"
+                        models.append(
+                            ModelReference(
+                                filename=embed_filename,
+                                type="embeddings",
+                                node_type=node_type,
+                                workflow_path=workflow_path,
+                                node_id=node_id,
+                                widget_name=f"widgets_values[{i}]",
+                            )
+                        )
+
+                # Inspect node inputs for embedding references
+                inputs = node.get("inputs", {})
+                if isinstance(inputs, dict):
+                    for input_key, input_value in inputs.items():
+                        for embedding_name in _extract_embedding_tokens(input_value):
+                            normalized_name = _sanitize_embedding_name(embedding_name)
+                            key = normalized_name.lower()
+                            if key in seen_embeddings:
+                                continue
+                            seen_embeddings.add(key)
+                            embed_filename = f"{normalized_name}.pt"
+                            models.append(
+                                ModelReference(
+                                    filename=embed_filename,
+                                    type="embeddings",
+                                    node_type=node_type,
+                                    workflow_path=workflow_path,
+                                    node_id=node_id,
+                                    widget_name=f"inputs[{input_key}]",
+                                )
+                            )
 
             if return_node_count:
                 return models, len(nodes)

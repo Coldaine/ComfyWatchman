@@ -155,9 +155,9 @@ GET https://civitai.com/api/v1/models/{model_id}
 
 When Civitai returns no exact matches, the agent pivots to web search:
 
-### 1. Tavily Web Search
+### 1. Web Search
 
-The agent uses **Tavily API** (via Qwen's `web_search` tool) with smart patterns:
+The agent uses a generic `web_search` tool with smart patterns:
 
 ```python
 patterns = {
@@ -290,7 +290,7 @@ class QwenSearch(SearchBackend):
 
 **Qwen's Available Tools:**
 - `bash` - Execute shell commands (API calls, CLI tools)
-- `web_search` - Tavily web search API
+- `web_search` - Web search tool
 - `web_fetch` - Fetch and parse web pages
 - `file_write` - Write output JSON
 
@@ -328,7 +328,6 @@ cache_ttl_hours = 24
 ```bash
 # Required for Qwen agentic search
 export CIVITAI_API_KEY="your-api-key"
-export TAVILY_API_KEY="your-tavily-key"  # For web search
 export HF_TOKEN="your-hf-token"  # Optional, for private models
 
 # Required for ModelScope (experimental)
@@ -592,7 +591,6 @@ except json.JSONDecodeError:
    ```bash
    # Check keys
    echo $CIVITAI_API_KEY
-   echo $TAVILY_API_KEY
    ```
 
 2. **Backend Selection**: Choose based on use case

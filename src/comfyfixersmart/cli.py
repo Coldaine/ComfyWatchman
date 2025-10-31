@@ -63,6 +63,32 @@ Examples:
         help="Use v2 compatibility mode (batch processing, default)",
     )
 
+    parser.add_argument(
+        "--scheduler",
+        action="store_true",
+        help="Run continuous background analysis at the configured interval",
+    )
+
+    parser.add_argument(
+        "--scheduler-interval",
+        type=int,
+        default=120,
+        help="Scheduler interval in minutes (default: 120)",
+    )
+
+    parser.add_argument(
+        "--scheduler-min-vram",
+        type=float,
+        default=8.0,
+        help="Minimum GPU VRAM (GB) required to run the scheduler cycle (default: 8)",
+    )
+
+    parser.add_argument(
+        "--scheduler-disable-vram-guard",
+        action="store_true",
+        help="Disable GPU VRAM guard when running scheduler",
+    )
+
     # Output options
     parser.add_argument(
         "--output-dir",
@@ -295,6 +321,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
 
         workflow_dirs = args.workflow_dirs or [str(d) for d in config.workflow_dirs]
+        scheduler_workflow_dirs = workflow_dirs if workflow_dirs else None
 
         logger.info("=" * 70)
         logger.info("ComfyFixerSmart v2.0.0 - Starting Analysis")
@@ -302,6 +329,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         logger.info(f"Workflow directories: {workflow_dirs}")
         logger.info(f"Search backends: {search_backends}")
         logger.info(f"Output directory: {config.output_dir}")
+
+        if args.scheduler:
+            from .scheduler import Scheduler
+
+            scheduler = Scheduler(
+                interval_minutes=args.scheduler_interval,
+                min_vram_gb=args.scheduler_min_vram,
+                enable_vram_guard=not args.scheduler_disable_vram_guard,
+                logger=logger,
+            )
+            scheduler.start(
+                specific_workflows=args.workflows if args.workflows else None,
+                workflow_dirs=scheduler_workflow_dirs,
+                search_backends=search_backends,
+                generate_script=not args.no_script,
+                verify_urls=args.verify_urls,
+            )
+            return 0
 
         if args.v1:
             logger.info("Running in V1 compatibility mode (incremental)")

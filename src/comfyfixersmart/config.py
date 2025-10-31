@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import shlex
+
 import tomllib
 
 
@@ -28,6 +30,11 @@ class SearchConfig:
     known_models_map: str = "civitai_tools/config/known_models.json"
     civitai_use_direct_id: bool = True
     min_confidence_threshold: int = 50
+    enable_qwen: bool = True
+    qwen_timeout: int = 900  # seconds
+    qwen_cache_ttl: int = 30 * 24 * 3600  # 30 days
+    qwen_binary: str = field(default_factory=lambda: os.getenv("QWEN_BINARY", "qwen"))
+    qwen_extra_args: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -37,6 +44,16 @@ class StateConfig:
     backend: str = "json"  # or "sql"
     json_path: str = "state/"
     sql_url: str = "sqlite:///state.db"
+
+
+@dataclass
+class DownloadConfig:
+    """Configuration for model download functionality."""
+
+    mode: str = "python"  # python | script | both
+    verify_hashes: bool = True
+    max_retries: int = 3
+    timeout_seconds: int = 300
 
 
 @dataclass
@@ -55,6 +72,7 @@ class Config:
     copilot: CopilotConfig = field(default_factory=CopilotConfig)
     search: SearchConfig = field(default_factory=SearchConfig)
     state: StateConfig = field(default_factory=StateConfig)
+    download: DownloadConfig = field(default_factory=DownloadConfig)
 
     # API
     civitai_api_base: str = "https://civitai.com/api/v1"
@@ -104,6 +122,11 @@ class Config:
             "WanVideoVAELoader": "vae",
             "WanVideoModelLoader": "diffusion_models",
             "WanVideoControlnetLoader": "controlnet",
+            "TextualInversionLoader": "embeddings",
+            "TextualInversionApply": "embeddings",
+            "EmbeddingLoader": "embeddings",
+            "EmbeddingSelector": "embeddings",
+            "TextEmbeddingLoader": "embeddings",
         }
     )
 
@@ -150,6 +173,14 @@ class Config:
             "RECENT_ATTEMPT_HOURS": ("recent_attempt_hours", int),
         }
 
+        # Apply download-specific environment variables
+        download_env_map = {
+            "DOWNLOAD_MODE": "mode",
+            "DOWNLOAD_VERIFY_HASHES": ("verify_hashes", lambda v: v.lower() in ("true", "1", "yes")),
+            "DOWNLOAD_MAX_RETRIES": ("max_retries", int),
+            "DOWNLOAD_TIMEOUT": ("timeout_seconds", int),
+        }
+
         for env_key, (attr, converter) in env_map.items():
             env_value = os.getenv(env_key)
             if env_value is not None:
@@ -159,14 +190,47 @@ class Config:
                 except ValueError:
                     print(f"Warning: Invalid value for {env_key}: {env_value}", file=sys.stderr)
 
+        # Apply download config environment overrides
+        for env_key, attr_info in download_env_map.items():
+            env_value = os.getenv(env_key)
+            if env_value is not None:
+                try:
+                    if isinstance(attr_info, tuple):
+                        attr, converter = attr_info
+                        value = converter(env_value)
+                    else:
+                        attr = attr_info
+                        value = env_value
+                    setattr(self.download, attr, value)
+                except ValueError:
+                    print(f"Warning: Invalid value for {env_key}: {env_value}", file=sys.stderr)
+
+        # Apply search config environment overrides
+        search_env_map = {
+            "ENABLE_QWEN": ("enable_qwen", lambda v: v.lower() in ("true", "1", "yes")),
+            "QWEN_TIMEOUT": ("qwen_timeout", int),
+            "QWEN_CACHE_TTL": ("qwen_cache_ttl", int),
+            "QWEN_BINARY": ("qwen_binary", str),
+            "QWEN_EXTRA_ARGS": ("qwen_extra_args", lambda v: shlex.split(v)),
+        }
+
+        for env_key, attr_info in search_env_map.items():
+            env_value = os.getenv(env_key)
+            if env_value is not None:
+                try:
+                    attr, converter = attr_info
+                    setattr(self.search, attr, converter(env_value))
+                except ValueError:
+                    print(f"Warning: Invalid value for {env_key}: {env_value}", file=sys.stderr)
+
     def _update_from_dict(self, config_obj: Any, data: Dict[str, Any]):
         """Recursively update config from a dictionary."""
         for key, value in data.items():
             if hasattr(config_obj, key):
                 attr = getattr(config_obj, key)
-                if isinstance(attr, (CopilotConfig, SearchConfig, StateConfig)) and isinstance(
-                    value, dict
-                ):
+                if isinstance(
+                    attr, (CopilotConfig, SearchConfig, StateConfig, DownloadConfig)
+                ) and isinstance(value, dict):
                     self._update_from_dict(attr, value)
                 elif isinstance(value, dict) and hasattr(attr, "__dataclass_fields__"):
                     self._update_from_dict(attr, value)

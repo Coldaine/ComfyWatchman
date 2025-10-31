@@ -875,7 +875,7 @@ MCP_LOG_LEVEL=INFO
 # ComfyWatchman Configuration
 CIVITAI_API_KEY=your_key_here
 HUGGINGFACE_TOKEN=your_token_here
-TAVILY_API_KEY=your_key_here
+# No separate web search API key is required.
 
 # Optional
 CACHE_DIR=./cache
