@@ -43,10 +43,7 @@ class Scheduler:
     ) -> None:
         """Begin the scheduler loop (blocking)."""
         self.logger.info(
-            "Scheduler started (interval=%s minutes, min_vram=%s GB, vram_guard=%s)",
-            self.interval.total_seconds() / 60,
-            self.min_vram_gb,
-            self.enable_vram_guard,
+            f"Scheduler started (interval={self.interval.total_seconds() / 60} minutes, min_vram={self.min_vram_gb} GB, vram_guard={self.enable_vram_guard})"
         )
 
         try:
@@ -108,9 +105,7 @@ class Scheduler:
             available = self._detect_vram_gb()
             if available is not None and available < self.min_vram_gb:
                 self.logger.info(
-                    "Skipping run: available VRAM %.2f GB < required %.2f GB",
-                    available,
-                    self.min_vram_gb,
+                    f"Skipping run: available VRAM {available:.2f} GB < required {self.min_vram_gb:.2f} GB"
                 )
                 return False
         return True
