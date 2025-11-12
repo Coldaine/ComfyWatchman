@@ -6,6 +6,8 @@ and provides 100% success rate for known model IDs.
 """
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -33,6 +35,86 @@ class DirectIDBackend:
         self.base_url = "https://civitai.com/api/v1"
         self.logger = logger or get_logger("DirectIDBackend")
         self.known_models = self._load_known_models()
+
+    def add_known_model(
+        self,
+        name: str,
+        civitai_id: int,
+        version_id: Optional[int] = None,
+        model_type: Optional[str] = None,
+        nsfw_level: Optional[int] = None,
+        notes: Optional[str] = None,
+        auto_added: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Add or update a known model entry.
+
+        The method validates the model/ version against the live Civitai API,
+        stores the enriched metadata in known_models.json, and updates the
+        in-memory cache.
+        """
+        if not name or not isinstance(name, str):
+            raise ValueError("Model name must be a non-empty string")
+        if not isinstance(civitai_id, int):
+            raise ValueError("civitai_id must be an integer")
+        if version_id is not None and not isinstance(version_id, int):
+            raise ValueError("version_id must be an integer when provided")
+        if nsfw_level is not None and not isinstance(nsfw_level, int):
+            raise ValueError("nsfw_level must be an integer when provided")
+
+        model_data = self._fetch_model_data(civitai_id)
+        if not model_data:
+            raise ValueError(f"Unable to fetch model metadata for ID {civitai_id}")
+
+        versions = model_data.get("modelVersions", []) or []
+        selected_version = None
+        if version_id:
+            for version in versions:
+                if version.get("id") == version_id:
+                    selected_version = version
+                    break
+            if not selected_version:
+                available = [v.get("id") for v in versions]
+                raise ValueError(
+                    f"Version {version_id} not found for model {civitai_id}. "
+                    f"Available versions: {available}"
+                )
+        else:
+            selected_version = versions[0] if versions else None
+            version_id = selected_version.get("id") if selected_version else None
+
+        version_name = selected_version.get("name") if selected_version else None
+        resolved_type = model_type or model_data.get("type", "Unknown")
+        creator = (model_data.get("creator") or {}).get("username")
+        resolved_nsfw_level = nsfw_level if nsfw_level is not None else model_data.get("nsfwLevel")
+
+        normalized_key = self._normalize_model_name(name).lower()
+        entry: Dict[str, Any] = {
+            "model_id": civitai_id,
+            "model_name": model_data.get("name", name),
+            "version": version_name,
+            "version_id": version_id,
+            "type": resolved_type,
+            "creator": creator,
+            "url": f"https://civitai.com/models/{civitai_id}",
+        }
+        if resolved_nsfw_level is not None:
+            entry["nsfw_level"] = resolved_nsfw_level
+        if notes:
+            entry["notes"] = notes
+        if auto_added:
+            entry["auto_added"] = True
+
+        self.known_models[normalized_key] = entry
+        self._save_known_models()
+        self.logger.info(
+            "Added known model '%s' (ID %s, version %s) to %s",
+            normalized_key,
+            civitai_id,
+            version_id,
+            self.known_models_path,
+        )
+        return entry
 
     def _load_known_models(self) -> Dict[str, Any]:
         """Load known model mappings from JSON file."""
@@ -161,6 +243,32 @@ class DirectIDBackend:
             self.logger.error(f"Direct ID lookup error for model {model_id}: {e}")
             return None
 
+    def _fetch_model_data(self, model_id: int) -> Optional[Dict[str, Any]]:
+        """Fetch raw model data from Civitai API."""
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        try:
+            response = requests.get(f"{self.base_url}/models/{model_id}", headers=headers, timeout=30)
+        except Exception as exc:  # pragma: no cover - network guard
+            self.logger.error("Failed to fetch metadata for model %s: %s", model_id, exc)
+            return None
+
+        if response.status_code != 200:
+            self.logger.error(
+                "Fetching metadata for model %s failed with status %s",
+                model_id,
+                response.status_code,
+            )
+            return None
+
+        try:
+            return response.json()
+        except Exception as exc:  # pragma: no cover - malformed JSON
+            self.logger.error("Invalid JSON when fetching model %s: %s", model_id, exc)
+            return None
+
     def _find_target_file(self, version_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Find the best file to download from version data."""
         files = version_data.get("files", [])
@@ -198,3 +306,25 @@ class DirectIDBackend:
             "TextualInversion": "embeddings",  # Usually stored in embeddings folder
         }
         return type_mapping.get(civitai_type, "unknown")
+
+    def _save_known_models(self) -> None:
+        """Persist known models mapping to disk atomically."""
+        self.known_models_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_dir = self.known_models_path.parent
+        fd, tmp_path = tempfile.mkstemp(
+            dir=tmp_dir,
+            prefix=self.known_models_path.stem,
+            suffix=".tmp",
+            text=True,
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+                json.dump(self.known_models, tmp_file, indent=2, ensure_ascii=False)
+                tmp_file.write("\n")
+            Path(tmp_path).replace(self.known_models_path)
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
