@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from .config import config
-from .core import run_v1_compatibility_mode, run_v2_compatibility_mode
 from .logging import get_logger
+from .core import run_comfy_fixer, run_v1_compatibility_mode, run_v2_compatibility_mode
+from .scheduler import Scheduler
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -80,6 +81,30 @@ Examples:
         "--verify-urls",
         action="store_true",
         help="Enable URL verification during downloads",
+    )
+
+    parser.add_argument(
+        "--run-cycle",
+        action="store_true",
+        help="Run a single guarded scheduler cycle",
+    )
+
+    parser.add_argument(
+        "--scheduler",
+        action="store_true",
+        help="Start the automated scheduler loop",
+    )
+
+    parser.add_argument(
+        "--status-report",
+        action="store_true",
+        help="Regenerate the master status report from the last cycle",
+    )
+
+    parser.add_argument(
+        "--list-intake",
+        action="store_true",
+        help="List recent external workflow intake acknowledgments",
     )
 
     # Configuration
@@ -207,6 +232,8 @@ def setup_logging(log_level: str, quiet: bool) -> None:
 
 def update_config_from_args(args: argparse.Namespace) -> None:
     """Update global config from command line arguments."""
+    global config
+
     if getattr(args, "config", None) and args.config.exists():
         config.load_from_file(args.config)
 
@@ -245,15 +272,7 @@ def _run_inspect_command(args: argparse.Namespace) -> int:
         )
 
     items = json_results if isinstance(json_results, list) else [json_results]
-    exit_code = (
-        1
-        if any(
-            item.get("warnings")
-            for item in items
-            if isinstance(item, dict) and item.get("warnings")
-        )
-        else 0
-    )
+    exit_code = 1 if any((item.get("warnings") for item in items if isinstance(item, dict) and item.get("warnings"))) else 0
 
     if args.format == "json":
         payload: object
@@ -290,9 +309,44 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         update_config_from_args(args)
 
-        search_backends = (
-            [b.strip() for b in args.search.split(",")] if args.search else ["civitai"]
+        scheduler_actions = any(
+            [
+                getattr(args, 'scheduler', False),
+                getattr(args, 'run_cycle', False),
+                getattr(args, 'status_report', False),
+                getattr(args, 'list_intake', False),
+            ]
         )
+
+        if scheduler_actions:
+            scheduler = Scheduler(logger=logger)
+            executed_action = False
+
+            if getattr(args, 'list_intake', False):
+                events = scheduler.list_recent_intake()
+                print(json.dumps(events, indent=2, ensure_ascii=False))
+                executed_action = True
+
+            if getattr(args, 'status_report', False):
+                artifacts = scheduler.regenerate_status_report()
+                executed_action = True
+                if not artifacts:
+                    logger.error("Unable to regenerate status report; no previous cycle found")
+                    return 1
+                logger.info(f"Status report refreshed: {artifacts.json_path}")
+
+            if getattr(args, 'run_cycle', False):
+                result = scheduler.run_cycle(force=True)
+                return 0 if result else 1
+
+            if getattr(args, 'scheduler', False):
+                scheduler.run_forever()
+                return 0
+
+            if executed_action:
+                return 0
+
+        search_backends = [b.strip() for b in args.search.split(",")] if args.search else ["civitai"]
 
         workflow_dirs = args.workflow_dirs or [str(d) for d in config.workflow_dirs]
 
