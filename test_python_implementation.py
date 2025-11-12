@@ -16,9 +16,9 @@ sys.path.insert(0, 'src')
 # Set the API key from environment
 os.environ['CIVITAI_API_KEY'] = os.environ.get('CIVITAI_API_KEY', '')
 
-from comfyfixersmart.search import CivitaiSearch
-from comfyfixersmart.civitai_tools.direct_id_backend import DirectIDBackend
-from comfyfixersmart.civitai_tools.enhanced_search import EnhancedCivitaiSearch
+from comfywatchman.search import CivitaiSearch
+from comfywatchman.civitai_tools.direct_id_backend import DirectIDBackend
+from comfywatchman.civitai_tools.enhanced_search import EnhancedCivitaiSearch
 
 
 def test_complete_implementation():

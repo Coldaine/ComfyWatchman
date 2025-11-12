@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Memory-safe inspection without loading full tensors
   - Comprehensive CLI with `--format`, `--hash`, `--recursive`, `--unsafe` options
 - `comfywatchman inspect` subcommand for integrated inspection workflow
-- `comfyfixersmart.inspector` library module with safe inspection APIs
+- `comfywatchman.inspector` library module with safe inspection APIs
   - `inspect_file()` - Single file inspection
   - `inspect_paths()` - Batch directory inspection
   - `InspectionResult` dataclass with metadata, tensor info, and hashes
@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ModelScope search backend** - Alternative to Civitai with fallback download capability
 - **Agentic search orchestration** via Qwen agent with multi-phase approach:
   - Phase 1: Structured search with Civitai API
-  - Phase 2: Web search via Tavily for extended discovery
+  - Phase 2: Web search via agent tools for extended discovery
   - Phase 3: HuggingFace hub integration
   - Decision-making for best download source
 - Enhanced search architecture with configurable backend ordering
@@ -318,4 +318,4 @@ We use [Semantic Versioning](https://semver.org/):
 
 ---
 
-For the most up-to-date information, check the [GitHub Releases](https://github.com/yourusername/comfyfixersmart/releases) page.
+For the most up-to-date information, check the [GitHub Releases](https://github.com/yourusername/comfywatchman/releases) page.

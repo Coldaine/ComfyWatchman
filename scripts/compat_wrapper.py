@@ -38,9 +38,9 @@ class CompatibilityManager:
     def _check_new_system(self) -> bool:
         """Check if new system is available and functional."""
         try:
-            from comfyfixersmart.config import config
-            from comfyfixersmart.cli import create_parser
-            from comfyfixersmart.state_manager import StateManager
+            from comfywatchman.config import config
+            from comfywatchman.cli import create_parser
+            from comfywatchman.state_manager import StateManager
             return True
         except ImportError:
             return False
@@ -113,7 +113,7 @@ class CompatibilityManager:
         print("1. python scripts/migrate_config.py")
         print("2. python scripts/migrate_state.py --backup")
         print("3. python scripts/validate_migration.py")
-        print("4. Use: python -m comfyfixersmart.cli")
+        print("4. Use: python -m comfywatchman.cli")
         print()
         print("See: docs/migration-guide.md")
         print()
@@ -166,7 +166,7 @@ class CompatibilityManager:
     def run_new_system(self, args: List[str]) -> int:
         """Run the new ComfyFixerSmart system."""
         try:
-            from comfyfixersmart.cli import main as new_main
+            from comfywatchman.cli import main as new_main
 
             # Translate arguments
             translated_args = self.translate_legacy_args(args)

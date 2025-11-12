@@ -25,7 +25,7 @@ import tomli_w
 # Add src to path to import new modules
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from comfyfixersmart.config import Config
+from comfywatchman.config import Config
 
 
 def detect_old_config() -> Dict[str, Any]:

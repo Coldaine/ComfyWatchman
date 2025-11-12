@@ -38,8 +38,8 @@ This project follows a code of conduct to ensure a welcoming environment for all
 
 ```bash
 # Fork and clone the repository
-git clone https://github.com/yourusername/comfyfixersmart.git
-cd comfyfixersmart
+git clone https://github.com/yourusername/comfywatchman.git
+cd comfywatchman
 
 # Set up development environment
 pip install -e .[dev]
@@ -52,14 +52,14 @@ pytest tests/unit/ -v
 
 ### 1. Fork the Repository
 
-1. Go to https://github.com/yourusername/comfyfixersmart
+1. Go to https://github.com/yourusername/comfywatchman
 2. Click "Fork" in the top right
-3. Clone your fork: `git clone https://github.com/YOUR_USERNAME/comfyfixersmart.git`
+3. Clone your fork: `git clone https://github.com/YOUR_USERNAME/comfywatchman.git`
 
 ### 2. Create a Development Environment
 
 ```bash
-cd comfyfixersmart
+cd comfywatchman
 
 # Create virtual environment
 python -m venv venv
@@ -99,7 +99,7 @@ pytest tests/unit/ -v
 
 ### 1. Choose an Issue
 
-- Check [GitHub Issues](https://github.com/yourusername/comfyfixersmart/issues) for open tasks
+- Check [GitHub Issues](https://github.com/yourusername/comfywatchman/issues) for open tasks
 - Look for issues labeled `good first issue` or `help wanted`
 - Comment on the issue to indicate you're working on it
 
@@ -142,7 +142,7 @@ git commit -m "feat: add new feature description
 pytest
 
 # Run with coverage
-pytest --cov=comfyfixersmart --cov-report=html
+pytest --cov=comfywatchman --cov-report=html
 
 # Run linting
 black src/
@@ -274,7 +274,7 @@ tests/
 
 ```python
 import pytest
-from comfyfixersmart.scanner import WorkflowScanner
+from comfywatchman.scanner import WorkflowScanner
 
 class TestWorkflowScanner:
     """Test cases for WorkflowScanner."""
@@ -316,7 +316,7 @@ pytest tests/unit/test_scanner.py
 pytest tests/unit/test_scanner.py::TestWorkflowScanner::test_parse_valid_workflow
 
 # With coverage
-pytest --cov=comfyfixersmart --cov-report=html
+pytest --cov=comfywatchman --cov-report=html
 
 # Run only failing tests
 pytest --lf

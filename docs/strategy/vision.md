@@ -40,18 +40,21 @@ Make ComfyUI workflows instantly runnable and meaningfully understood by an inte
 ## Phase Requirements (Consult Owner Before Any Change)
 
 ### Phase 1 — Workflow Readiness Automation
-- **Scheduler:** LLM-powered workflow checks run when manually triggered _and_ automatically every 2 hours, provided the machine is awake and sufficient VRAM is free.
+- **Scheduler:** LLM-powered workflow checks run when manually triggered _and_ automatically every 2 hours, provided the machine is awake and sufficient VRAM is free, and comfyUI is open. 
 - **Master Status Report:** Each cycle regenerates a comprehensive status entry for every workflow under `workflows/`, marking it runnable only when all nodes are present and each referenced model exists in the proper ComfyUI directory.
-- **Static Dashboard:** Produce a locally stored (non-hosted) dashboard summarizing workflow readiness and dependency gaps.
+- **Static Dashboard:** Produce a locally stored (non-hosted) dashboard summarizing workflow readiness and dependency gaps. 
 - **Caches:** Refresh lightweight caches of installed custom nodes and available models (grouped by type) on the same cadence to feed reports.
-- **External Intake Acknowledgment:** An external cron already moves workflow files into place; ComfyFixerSmart simply validates readiness on schedule—no additional ingestion logic required.
+- **External Intake Acknowledgment:** An external cron already moves workflow files into place; ComfyFixerSmart simply validates readiness on schedule—no additional ingestion logic required. However, sometimes ComfyFixerSmart can review workflows at request, and eventually create them. 
+
+- **Search for workflows associated with model files and or also help make a valid workflow that utilizes a given model** 
+It is a CRITICAL goal, that we are able to, given an image, review the metadata both in the image on civitai, but also search the author, posts etc... to try to understand and replicate the workflow that created the image. We cannot always get this information from 
 
 ### Phase 2 — Knowledge-Guided Resolution
-- **Curated Knowledge Base:** Maintain a plain-document knowledge pack (no databases) distilled from research reports and owner-approved materials to ground LLM reasoning.
+- **Curated Knowledge Base:** Maintain a plain-document knowledge pack (no databases) distilled from research reports and owner-approved materials to ground LLM reasoning and how to assemble comfy UI workflows, and which models do what etc...
 - **Scheduled Discovery:** On the same cadence (or hourly if testing demonstrates value) attempt to resolve missing models/nodes, updating the dashboard and reports.
-- **Agentic Search Workflow:** (see [Search Architecture](SEARCH_ARCHITECTURE.md) for complete details)
+- **Agentic Search Workflow:** Use Qwen as an agent, to manipulate search tools to resolve model names and get correct models. 
   - **Phase 1**: Civitai API search with intelligent keyword extraction and exact filename validation
-  - **Phase 2**: Tavily web search + HuggingFace repository discovery for models not on Civitai
+  - **Phase 2**: Web search + HuggingFace repository discovery for models not on Civitai
   - **Agent Orchestration**: Qwen LLM coordinates search strategies, validates matches, and logs reasoning
   - **Multi-Source**: Seamlessly handles Civitai, HuggingFace, and ModelScope sources
 - **Doubt Handling:** When uncertain (multiple candidates, low confidence), return UNCERTAIN status with candidate list for manual review
@@ -59,6 +62,7 @@ Make ComfyUI workflows instantly runnable and meaningfully understood by an inte
   1. **Auto-Inpaint Frontend:** Plug-and-play mask generation chain (SAM + Florence today, but designed for swappable detectors/growth nodes) that supports automatic masking and controlled mask growth without manual painting.
   2. **Image-Cycling Frontend:** Workflow loader that targets one or more folders, feeds images one at a time (not batch style), and advances via random/seed changes between runs. This frontend depends on Workflow Schema #3.
   3. **Dynamic Prompt Generator:** Node bundle (LLM vision optional, tagger optional, preferred LLM for prompt creation) that analyzes the current image, produces descriptive tags, and emits positive/negative prompts tailored to the Image-Cycling Frontend.
+> **Note:** The implementation of these schemas was deferred during the initial Phase 2 development to focus on core resolution and knowledge-basing features. This should be prioritized as a fast-follow task.
 - **Usage Guardrail:** These schemas inform full refactors or explicit requests only; they should not auto-modify existing workflows without the owner's direction.
 
 ### Phase 3 — Extended LLM + RAG Vision (Original Stretch Goals)
@@ -272,6 +276,7 @@ These constraints are non‑negotiable absent owner amendment:
 5. Redaction mandatory for flagged briefs before storage or embedding.
 
 ### Deferred Capability Boundaries
+
 | Category | Explicitly In Scope (Deferred) | Explicitly Out of Scope (Unless Re‑approved) |
 |----------|--------------------------------|----------------------------------------------|
 | Data Generation | Local test images for benchmarking | Large dataset scraping or unapproved external uploads |
@@ -312,4 +317,3 @@ These constraints are non‑negotiable absent owner amendment:
 - Observability: Central timeline view listing plan → steps → artifacts with drill‑down logs.
 
 > REMINDER: This entire layer is aspirational and **must not** influence scoping, acceptance, or delivery criteria for Phases 1‑3 unless explicitly re‑authorized.
-
