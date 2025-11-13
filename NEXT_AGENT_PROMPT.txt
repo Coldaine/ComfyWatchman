@@ -1,0 +1,44 @@
+PROMPT FOR NEXT AGENT:
+
+Complete the branch reconciliation pull request for ComfyWatchman repository.
+
+CONTEXT:
+- Branch reconciliation work has been completed locally
+- Branch name: claude/integrate-automation-features-011CV3GWo4feTPyve8ECn4r4
+- All code integrated and committed (4 commits total)
+- Problem: Branch may not be visible on GitHub UI
+
+YOUR TASK:
+1. Read AGENT_HANDOFF.md for complete context and instructions
+2. Verify if the branch exists on GitHub
+3. Create a pull request using one of these methods:
+   - Option A: If branch visible - create PR via GitHub UI
+   - Option B: If not visible - create new branch with simpler name and push
+   - Option C: If all else fails - recreate the work from scratch (instructions provided)
+
+KEY FILES TO REFERENCE:
+- AGENT_HANDOFF.md - Complete handoff instructions
+- docs/planning/BRANCH_RECONCILIATION_PLAN.md - Full integration plan
+- PR_DESCRIPTION.md - Ready-to-use PR description
+
+PR DETAILS:
+- Title: "Integrate automation features and enhanced search (Branch Reconciliation)"
+- Base: claude/analyze-branch-reconciliation-011CV3GWo4feTPyve8ECn4r4
+- Compare: claude/integrate-automation-features-011CV3GWo4feTPyve8ECn4r4 (or new branch name)
+- Description: Use content from PR_DESCRIPTION.md
+
+SUCCESS CRITERIA:
+- Pull request visible on GitHub
+- Shows integration of scheduler, embeddings, Qwen, and enhanced search
+- Ready for review
+
+START HERE:
+Run these diagnostic commands first:
+```
+cd /home/user/ComfyWatchman
+git status
+git log --oneline -5
+git branch -vv
+```
+
+Then read AGENT_HANDOFF.md and choose the appropriate option (A, B, or C).
