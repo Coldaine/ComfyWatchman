@@ -29,13 +29,15 @@ ComfyWatchman provides **Python APIs and tools designed for AI agents** to analy
 ### Installation
 
 ```bash
-# Install as a library
-pip install comfywatchman
-
-# Or install from source
+# Clone the repository
 git clone https://github.com/yourusername/comfywatchman.git
 cd comfywatchman
-pip install -e .
+
+# Install all dependencies
+uv sync
+
+# Or, to include development dependencies:
+uv sync --extra dev
 ```
 
 ### Agent Usage Example
@@ -170,7 +172,7 @@ Planned: Automatic, continuously updated Workflow Health Report (supersedes `wor
 
 **Required:**
 
-- Python 3.7+
+- Python 3.12+
 - Civitai API key (free account)
 - ComfyUI installation
 
