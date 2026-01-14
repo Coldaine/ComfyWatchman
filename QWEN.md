@@ -66,9 +66,11 @@ comfywatchman inspect model.safetensors
 
 ### Installation
 ```bash
-pip install -e .
-# or
-pip install -r requirements.txt
+# Install all dependencies
+uv sync
+
+# Or, to include development dependencies:
+uv sync --extra dev
 ```
 
 ### Testing
