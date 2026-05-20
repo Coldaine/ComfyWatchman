@@ -1,12 +1,12 @@
 # Comfy Harness Considerations
 
-This note is about the actual ComfyUI operating harness. The restored frontend and UI variants are useful only as reviewable aesthetic and workflow sketches. They are not the product center until the harness can answer real questions about a real ComfyUI install.
+This note is about the actual ComfyUI operating harness. It was written from a ComfyWatchman-native perspective and must now be read alongside `COPILOT_LOCAL_FIRST_EVALUATION_PLAN.md`. The open question is whether the harness should live in ComfyWatchman as the product shell or inside a localized ComfyUI-Copilot fork.
 
 ## Why the harness comes first
 
 ComfyWatchman is only useful if it can produce trustworthy readiness and install plans for a concrete ComfyUI environment. UI screens can make that state easier to inspect, but they cannot create the truth. The source of truth has to come from ComfyUI itself, local model paths, workflow files, resolver evidence, and explicit operator approvals.
 
-The current repo still contains useful scanner, inventory, search, download, and state pieces. It also contains stale assumptions: Copilot-first framing, hardcoded Comfy roots, legacy widget parsing, script-first downloads, and folder guesses that ignore current Comfy model path behavior. The next major work should therefore be a harness modernization pass, not another frontend pass.
+The current repo still contains useful scanner, inventory, search, download, and state pieces. It also contains stale assumptions: hardcoded Comfy roots, legacy widget parsing, script-first downloads, and folder guesses that ignore current Comfy model path behavior. The next major work should evaluate whether those pieces become local tools inside Copilot rather than continuing a standalone ComfyWatchman UI.
 
 The donor evaluation in `COMFY_MCP_DONOR_EVALUATION.md` is the companion decision record for this plan. It identifies which existing ComfyUI MCP projects should be mined for runtime and MCP patterns, and which parts must remain ComfyWatchman-native.
 
@@ -14,9 +14,9 @@ The donor evaluation in `COMFY_MCP_DONOR_EVALUATION.md` is the companion decisio
 
 The core question is:
 
-Can this repo inspect a real ComfyUI environment, decide whether selected workflows can run, and produce a dry-run plan for everything missing?
+Can a local Comfy assistant inspect a real ComfyUI environment, decide whether selected workflows can run, and produce a dry-run plan for everything missing?
 
-Everything else should support that question.
+Everything else should support that question. The assistant surface may be a localized Copilot fork.
 
 ## Components
 

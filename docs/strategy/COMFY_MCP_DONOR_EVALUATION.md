@@ -1,22 +1,25 @@
 # Comfy MCP Donor Evaluation
 
-This note evaluates existing ComfyUI MCP and harness projects as donor systems for ComfyWatchman. The purpose is to move faster by reusing proven surface design and runtime patterns without losing ComfyWatchman's core value: evidence-backed readiness and install planning for a real ComfyUI environment.
+This note evaluates existing ComfyUI MCP and harness projects as donor systems for ComfyWatchman. It is not the final product strategy. The Copilot-local-first path is now a first-class candidate and may supersede the ComfyWatchman-native framing after evaluation.
 
-For the focused Manager-first plan, see `COMFYUI_MANAGER_ADOPTION_PLAN.md`.
+For the Copilot-local-first evaluation, see `COPILOT_LOCAL_FIRST_EVALUATION_PLAN.md`.
+For Manager operational details, see `COMFYUI_MANAGER_ADOPTION_PLAN.md`.
 
 ## Decision
 
-Do not replace ComfyWatchman with any donor project wholesale.
+Superseded as a final decision: do not assume ComfyWatchman remains the top-level product shell.
+
+Evaluate whether to fork/localize ComfyUI-Copilot as the primary product surface, then add ComfyWatchman's readiness and dependency-resolution work as local tools. In that path, ComfyUI-Manager remains the operational substrate for installs, snapshots, and security, but Copilot is the assistant surface.
 
 Use the donors this way:
 
-- `Comfy-Org/ComfyUI-Manager`: primary donor for custom-node and model installation, registry/channel metadata, snapshots, `cm-cli`, security/userdata path behavior, and real-world Comfy dependency management.
-- `AIDC-AI/ComfyUI-Copilot`: primary donor for assistant-in-Comfy workflow generation, debugging, rewriting, parameter tuning, model recommendations, and node recommendations.
+- `AIDC-AI/ComfyUI-Copilot` and local-agent forks such as PR `AIDC-AI/ComfyUI-Copilot#130`: candidate product base for assistant-in-Comfy workflow generation, debugging, rewriting, parameter tuning, model recommendations, node recommendations, and local/open-provider agent mode.
+- `Comfy-Org/ComfyUI-Manager`: operational donor for custom-node and model installation, registry/channel metadata, snapshots, `cm-cli`, security/userdata path behavior, and real-world Comfy dependency management.
 - `artokun/comfyui-mcp`: primary donor for MCP tool taxonomy, Comfy runtime operations, visualization, workflow conversion, queue/history/log/image handling, registry lookup, and node-pack skill generation.
 - `joenorton/comfyui-mcp-server`: primary Python donor for FastMCP shape, streamable HTTP/stdio transport, job lifecycle, asset identity, provenance capture, and curated workflow templates.
 - `AIDC-AI/Pixelle-MCP`: donor for turning known-good Comfy API workflows into callable MCP tools, media output normalization, and optional workflow annotation conventions.
 
-Keep these ComfyWatchman-native:
+Candidate ComfyWatchman contributions if Copilot becomes the product base:
 
 - environment discovery
 - workflow dependency extraction
@@ -25,7 +28,7 @@ Keep these ComfyWatchman-native:
 - evidence-backed dry-run install plans
 - approval-first downloads and installs
 - persistent readiness state
-- operator dashboard truth model
+- local readiness and evidence tools exposed to Copilot
 
 ## Correction: MCP Was Too Narrow
 
@@ -41,7 +44,7 @@ Current GitHub metadata checked on 2026-05-20:
 | `joenorton/comfyui-mcp-server` | 317 | 65 | 2026-02-17 | Pragmatic Python FastMCP execution/control-loop donor. |
 | `artokun/comfyui-mcp` | 96 | 20 | 2026-05-18 | Broad MCP runtime harness and Claude Code plugin donor. |
 
-This changes the plan: ComfyWatchman should not only borrow MCP patterns. It should also treat ComfyUI-Manager as the reference implementation for how Comfy users actually install, update, snapshot, and reason about custom nodes and model catalogs.
+This changes the plan only for the operational layer. It does not settle the assistant/product shell. Manager should be the install/update/snapshot reference, but Copilot-local-first may be the better top-level product path.
 
 ## Why This Split
 
@@ -49,14 +52,14 @@ The donors have already done much of the MCP and Comfy runtime work. They expose
 
 They do not solve the harder local-readiness problem. None of the reviewed donors produces a rigorous plan that says: this workflow needs these exact model files and custom nodes, this local Comfy install has or lacks them, these candidate downloads match with this evidence, and these approved actions will make the workflow runnable.
 
-That is ComfyWatchman's product center.
+That may be ComfyWatchman's contribution rather than ComfyWatchman's standalone product center. The current evaluation question is whether Copilot should own the user-facing assistant product while ComfyWatchman supplies dependency truth.
 
 ## Donor Summary
 
 | Donor | Best Use | Do Not Use For |
 | --- | --- | --- |
 | `Comfy-Org/ComfyUI-Manager` | Custom-node install/update/remove/disable/enable flows, Manager channel/cache/local DB behavior, model installer UI concepts, snapshot and restore semantics, `extra_model_paths.yaml` handling, `cm-cli`, security migration/userdata paths. | LLM workflow reasoning, evidence-backed model candidate scoring, ComfyWatchman's approval ledger, or direct unreviewed mutation. |
-| `AIDC-AI/ComfyUI-Copilot` | Assistant UX inside Comfy, workflow generation/debug/rewrite/parameter tuning, node/model recommendations, selected-node context, local environment-aware agent patterns. | Stable backend dependency truth, because its hosted API service has been suspended and its own README points users to bring their own API key/base URL for agent features. |
+| `AIDC-AI/ComfyUI-Copilot` and local-agent forks | Candidate product base: assistant UX inside Comfy, workflow generation/debug/rewrite/parameter tuning, node/model recommendations, selected-node context, local environment-aware agent patterns, and local/open-provider agent mode. | Safe install/readiness planning by itself; hosted service defaults must be audited and replaced with local/provider-configured paths. |
 | `artokun/comfyui-mcp` | Broad MCP runtime harness, Comfy API client patterns, workflow visualization/conversion, queue/history/log/image/upload tools, Registry search, generated node-pack skills, plugin packaging. | Resolver core, approval model, install planning, tests, security posture, or direct process-control exposure without guardrails. |
 | `joenorton/comfyui-mcp-server` | Python FastMCP implementation, streamable HTTP/stdio transport, prompt polling, asset registry, provenance snapshots, curated parameterized workflow templates. | Deep dependency scanning, model inventory beyond checkpoints, model downloads, custom-node install, readiness dashboard. |
 | `AIDC-AI/Pixelle-MCP` | Workflow-as-MCP-tool conversion, local/cloud executor abstraction, media output classification, optional parameter DSL for known workflows. | Comfy environment discovery, dependency resolution, model search/download, local-first readiness planning. |
@@ -70,7 +73,7 @@ That is ComfyWatchman's product center.
 | Snapshots and rollback | `ComfyUI-Manager` has snapshot save/restore semantics and startup restore scripts. | Before mutation, ComfyWatchman should understand whether a Manager snapshot exists and offer snapshot-before-install behavior. | Adopt concept for safety model. |
 | `cm-cli` | `ComfyUI-Manager` ships command-line tooling for power users. | Prefer calling or matching Manager-supported commands for node management when present, instead of inventing a parallel installer. | Investigate and wrap where safe. |
 | Manager security/userdata paths | `ComfyUI-Manager` V3.38 moved Manager data into protected user paths and documents current path rules. | Environment discovery must inspect current Manager/userdata paths rather than assuming old `custom_nodes` local state is complete. | Adopt path rules. |
-| Assistant-in-Comfy workflow help | `ComfyUI-Copilot` is the large donor for workflow generation, debugging, rewriting, parameter tuning, and selected-node recommendations. | ComfyWatchman should expose backend truth that such assistant surfaces can consume: missing deps, candidate fixes, executable plans, and verification results. | Mine UX/agent patterns, do not depend on suspended hosted service. |
+| Assistant-in-Comfy workflow help | `ComfyUI-Copilot` is the large donor for workflow generation, debugging, rewriting, parameter tuning, and selected-node recommendations. PR `AIDC-AI/ComfyUI-Copilot#130` claims Agent Mode, multi-provider routing, LM Studio support, local tools, and loop/tool-budget guards. | Evaluate Copilot-local-first as the top-level product shell. ComfyWatchman may become the local readiness tool provider. | Run the local-agent fork before committing to a ComfyWatchman-native UI. |
 | MCP server surface | `artokun` registers a large tool taxonomy; `joenorton` and `Pixelle` both use FastMCP-style callable tools. | Add a ComfyWatchman MCP facade with explicit tools for scan, readiness, plan, search, approve, download, queue, and execution. | Adopt pattern, implement native tools. |
 | Transport | `joenorton` supports streamable HTTP at `/mcp` and stdio; `Pixelle` mounts MCP inside a web app. | Support stdio and HTTP so desktop clients, coding agents, and local services can use the same harness. | Adopt from Python donor. |
 | Comfy API client | `artokun` covers queue, history, logs, prompt enqueue, image view/upload, VRAM, embeddings, and object info via `@stable-canvas/comfyui-client` plus REST; `joenorton` covers prompt/history/queue/view; `Pixelle` covers prompt/history/ws/upload/view. | Build `ComfyClient` with read-only truth routes first: `/system_stats`, `/object_info`, `/models` where available, `/queue`, `/history`, `/view`, `/upload/image`; add `/prompt` and `/ws` after plans exist. | Port concepts, not code wholesale. |
@@ -94,9 +97,9 @@ That is ComfyWatchman's product center.
 | Cloud execution | `Pixelle` supports RunningHub cloud mode. | Local Comfy readiness is primary. Cloud can be optional adapter later. | Defer. |
 | Tests | `artokun` builds but currently has no real test files; `Pixelle` has no tracked tests; `joenorton` has useful unit tests but local run needs dependencies. | Add fixture-based fake-Comfy tests before any ported behavior lands. | Do not inherit donor test gaps. |
 
-## Recommended Backend Shape
+## Candidate Backend Shapes
 
-ComfyWatchman should become a two-layer system:
+Path A, ComfyWatchman-native:
 
 1. Core readiness engine:
    - discovers Comfy environments
@@ -114,32 +117,40 @@ ComfyWatchman should become a two-layer system:
    - fetches images and history
    - optionally wraps curated workflows as tools
 
-The MCP facade should use donor ergonomics. The core should remain ComfyWatchman-specific.
+Path B, Copilot-local-first:
+
+1. Fork/localize Copilot as the ComfyUI custom-node assistant.
+2. Make local/open-provider Agent Mode the default path.
+3. Add ComfyWatchman readiness tools into Copilot.
+4. Use Manager for operational installs/snapshots/security.
+
+Path B must be evaluated before further standalone dashboard work.
 
 ## Implementation Sequence
 
-1. Stabilize current ComfyWatchman imports, config loading, and planning-only startup.
-2. Fix the existing orchestration bug where `_analyze_models()` returns node types but `run_workflow_analysis()` does not capture them.
-3. Add fixture tests for scanner, inventory, missing model detection, missing custom-node detection, and no-network dry runs.
-4. Evaluate `ComfyUI-Manager` internals first: channel DB, model DB, install APIs, `cm-cli`, snapshot files, userdata path migration, and `extra_model_paths.yaml` behavior.
-5. Add `ComfyClient` read-only probes using donor route coverage as the checklist.
-6. Add environment discovery with Desktop, portable, manual clone, `comfy-cli`, Manager userdata paths, `extra_model_paths.yaml`, and active server detection.
-7. Split workflow reading by format and normalize into a dependency schema.
-8. Produce a dry-run readiness/install plan before any downloads or installs.
-9. Add Manager-aware custom-node and model install actions behind approval.
-10. Add an MCP facade with explicit ComfyWatchman tools.
-11. Add queue/history/output execution tools behind approved plans.
-12. Add optional curated workflow-as-tool support using `PARAM_*` or Pixelle-style annotations.
-13. Add visualization and registry-backed node-pack knowledge generation.
+1. Evaluate the Copilot-local-first path in `COPILOT_LOCAL_FIRST_EVALUATION_PLAN.md`.
+2. Stabilize current ComfyWatchman imports, config loading, and planning-only startup only if needed for Copilot tools or if Copilot evaluation fails.
+3. Fix the existing orchestration bug where `_analyze_models()` returns node types but `run_workflow_analysis()` does not capture them.
+4. Add fixture tests for scanner, inventory, missing model detection, missing custom-node detection, and no-network dry runs.
+5. Evaluate `ComfyUI-Manager` internals as the operational substrate: channel DB, model DB, install APIs, `cm-cli`, snapshot files, userdata path migration, and `extra_model_paths.yaml` behavior.
+6. Add `ComfyClient` read-only probes using donor route coverage as the checklist.
+7. Add environment discovery with Desktop, portable, manual clone, `comfy-cli`, Manager userdata paths, `extra_model_paths.yaml`, and active server detection.
+8. Split workflow reading by format and normalize into a dependency schema.
+9. Produce a dry-run readiness/install plan before any downloads or installs.
+10. Add Manager-aware custom-node and model install actions behind approval.
+11. Add an MCP facade with explicit ComfyWatchman tools.
+12. Add queue/history/output execution tools behind approved plans.
+13. Add optional curated workflow-as-tool support using `PARAM_*` or Pixelle-style annotations.
+14. Add visualization and registry-backed node-pack knowledge generation.
 
 ## Immediate Substitutions
 
-Replace the stale "ComfyUI-Copilot complements this" framing with a donor-aware framing:
+Replace the stale "ComfyUI-Copilot complements this" framing with a Copilot-local-first evaluation:
 
-- Copilot is no longer the central assumption.
-- MCP is the operating surface.
-- Existing MCP donors provide mature assistant interaction patterns.
-- ComfyWatchman's differentiation is readiness, dependency truth, and safe install execution.
+- Copilot may be the central product surface.
+- Hosted Copilot service assumptions must be removed from the default path.
+- Local/open-provider Agent Mode must be tested directly.
+- ComfyWatchman's differentiation may be readiness, dependency truth, and safe install execution inside Copilot.
 
 Replace script-first downloads with plan-first installs:
 

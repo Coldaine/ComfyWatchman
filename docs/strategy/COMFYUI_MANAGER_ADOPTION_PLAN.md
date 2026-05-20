@@ -1,10 +1,10 @@
 # ComfyUI-Manager Adoption Plan
 
-This is the focused follow-up to `COMFY_MCP_DONOR_EVALUATION.md`. The previous donor pass was too MCP-centered. For the actual "make Comfy setup painless" problem, `Comfy-Org/ComfyUI-Manager` is the primary donor.
+This is the focused follow-up to `COMFY_MCP_DONOR_EVALUATION.md`. It describes Manager as the operational substrate for installs, snapshots, security, and metadata. It does not decide the top-level assistant product shell. The Copilot-local-first path is tracked in `COPILOT_LOCAL_FIRST_EVALUATION_PLAN.md`.
 
 ## Decision
 
-ComfyWatchman should become Manager-aware before it becomes MCP-heavy.
+Any local Comfy assistant should become Manager-aware before it mutates a Comfy install. That assistant may be ComfyWatchman-native, or it may be a localized ComfyUI-Copilot fork using ComfyWatchman tools.
 
 The practical target is:
 
@@ -14,7 +14,7 @@ The practical target is:
 4. Execute only approved actions through Manager APIs or `cm-cli` when possible.
 5. Fall back to ComfyWatchman-native downloads only when Manager cannot represent the operation.
 
-## Why Manager First
+## Why Manager For Operations
 
 Manager is the way Comfy users actually manage Comfy installs. It already owns many hard parts ComfyWatchman was drifting toward reinventing:
 
@@ -29,7 +29,7 @@ Manager is the way Comfy users actually manage Comfy installs. It already owns m
 - `cm-cli` for command-line usage without the Comfy web UI
 - `extra_model_paths.yaml` and Comfy `folder_paths` integration
 
-ComfyWatchman should not pretend a git clone plus a model download is the correct default. The default should be: if Manager can do it safely and visibly, plan for Manager to do it.
+Do not pretend a git clone plus a model download is the correct default. The default should be: if Manager can do it safely and visibly, plan for Manager to do it. This remains true if Copilot becomes the product base.
 
 ## Observed Manager Surfaces
 
@@ -241,4 +241,3 @@ Likely tests:
 - Which DB mode should ComfyWatchman read by default: Manager's active config, cache, remote, or local?
 - Should ComfyWatchman ever request changing Manager security level, or only explain the blocker?
 - Should ComfyWatchman save snapshots automatically as part of approved mutations, or require a separate approval?
-
