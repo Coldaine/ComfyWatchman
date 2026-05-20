@@ -2,13 +2,35 @@
 Unit tests for config.py (Config, CopilotConfig, SearchConfig, DownloadConfig dataclasses).
 """
 
-from comfywatchman.config import (
-    Config,
-    CopilotConfig,
-    DownloadConfig,
-    SearchConfig,
-    StateConfig,
-)
+
+def Config(*args, **kwargs):
+    from comfywatchman.config import Config as _Config
+
+    return _Config(*args, **kwargs)
+
+
+def CopilotConfig(*args, **kwargs):
+    from comfywatchman.config import CopilotConfig as _CopilotConfig
+
+    return _CopilotConfig(*args, **kwargs)
+
+
+def DownloadConfig(*args, **kwargs):
+    from comfywatchman.config import DownloadConfig as _DownloadConfig
+
+    return _DownloadConfig(*args, **kwargs)
+
+
+def SearchConfig(*args, **kwargs):
+    from comfywatchman.config import SearchConfig as _SearchConfig
+
+    return _SearchConfig(*args, **kwargs)
+
+
+def StateConfig(*args, **kwargs):
+    from comfywatchman.config import StateConfig as _StateConfig
+
+    return _StateConfig(*args, **kwargs)
 
 
 class TestCopilotConfig:
@@ -96,27 +118,26 @@ class TestStateConfig:
 class TestConfigModelTypeMapping:
     def test_checkpoint_loader_maps_to_checkpoints(self):
         """CheckpointLoaderSimple must map to 'checkpoints' directory."""
-        # Access the factory default without triggering __post_init__
-        mapping = Config.__dataclass_fields__["model_type_mapping"].default_factory()
-        assert mapping["CheckpointLoaderSimple"] == "checkpoints"
+        cfg = Config()
+        assert cfg.model_type_mapping["CheckpointLoaderSimple"] == "checkpoints"
 
     def test_lora_loader_maps_to_loras(self):
         """LoraLoader must map to 'loras' directory."""
-        mapping = Config.__dataclass_fields__["model_type_mapping"].default_factory()
-        assert mapping["LoraLoader"] == "loras"
+        cfg = Config()
+        assert cfg.model_type_mapping["LoraLoader"] == "loras"
 
     def test_vae_loader_maps_to_vae(self):
         """VAELoader must map to 'vae' directory."""
-        mapping = Config.__dataclass_fields__["model_type_mapping"].default_factory()
-        assert mapping["VAELoader"] == "vae"
+        cfg = Config()
+        assert cfg.model_type_mapping["VAELoader"] == "vae"
 
     def test_controlnet_loader_maps_to_controlnet(self):
         """ControlNetLoader must map to 'controlnet' directory."""
-        mapping = Config.__dataclass_fields__["model_type_mapping"].default_factory()
-        assert mapping["ControlNetLoader"] == "controlnet"
+        cfg = Config()
+        assert cfg.model_type_mapping["ControlNetLoader"] == "controlnet"
 
     def test_model_extensions_defaults(self):
         """Default model extensions should include .safetensors and .ckpt."""
-        extensions = Config.__dataclass_fields__["model_extensions"].default_factory()
-        assert ".safetensors" in extensions
-        assert ".ckpt" in extensions
+        cfg = Config()
+        assert ".safetensors" in cfg.model_extensions
+        assert ".ckpt" in cfg.model_extensions

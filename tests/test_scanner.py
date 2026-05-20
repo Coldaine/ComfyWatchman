@@ -9,9 +9,10 @@ strings that end in recognised model extensions (.safetensors, .ckpt, .pt,
 .bin, .pth).  Embedding references are extracted from text strings matching
 the "embedding:<name>" pattern.
 """
-import json
+def WorkflowScanner(*args, **kwargs):
+    from comfywatchman.scanner import WorkflowScanner as _WorkflowScanner
 
-from comfywatchman.scanner import WorkflowScanner
+    return _WorkflowScanner(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -19,6 +20,8 @@ from comfywatchman.scanner import WorkflowScanner
 # ---------------------------------------------------------------------------
 
 def _write_workflow(path, data):
+    import json
+
     path.write_text(json.dumps(data), encoding="utf-8")
     return str(path)
 
@@ -202,9 +205,7 @@ class TestExtractModels:
         scanner = WorkflowScanner()
         models = scanner.extract_models_from_workflow(path)
         embedding_types = [m for m in models if m.type == "embeddings"]
-        assert len(embedding_types) >= 1
-        filenames = [m.filename for m in embedding_types]
-        assert any("BadDream" in fn for fn in filenames)
+        assert [m.filename for m in embedding_types] == ["BadDream.pt", "EasyNegative.pt"]
 
     def test_duplicate_embedding_not_extracted_twice(self, tmp_path):
         """The same embedding referenced in two nodes is only extracted once."""

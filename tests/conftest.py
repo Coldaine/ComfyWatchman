@@ -4,9 +4,62 @@ Shared pytest fixtures for ComfyWatchman test suite.
 Note: ComfyUI workflows use a node-list format where each node has
 'id', 'type', 'widgets_values', and 'inputs' fields.
 """
-import json
+import logging
+import os
+import sys
+import tempfile
+from pathlib import Path
 
 import pytest
+
+_ORIG_CWD = None
+_SESSION_TMPDIR = None
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_SRC_ROOT = _REPO_ROOT / "src"
+
+
+def pytest_sessionstart(session):
+    """Isolate import-time Config directory creation from the checkout."""
+    global _ORIG_CWD, _SESSION_TMPDIR
+
+    _ORIG_CWD = os.getcwd()
+    for path in (_REPO_ROOT, _SRC_ROOT):
+        path_str = str(path)
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
+
+    _SESSION_TMPDIR = tempfile.TemporaryDirectory()
+    os.chdir(_SESSION_TMPDIR.name)
+
+    for env_var in ("OUTPUT_DIR", "LOG_DIR", "TEMP_DIR"):
+        os.environ.setdefault(env_var, _SESSION_TMPDIR.name)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Restore the original working directory after the test session."""
+    global _ORIG_CWD, _SESSION_TMPDIR
+
+    for logger_obj in logging.Logger.manager.loggerDict.values():
+        if not isinstance(logger_obj, logging.Logger):
+            continue
+        for handler in list(logger_obj.handlers):
+            handler.close()
+            logger_obj.removeHandler(handler)
+
+    if _ORIG_CWD is not None:
+        os.chdir(_ORIG_CWD)
+        _ORIG_CWD = None
+
+    if _SESSION_TMPDIR is not None:
+        _SESSION_TMPDIR.cleanup()
+        _SESSION_TMPDIR = None
+
+
+def write_workflow_json(path, workflow):
+    import json
+
+    path.write_text(json.dumps(workflow), encoding="utf-8")
+    return path
 
 
 @pytest.fixture
@@ -109,21 +162,18 @@ def embedding_workflow():
 def workflow_file(tmp_path, simple_workflow):
     """Write the simple workflow to a temporary JSON file on disk."""
     f = tmp_path / "test_workflow.json"
-    f.write_text(json.dumps(simple_workflow), encoding="utf-8")
-    return f
+    return write_workflow_json(f, simple_workflow)
 
 
 @pytest.fixture
 def complex_workflow_file(tmp_path, complex_workflow):
     """Write the complex workflow to a temporary JSON file on disk."""
     f = tmp_path / "complex_workflow.json"
-    f.write_text(json.dumps(complex_workflow), encoding="utf-8")
-    return f
+    return write_workflow_json(f, complex_workflow)
 
 
 @pytest.fixture
 def empty_workflow_file(tmp_path, empty_workflow):
     """Write the empty workflow to a temporary JSON file on disk."""
     f = tmp_path / "empty_workflow.json"
-    f.write_text(json.dumps(empty_workflow), encoding="utf-8")
-    return f
+    return write_workflow_json(f, empty_workflow)
