@@ -18,6 +18,7 @@ import { KeyboardShortcutsDialog } from './components/KeyboardShortcutsDialog';
 import { ExportImportDialog } from './components/ExportImportDialog';
 import { SettingsDialog } from './components/SettingsDialog';
 import { AgenticSearch } from './components/AgenticSearch';
+import { VariantGallery } from './components/VariantGallery';
 import { Toaster } from './components/ui/sonner';
 import { useComfyUI } from './hooks/useComfyUI';
 import { useDebounce } from './hooks/useDebounce';
@@ -37,7 +38,8 @@ import {
   BarChart3,
   Home,
   Zap,
-  Bot
+  Bot,
+  Palette
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -48,7 +50,7 @@ import {
 
 function AppContent() {
   const { preferences, updatePreference } = useUserPreferences();
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'advanced' | 'watchman'>('dashboard');
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'advanced' | 'watchman' | 'variants'>('dashboard');
   const [activeTab, setActiveTab] = useState(preferences.defaultTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModelType, setSelectedModelType] = useState<ModelType | 'all'>(preferences.defaultModelType);
@@ -183,6 +185,8 @@ function AppContent() {
               <p className="text-muted-foreground mt-1">
                 {currentPage === 'watchman'
                   ? 'ComfyWatchman - Intelligent Backend Services'
+                  : currentPage === 'variants'
+                  ? 'Donor UI variants'
                   : currentPage === 'advanced'
                   ? 'Advanced Features & Tools'
                   : 'Model & Workflow Management Dashboard'}
@@ -212,6 +216,14 @@ function AppContent() {
               >
                 <Bot className="w-4 h-4 mr-2" />
                 ComfyWatchman
+              </Button>
+              <Button
+                variant={currentPage === 'variants' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCurrentPage('variants')}
+              >
+                <Palette className="w-4 h-4 mr-2" />
+                UI Variants
               </Button>
               <Button variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-2" />
@@ -266,6 +278,8 @@ function AppContent() {
       <div className="container mx-auto px-6 py-6">
         {currentPage === 'watchman' ? (
           <AgenticSearch />
+        ) : currentPage === 'variants' ? (
+          <VariantGallery models={models} workflows={workflows} activityLog={activityLog} />
         ) : currentPage === 'advanced' ? (
           <AdvancedFeatures models={models} workflows={workflows} />
         ) : (

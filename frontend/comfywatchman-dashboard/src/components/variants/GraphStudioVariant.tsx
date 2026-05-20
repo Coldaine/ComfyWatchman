@@ -107,7 +107,7 @@ const fallbackWorkflows: Workflow[] = [
 
 function buildNodes(models: Model[], workflows: Workflow[]): StudioNode[] {
   const workflowNodes = workflows.slice(0, 3).map((workflow, index) => ({
-    id: workflow.id,
+    id: `workflow-${workflow.id}`,
     label: workflow.name,
     detail: `${workflow.requiredModels.filter((model) => model.available).length}/${workflow.requiredModels.length} models ready`,
     kind: 'workflow' as const,
@@ -117,7 +117,7 @@ function buildNodes(models: Model[], workflows: Workflow[]): StudioNode[] {
   }));
 
   const modelNodes = models.slice(0, 5).map((model, index) => ({
-    id: model.id,
+    id: `model-${model.id}`,
     label: model.name,
     detail: `${model.type} - ${model.size}`,
     kind: 'model' as const,
@@ -201,8 +201,8 @@ export default function GraphStudioVariant({
               <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
                 {workflows.flatMap((workflow) =>
                   workflow.requiredModels.map((requiredModel, index) => {
-                    const source = nodes.find((node) => node.id === workflow.id);
-                    const target = nodes.find((node) => node.id === requiredModel.modelId);
+                    const source = nodes.find((node) => node.id === `workflow-${workflow.id}`);
+                    const target = nodes.find((node) => node.id === `model-${requiredModel.modelId}`);
                     if (!source || !target) return null;
                     return (
                       <line
