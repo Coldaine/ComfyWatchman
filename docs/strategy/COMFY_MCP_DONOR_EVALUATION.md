@@ -2,6 +2,8 @@
 
 This note evaluates existing ComfyUI MCP and harness projects as donor systems for ComfyWatchman. The purpose is to move faster by reusing proven surface design and runtime patterns without losing ComfyWatchman's core value: evidence-backed readiness and install planning for a real ComfyUI environment.
 
+For the focused Manager-first plan, see `COMFYUI_MANAGER_ADOPTION_PLAN.md`.
+
 ## Decision
 
 Do not replace ComfyWatchman with any donor project wholesale.
