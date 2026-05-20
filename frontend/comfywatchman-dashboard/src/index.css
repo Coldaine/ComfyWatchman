@@ -244,12 +244,12 @@
 
   ::placeholder {
     opacity: 1;
-    color: currentColor;
+    color: currentcolor;
   }
 
   @supports (color: color-mix(in lab, red, red)) {
     ::placeholder {
-      color: color-mix(in oklab, currentColor 50%, transparent);
+      color: color-mix(in oklab, currentcolor 50%, transparent);
     }
   }
 
@@ -1278,7 +1278,7 @@
   }
 
   .bg-current\/10 {
-    background-color: currentColor;
+    background-color: currentcolor;
   }
 
   @supports (color: color-mix(in lab, red, red)) {
@@ -1478,7 +1478,7 @@
   }
 
   .fill-current {
-    fill: currentColor;
+    fill: currentcolor;
   }
 
   .fill-yellow-500 {
@@ -1699,7 +1699,7 @@
   }
 
   .text-current {
-    color: currentColor;
+    color: currentcolor;
   }
 
   .text-destructive {
@@ -3250,7 +3250,7 @@ html {
 }
 
 .cw-pill {
-  border: 1px solid currentColor;
+  border: 1px solid currentcolor;
   border-radius: 999px;
   padding: 5px 10px;
   font-size: 12px;
@@ -3427,9 +3427,9 @@ html {
   position: absolute;
   transform: translate(-50%, -50%);
   min-width: 160px;
-  border: 1px solid currentColor;
+  border: 1px solid currentcolor;
   border-radius: 8px;
-  background: color-mix(in oklab, #020617 85%, currentColor 15%);
+  background: color-mix(in oklab, #020617 85%, currentcolor 15%);
   padding: 12px;
   color: #60a5fa;
   box-shadow: 0 12px 30px #00000033;

@@ -161,11 +161,21 @@ export function VariantGallery({ models, workflows, activityLog }: VariantGaller
       </nav>
 
       <div className="cw-port-frame">
-        {activeVariant === 'operator' && <OperatorConsoleVariant />}
-        {activeVariant === 'queue' && <QueueOpsVariant />}
-        {activeVariant === 'graph' && <GraphStudioVariant />}
-        {activeVariant === 'search' && <SearchWorkbenchVariant />}
-        {activeVariant === 'review' && <ReadinessReviewVariant />}
+        {activeVariant === 'operator' && (
+          <OperatorConsoleVariant models={models} workflows={workflows} activityLog={activityLog} />
+        )}
+        {activeVariant === 'queue' && (
+          <QueueOpsVariant models={models} workflows={workflows} activityLog={activityLog} />
+        )}
+        {activeVariant === 'graph' && (
+          <GraphStudioVariant models={models} workflows={workflows} activityLog={activityLog} />
+        )}
+        {activeVariant === 'search' && (
+          <SearchWorkbenchVariant models={models} workflows={workflows} activityLog={activityLog} />
+        )}
+        {activeVariant === 'review' && (
+          <ReadinessReviewVariant models={models} workflows={workflows} activityLog={activityLog} />
+        )}
         {activeVariant === 'pipeline' && (
           <PipelineBoardVariant models={models} workflows={workflows} activityLog={activityLog} />
         )}

@@ -306,7 +306,7 @@ export default function SearchWorkbenchVariant({
               return (
                 <div key={step.label} className="rounded-lg border p-3">
                   <div className="mb-2 flex items-center gap-2">
-                    <Icon className={`h-4 w-4 ${step.label === 'Search' ? 'animate-spin text-primary' : 'text-primary'}`} />
+                    <Icon className={`h-4 w-4 text-primary ${step.label === 'Search' ? 'animate-spin' : ''}`} />
                     <span className="font-medium">{step.label}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">{step.text}</p>

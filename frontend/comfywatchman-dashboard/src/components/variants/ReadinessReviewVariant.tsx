@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityLogItem, Model, Workflow } from '../../types';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -134,6 +134,11 @@ export default function ReadinessReviewVariant({
   const toggleSelected = (id: string) => {
     setSelected((current) => current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]);
   };
+
+  useEffect(() => {
+    const validIds = new Set(reviewItems.map((item) => item.id));
+    setSelected((current) => current.filter((id) => validIds.has(id)));
+  }, [reviewItems]);
 
   return (
     <div className="space-y-4">

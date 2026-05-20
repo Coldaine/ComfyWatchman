@@ -22,6 +22,7 @@ import {
   Sparkles,
   X
 } from 'lucide-react';
+import { clampPercent } from './utils';
 
 interface VariantProps {
   models?: Model[];
@@ -31,6 +32,7 @@ interface VariantProps {
 
 type QueueStatus = 'running' | 'queued' | 'review' | 'blocked' | 'done';
 type RunMode = 'auto' | 'assist' | 'dry-run';
+type RunCheck = [label: string, value: string, ok: boolean];
 
 interface QueueItem {
   id: string;
@@ -134,10 +136,6 @@ const statusTone: Record<QueueStatus, string> = {
   done: 'bg-green-500'
 };
 
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
 function MiniProgress({ value }: { value: number }) {
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -154,7 +152,7 @@ function deriveQueueItems(models: Model[], workflows: Workflow[], activityLog: A
       id: `download-${model.id}`,
       title: model.name,
       source: model.type,
-      status: index === 0 ? ('running' as QueueStatus) : ('queued' as QueueStatus),
+      status: index === 0 ? 'running' : 'queued',
       done: index === 0 ? 42 : 0,
       total: 100,
       detail: `Download ${model.filename} into ${model.path}`
@@ -186,7 +184,7 @@ function deriveQueueItems(models: Model[], workflows: Workflow[], activityLog: A
       id: `activity-${item.id}`,
       title: 'Resolver exception',
       source: item.type,
-      status: 'blocked' as QueueStatus,
+      status: 'blocked',
       done: 0,
       total: 1,
       detail: item.message
@@ -425,13 +423,13 @@ export default function QueueOpsVariant({
                   </div>
                 </div>
                 <div className="divide-y divide-border">
-                  {[
+                  {([
                     ['Inventory cache', 'Current', true],
                     ['Download paths', 'Writable', true],
                     ['Human review', totals.blocked > 0 ? 'Needed' : 'Clear', totals.blocked === 0],
                     ['Queue heartbeat', isRunning ? 'Active' : 'Paused', isRunning]
-                  ].map(([label, value, ok]) => (
-                    <div key={label as string} className="flex items-center justify-between gap-3 p-4">
+                  ] satisfies RunCheck[]).map(([label, value, ok]) => (
+                    <div key={label} className="flex items-center justify-between gap-3 p-4">
                       <div className="flex min-w-0 items-center gap-2">
                         {ok ? (
                           <CheckCircle2 className="h-4 w-4 text-green-500" />

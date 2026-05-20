@@ -22,6 +22,7 @@ import {
   Workflow as WorkflowIcon,
   XCircle
 } from 'lucide-react';
+import { clampPercent } from './utils';
 
 interface VariantProps {
   models?: Model[];
@@ -136,10 +137,6 @@ function formatRelativeTime(timestamp: string) {
   if (hours < 24) return `${hours}h ago`;
 
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 function ProgressLine({ value, tone = 'primary' }: { value: number; tone?: 'primary' | 'green' | 'amber' }) {
