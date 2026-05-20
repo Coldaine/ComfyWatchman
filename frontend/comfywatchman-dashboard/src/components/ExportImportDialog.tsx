@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { comfyUIService } from '../services/comfyui-service';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function ExportImportDialog() {
   const [exportType, setExportType] = useState<'models' | 'workflows' | 'all'>('all');

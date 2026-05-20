@@ -27,8 +27,10 @@ export function WorkflowCard({ workflow }: WorkflowCardProps) {
 
   return (
     <Card className="overflow-hidden hover:border-primary/50 transition-colors">
-      <div
-        className="p-4 cursor-pointer"
+      <button
+        type="button"
+        className="block w-full p-4 text-left"
+        aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-start gap-3">
@@ -82,7 +84,7 @@ export function WorkflowCard({ workflow }: WorkflowCardProps) {
             </div>
           </div>
         </div>
-      </div>
+      </button>
 
       {expanded && (
         <div className="border-t border-border p-4 bg-muted/20">

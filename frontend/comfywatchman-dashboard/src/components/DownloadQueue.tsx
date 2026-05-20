@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface QueueItem {
   id: string;

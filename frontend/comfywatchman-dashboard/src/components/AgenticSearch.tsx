@@ -33,7 +33,7 @@ import {
 } from './ui/select';
 import { Progress } from './ui/progress';
 import { Separator } from './ui/separator';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 const PREDEFINED_STRATEGIES: SearchStrategy[] = [
   {

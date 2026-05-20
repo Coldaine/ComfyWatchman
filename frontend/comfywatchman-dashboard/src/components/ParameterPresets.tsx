@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from './ui/dialog';
 import { Label } from './ui/label';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface Preset {
   id: string;

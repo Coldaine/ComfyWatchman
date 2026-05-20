@@ -8,6 +8,17 @@ export type KeyboardShortcut = {
   meta?: boolean;
 };
 
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    target.closest('input, textarea, select, [contenteditable="true"]') !== null
+  );
+};
+
 /**
  * Hook for registering keyboard shortcuts
  * Example: useKeyboardShortcut({ key: 's', ctrl: true }, handleSave)
@@ -21,6 +32,10 @@ export function useKeyboardShortcut(
     if (!enabled) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+
       const { key, ctrl, shift, alt, meta } = shortcut;
 
       // Check if all modifiers match
@@ -57,6 +72,10 @@ export function useKeyboardShortcuts(
     if (!enabled) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+
       for (const { shortcut, callback } of shortcuts) {
         const { key, ctrl, shift, alt, meta } = shortcut;
 
