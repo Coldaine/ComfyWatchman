@@ -8,6 +8,8 @@ ComfyWatchman is only useful if it can produce trustworthy readiness and install
 
 The current repo still contains useful scanner, inventory, search, download, and state pieces. It also contains stale assumptions: Copilot-first framing, hardcoded Comfy roots, legacy widget parsing, script-first downloads, and folder guesses that ignore current Comfy model path behavior. The next major work should therefore be a harness modernization pass, not another frontend pass.
 
+The donor evaluation in `COMFY_MCP_DONOR_EVALUATION.md` is the companion decision record for this plan. It identifies which existing ComfyUI MCP projects should be mined for runtime and MCP patterns, and which parts must remain ComfyWatchman-native.
+
 ## Product question
 
 The core question is:
