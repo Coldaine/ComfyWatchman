@@ -11,6 +11,7 @@ import {
   Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useUserPreferences } from '../hooks/useUserPreferences';
 
 interface Recommendation {
   id: string;
@@ -105,12 +106,18 @@ const recommendations: Recommendation[] = [
 ];
 
 export function SmartRecommendations() {
+  const { preferences, updatePreference } = useUserPreferences();
+
   const handleDownload = (rec: Recommendation) => {
     toast.success(`Added ${rec.name} to download queue`);
   };
 
   const handleDismiss = (id: string) => {
-    toast.success('Recommendation dismissed');
+    const currentDismissed = preferences.dismissedRecommendations || [];
+    if (!currentDismissed.includes(id)) {
+      updatePreference('dismissedRecommendations', [...currentDismissed, id]);
+      toast.success('Recommendation dismissed');
+    }
   };
 
   const getCategoryIcon = (category: Recommendation['category']) => {
@@ -140,11 +147,15 @@ export function SmartRecommendations() {
     }
   };
 
+  const filteredRecommendations = recommendations.filter(
+    r => !preferences.dismissedRecommendations?.includes(r.id)
+  );
+
   const groupedRecommendations = {
-    personalized: recommendations.filter(r => r.category === 'personalized'),
-    trending: recommendations.filter(r => r.category === 'trending'),
-    collaborative: recommendations.filter(r => r.category === 'collaborative'),
-    seasonal: recommendations.filter(r => r.category === 'seasonal'),
+    personalized: filteredRecommendations.filter(r => r.category === 'personalized'),
+    trending: filteredRecommendations.filter(r => r.category === 'trending'),
+    collaborative: filteredRecommendations.filter(r => r.category === 'collaborative'),
+    seasonal: filteredRecommendations.filter(r => r.category === 'seasonal'),
   };
 
   return (

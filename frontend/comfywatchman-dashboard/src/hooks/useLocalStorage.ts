@@ -19,6 +19,24 @@ export function useLocalStorage<T>(
     }
   });
 
+  // Listen for changes in other windows/tabs
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === key && e.newValue !== null) {
+        try {
+          setStoredValue(JSON.parse(e.newValue));
+        } catch (error) {
+          console.error(`Error parsing storage sync for "${key}":`, error);
+        }
+      } else if (e.key === key && e.newValue === null) {
+        setStoredValue(initialValue);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [key, initialValue]);
+
   // Return a wrapped version of useState's setter function that
   // persists the new value to localStorage
   const setValue = useCallback((value: T | ((prev: T) => T)) => {

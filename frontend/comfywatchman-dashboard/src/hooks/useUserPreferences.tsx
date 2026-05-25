@@ -1,3 +1,4 @@
+import React, { createContext, useContext, useCallback } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { ModelType } from '../types';
 
@@ -24,6 +25,9 @@ export interface UserPreferences {
 
   // Export/Import
   defaultExportType: 'models' | 'workflows' | 'all';
+
+  // Recommendations
+  dismissedRecommendations: string[];
 }
 
 const defaultPreferences: UserPreferences = {
@@ -40,19 +44,28 @@ const defaultPreferences: UserPreferences = {
   enableKeyboardShortcuts: true,
   enableRealTimeUpdates: false,
   defaultExportType: 'all',
+  dismissedRecommendations: [],
 };
 
+interface UserPreferencesContextType {
+  preferences: UserPreferences;
+  updatePreference: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => void;
+  resetPreferences: () => void;
+  setPreferences: (value: UserPreferences | ((prev: UserPreferences) => UserPreferences)) => void;
+}
+
+const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
+
 /**
- * Hook for managing user preferences
- * Automatically persists to localStorage
+ * Provider component for user preferences
  */
-export function useUserPreferences() {
+export function UserPreferencesProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences, clearPreferences] = useLocalStorage<UserPreferences>(
     'comfyui-dashboard-preferences',
     defaultPreferences
   );
 
-  const updatePreference = <K extends keyof UserPreferences>(
+  const updatePreference = useCallback(<K extends keyof UserPreferences>(
     key: K,
     value: UserPreferences[K]
   ) => {
@@ -60,16 +73,33 @@ export function useUserPreferences() {
       ...prev,
       [key]: value
     }));
-  };
+  }, [setPreferences]);
 
-  const resetPreferences = () => {
+  const resetPreferences = useCallback(() => {
     clearPreferences();
-  };
+  }, [clearPreferences]);
 
-  return {
-    preferences,
-    updatePreference,
-    resetPreferences,
-    setPreferences,
-  };
+  return (
+    <UserPreferencesContext.Provider value={{
+      preferences,
+      updatePreference,
+      resetPreferences,
+      setPreferences,
+    }}>
+      {children}
+    </UserPreferencesContext.Provider>
+  );
 }
+
+/**
+ * Hook for managing user preferences
+ * Automatically persists to localStorage and syncs via Context
+ */
+export function useUserPreferences() {
+  const context = useContext(UserPreferencesContext);
+  if (context === undefined) {
+    throw new Error('useUserPreferences must be used within a UserPreferencesProvider');
+  }
+  return context;
+}
+

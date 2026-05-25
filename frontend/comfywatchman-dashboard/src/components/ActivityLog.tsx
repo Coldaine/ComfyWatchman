@@ -24,7 +24,7 @@ export function ActivityLog({ activities }: ActivityLogProps) {
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = Math.max(0, now.getTime() - date.getTime());
     const diffMins = Math.floor(diffMs / 60000);
 
     if (diffMins < 60) return `${diffMins}m ago`;

@@ -33,7 +33,7 @@ export interface SortConfig {
 type UpdateCallback = (event: UpdateEvent) => void;
 
 export interface UpdateEvent {
-  type: 'model_added' | 'model_updated' | 'model_deleted' | 'download_progress' | 'activity';
+  type: 'model_added' | 'model_updated' | 'model_deleted' | 'download_progress' | 'activity' | 'refresh';
   data: any;
 }
 
@@ -295,11 +295,34 @@ export class ComfyUIService {
     await this.delay(300);
 
     const data = JSON.parse(jsonData);
+    let importedModels = 0;
+    let importedWorkflows = 0;
 
-    // In real implementation, validate and merge data
+    if (Array.isArray(data.models)) {
+      for (const model of data.models as Model[]) {
+        if (!model?.id || mockModels.some(existing => existing.id === model.id)) {
+          continue;
+        }
+        mockModels.push(model);
+        importedModels += 1;
+      }
+    }
+
+    if (Array.isArray(data.workflows)) {
+      for (const workflow of data.workflows as Workflow[]) {
+        if (!workflow?.id || mockWorkflows.some(existing => existing.id === workflow.id)) {
+          continue;
+        }
+        mockWorkflows.push(workflow);
+        importedWorkflows += 1;
+      }
+    }
+
+    this.notifyUpdate({ type: 'refresh', data: null });
+
     return {
-      models: data.models?.length || 0,
-      workflows: data.workflows?.length || 0
+      models: importedModels,
+      workflows: importedWorkflows
     };
   }
 

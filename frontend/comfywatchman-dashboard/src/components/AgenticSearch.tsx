@@ -98,10 +98,18 @@ function ConfidenceMeter({ confidence, score }: { confidence: SearchCandidate['c
 }
 
 function PhaseTimeline({ run }: { run: SearchRun }) {
-  const getPhaseStatus = (phase: string) => {
-    const step = run.steps.find(s => s.phase === phase);
-    if (!step) return 'pending';
-    return step.status;
+  const getPhaseStatus = (phaseId: string) => {
+    const phaseSteps = run.steps.filter(s => s.phase === phaseId);
+
+    if (phaseSteps.length === 0) {
+      if (run.currentPhase === phaseId && run.status === 'running') return 'running';
+      return 'pending';
+    }
+
+    if (phaseSteps.some(s => s.status === 'running')) return 'running';
+    if (phaseSteps.some(s => s.status === 'success')) return 'success';
+    if (phaseSteps.some(s => s.status === 'failed')) return 'failed';
+    return 'pending';
   };
 
   const phases = [
@@ -115,8 +123,11 @@ function PhaseTimeline({ run }: { run: SearchRun }) {
       {phases.map((phase, index) => {
         const status = getPhaseStatus(phase.id);
         const Icon = phase.icon;
-        const isActive = run.currentPhase === phase.id;
-        const isPast = run.steps.findIndex(s => s.phase === phase.id && s.status === 'success') > -1;
+        const isActive = run.currentPhase === phase.id && run.status === 'running';
+        const isPast = status === 'success' || (
+          ['initial', 'fallback', 'doubt_resolution'].indexOf(run.currentPhase) >
+          ['initial', 'fallback', 'doubt_resolution'].indexOf(phase.id)
+        ) || (run.status === 'completed');
 
         return (
           <div key={phase.id} className="flex items-center gap-2">
@@ -283,6 +294,7 @@ export function AgenticSearch() {
   const handleSelectCandidate = async (candidateId: string) => {
     if (!currentRun) return;
 
+    const previousId = selectedCandidateId;
     setSelectedCandidateId(candidateId);
 
     try {
@@ -291,6 +303,7 @@ export function AgenticSearch() {
       toast.success('Candidate selected');
     } catch (error: any) {
       toast.error(`Selection failed: ${error.message}`);
+      setSelectedCandidateId(previousId);
     }
   };
 

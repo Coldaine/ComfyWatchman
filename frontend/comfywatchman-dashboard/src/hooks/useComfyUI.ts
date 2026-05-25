@@ -49,7 +49,9 @@ export function useComfyUI(filters?: SearchFilters): UseComfyUIResult {
 
     // Subscribe to real-time updates
     const unsubscribe = comfyUIService.subscribeToUpdates((event) => {
-      if (event.type === 'model_updated') {
+      if (event.type === 'refresh') {
+        fetchData();
+      } else if (event.type === 'model_updated') {
         setModels(prev => prev.map(m => m.id === event.data.id ? event.data : m));
       } else if (event.type === 'model_deleted') {
         setModels(prev => prev.filter(m => m.id !== event.data.id));

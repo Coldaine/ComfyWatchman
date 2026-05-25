@@ -22,7 +22,7 @@ import { VariantGallery } from './components/VariantGallery';
 import { Toaster } from './components/ui/sonner';
 import { useComfyUI } from './hooks/useComfyUI';
 import { useDebounce } from './hooks/useDebounce';
-import { useUserPreferences } from './hooks/useUserPreferences';
+import { useUserPreferences, UserPreferencesProvider } from './hooks/useUserPreferences';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcut';
 import {
   Search,
@@ -49,7 +49,7 @@ import {
 } from './components/ui/dropdown-menu';
 
 function AppContent() {
-  const { preferences, updatePreference } = useUserPreferences();
+  const { preferences } = useUserPreferences();
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'advanced' | 'watchman' | 'variants'>('dashboard');
   const [activeTab, setActiveTab] = useState(preferences.defaultTab);
   const [searchQuery, setSearchQuery] = useState('');
@@ -464,11 +464,13 @@ function AppContent() {
   );
 }
 
-// Wrap the app with ErrorBoundary
+// Wrap the app with ErrorBoundary and UserPreferencesProvider
 export default function App() {
   return (
     <ErrorBoundary>
-      <AppContent />
+      <UserPreferencesProvider>
+        <AppContent />
+      </UserPreferencesProvider>
     </ErrorBoundary>
   );
 }
