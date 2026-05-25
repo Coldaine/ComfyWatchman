@@ -150,11 +150,12 @@ class Config:
         """Provide backward compatibility for state_dir access."""
         return Path(self.state.json_path)
 
-    def load_from_file(self, config_file: Path) -> bool:
+    def load_from_file(self, config_file: Path, strict: bool = False) -> bool:
         """Load configuration from a specific file.
 
         Args:
             config_file: Path to the TOML configuration file
+            strict: Raise load/parse errors instead of warning and continuing
 
         Returns:
             bool: True if loaded successfully, False otherwise
@@ -166,6 +167,8 @@ class Config:
                 self._update_from_dict(self, toml_data)
                 return True
             except Exception as e:
+                if strict:
+                    raise
                 print(
                     f"Warning: Failed to load configuration from {config_file}: {e}",
                     file=sys.stderr,

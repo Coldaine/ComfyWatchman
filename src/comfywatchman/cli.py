@@ -234,7 +234,7 @@ def setup_logging(log_level: str, quiet: bool) -> None:
 def update_config_from_args(args: argparse.Namespace) -> None:
     """Update global config from command line arguments."""
     if getattr(args, "config", None) and args.config.exists():
-        config.load_from_file(args.config)
+        config.load_from_file(args.config, strict=True)
 
     if getattr(args, "output_dir", None):
         config.output_dir = args.output_dir

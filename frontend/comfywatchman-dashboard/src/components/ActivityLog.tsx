@@ -23,6 +23,10 @@ const activityColors = {
 export function ActivityLog({ activities }: ActivityLogProps) {
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return 'unknown time';
+    }
+
     const now = new Date();
     const diffMs = Math.max(0, now.getTime() - date.getTime());
     const diffMins = Math.floor(diffMs / 60000);
