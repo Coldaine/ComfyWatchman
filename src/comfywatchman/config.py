@@ -150,18 +150,59 @@ class Config:
         """Provide backward compatibility for state_dir access."""
         return Path(self.state.json_path)
 
-    def _load_from_toml(self):
-        """Load configuration from default.toml if exists."""
-        config_file = Path("config") / "default.toml"
+    def load_from_file(self, config_file: Path, strict: bool = False) -> bool:
+        """Load configuration from a specific file.
+
+        Args:
+            config_file: Path to the TOML configuration file
+            strict: Raise load/parse errors instead of warning and continuing
+
+        Returns:
+            bool: True if loaded successfully, False otherwise
+        """
         if config_file.exists():
             try:
                 with open(config_file, "rb") as f:
                     toml_data = tomllib.load(f)
                 self._update_from_dict(self, toml_data)
+                return True
             except Exception as e:
-                print(f"Warning: Failed to load TOML config: {e}", file=sys.stderr)
+                if strict:
+                    raise
+                print(
+                    f"Warning: Failed to load configuration from {config_file}: {e}",
+                    file=sys.stderr,
+                )
+        return False
 
-    def _apply_env_overrides(self):
+    def _load_from_toml(self) -> None:
+        """Load configuration from multiple logical locations."""
+        # Define candidate locations in order of priority (later overrides earlier)
+        # 1. Default/Legacy (lowest priority)
+        # 2. User home config
+        # 3. CWD config (highest priority)
+
+        candidates = [
+            Path("config") / "default.toml",
+        ]
+
+        # User home config
+        if sys.platform == "win32":
+            appdata = os.getenv("APPDATA")
+            if appdata:
+                candidates.append(Path(appdata) / "comfywatchman" / "config.toml")
+        else:
+            candidates.append(Path.home() / ".config" / "comfywatchman" / "config.toml")
+
+        candidates.append(Path.home() / ".comfywatchman" / "config.toml")
+
+        # Current working directory
+        candidates.append(Path("config.toml"))
+
+        for config_file in candidates:
+            self.load_from_file(config_file)
+
+    def _apply_env_overrides(self) -> None:
         """Apply environment variable overrides."""
         env_map = {
             "COMFYUI_ROOT": ("comfyui_root", lambda v: Path(v)),
@@ -223,7 +264,7 @@ class Config:
                 except ValueError:
                     print(f"Warning: Invalid value for {env_key}: {env_value}", file=sys.stderr)
 
-    def _update_from_dict(self, config_obj: Any, data: Dict[str, Any]):
+    def _update_from_dict(self, config_obj: Any, data: Dict[str, Any]) -> None:
         """Recursively update config from a dictionary."""
         for key, value in data.items():
             if hasattr(config_obj, key):
@@ -247,7 +288,7 @@ class Config:
                     else:
                         setattr(config_obj, key, value)
 
-    def validate(self, require_comfyui_path: bool = True):
+    def validate(self, require_comfyui_path: bool = True) -> None:
         """Validate configuration settings.
 
         Args:
@@ -269,7 +310,7 @@ class Config:
         if self.min_model_size < 0:
             raise ValueError("min_model_size must be non-negative")
 
-    def _ensure_dirs(self):
+    def _ensure_dirs(self) -> None:
         """Ensure configuration directories exist."""
         self.output_dir.mkdir(exist_ok=True)
         self.log_dir.mkdir(exist_ok=True)
@@ -277,7 +318,7 @@ class Config:
         # Ensure state path from config is created
         Path(self.state.json_path).mkdir(exist_ok=True)
 
-    def _set_default_backend_order(self):
+    def _set_default_backend_order(self) -> None:
         """Set the default backend order based on available backends and configuration."""
         # Import here to avoid circular imports
         from .adapters import MODELSCOPE_AVAILABLE

@@ -5,7 +5,7 @@ A comprehensive tool for analyzing ComfyUI workflows and downloading missing mod
 from Civitai and other sources.
 """
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 __author__ = "ComfyFixerSmart Team"
 __description__ = "Incremental ComfyUI model downloader with enhanced state management"
 __url__ = "https://github.com/darthsith/ComfyFixerSmart"
