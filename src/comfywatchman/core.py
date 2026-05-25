@@ -671,7 +671,12 @@ def run_v1_compatibility_mode(specific_workflows=None, verify_urls=False, logger
     )
 
 
-def run_v2_compatibility_mode(specific_workflows=None, retry_failed=False, logger=None):
+def run_v2_compatibility_mode(
+    specific_workflows=None,
+    retry_failed=False,
+    search_backends=None,
+    logger=None,
+):
     """
     Run in v2 compatibility mode (comfy_fixer_v2.py behavior).
 
@@ -692,7 +697,7 @@ def run_v2_compatibility_mode(specific_workflows=None, retry_failed=False, logge
 
     return core.run_workflow_analysis(
         specific_workflows=specific_workflows,
-        search_backends=None,  # Use config defaults (qwen, civitai) for best results
+        search_backends=search_backends,
         generate_script=True,
         verify_urls=False,
     )

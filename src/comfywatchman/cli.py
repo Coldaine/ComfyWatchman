@@ -46,8 +46,8 @@ Examples:
     parser.add_argument(
         "--search",
         "--backends",
-        default="civitai",
-        help="Comma-separated list of search backends (default: civitai)",
+        default="qwen,civitai",
+        help="Comma-separated list of search backends (default: qwen,civitai)",
     )
 
     # Mode options
@@ -138,7 +138,7 @@ Examples:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 2.0.0",
+        version="%(prog)s 3.0.0",
     )
 
     return parser
@@ -234,7 +234,7 @@ def setup_logging(log_level: str, quiet: bool) -> None:
 def update_config_from_args(args: argparse.Namespace) -> None:
     """Update global config from command line arguments."""
     if getattr(args, "config", None) and args.config.exists():
-        config.load_from_file(args.config)
+        config.load_from_file(args.config, strict=True)
 
     if getattr(args, "output_dir", None):
         config.output_dir = args.output_dir
@@ -324,7 +324,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         scheduler_workflow_dirs = workflow_dirs if workflow_dirs else None
 
         logger.info("=" * 70)
-        logger.info("ComfyFixerSmart v2.0.0 - Starting Analysis")
+        logger.info("ComfyFixerSmart v3.0.0 - Starting Analysis")
         logger.info("=" * 70)
         logger.info(f"Workflow directories: {workflow_dirs}")
         logger.info(f"Search backends: {search_backends}")
@@ -358,6 +358,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             logger.info("Running in V2 mode (batch processing)")
             result = run_v2_compatibility_mode(
                 specific_workflows=args.workflows if args.workflows else None,
+                search_backends=search_backends,
                 retry_failed=False,
             )
         else:
