@@ -49,10 +49,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/comfywatchman"
-Repository = "https://github.com/yourusername/comfywatchman.git"
-Issues = "https://github.com/yourusername/comfywatchman/issues"
-Changelog = "https://github.com/yourusername/comfywatchman/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Coldaine/ComfyWatchman"
+Repository = "https://github.com/Coldaine/ComfyWatchman.git"
+Issues = "https://github.com/Coldaine/ComfyWatchman/issues"
+Changelog = "https://github.com/Coldaine/ComfyWatchman/blob/main/CHANGELOG.md"
 
 [project.scripts]
 comfywatchman = "comfywatchman.cli:main"
