@@ -55,6 +55,9 @@ Thumbs.db
 state/
 output/
 config/.compatibility_state.json
+_open_prs.json
+_open_issues.json
+_repo_metadata.json
 
 # Temporary files
 *.tmp
