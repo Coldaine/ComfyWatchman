@@ -5,24 +5,25 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-ComfyWatchman provides Python APIs designed for AI agents to analyze ComfyUI workflows, identify missing models, search across multiple sources (Civitai, HuggingFace, Qwen), and automatically download dependencies.
+ComfyWatchman provides Python APIs designed for AI agents to analyze ComfyUI workflows, identify missing models, search Civitai and Qwen-mediated HuggingFace evidence, and automatically download dependencies.
 
-**Built for AI Agents** — Not primarily an end-user CLI. Functions return structured data (dataclasses, dicts) so AI agents can make decisions about what to scan, search, or download.
+**Built for AI Agents** - Not primarily an end-user CLI. Functions return structured data (dataclasses, dicts) so AI agents can make decisions about what to scan, search, or download.
 
-**Complements [ComfyUI-Copilot](https://github.com/AIDC-AI/ComfyUI-Copilot)** — Copilot handles workflow generation and interactive debugging; ComfyWatchman provides dependency resolution and multi-backend search as callable tools.
+**Complements [ComfyUI-Copilot](https://github.com/AIDC-AI/ComfyUI-Copilot)** - Copilot handles workflow generation and interactive debugging; ComfyWatchman provides dependency resolution and multi-backend search as callable tools.
 
 ## Current State
 
 Package `comfywatchman` v3.0.0 (Python 3.12+). Core workflow is implemented end-to-end:
 
-- Workflow scanning and model extraction — implemented (`scanner.py`)
-- Local model inventory — implemented (`inventory.py`)
-- Multi-backend search (Civitai, HuggingFace, Qwen/pattern-based) — implemented (`search.py`, `civitai_tools/`)
-- Automatic download with SHA256 verification — implemented (`download.py`)
-- Background scheduler with GPU VRAM guard — implemented (`scheduler.py`)
-- HTML dashboard generation — implemented (`dashboard.py`)
-- Model file inspector (`comfywatchman inspect`) — implemented (`inspector/`)
-- Adapters for ComfyUI-Copilot integration — implemented (`adapters/`)
+- Workflow scanning and model extraction - implemented (`scanner.py`)
+- Local model inventory - implemented (`inventory.py`)
+- Multi-backend search orchestration - implemented (`search.py`, `civitai_tools/`)
+- Automatic download with SHA256 verification - implemented (`download.py`)
+- Background scheduler with GPU VRAM guard - implemented (`scheduler.py`)
+- Static HTML dashboard generation - implemented (`dashboard.py`)
+- React/Vite dashboard prototype - implemented (`frontend/comfywatchman-dashboard/`)
+- Model file inspector (`comfywatchman inspect`) - implemented (`inspector/`)
+- Adapters for ComfyUI-Copilot integration - implemented (`adapters/`)
 
 ## Installation
 
@@ -59,8 +60,8 @@ comfywatchman workflow.json
 # Analyze workflows in a specific directory
 comfywatchman --dir /path/to/workflows
 
-# Use specific search backends
-comfywatchman --search civitai,huggingface
+# Use specific search backends (default is qwen,civitai)
+comfywatchman --search qwen,civitai
 
 # Inspect a model file's metadata (no tensor loading)
 comfywatchman inspect model.safetensors
@@ -112,58 +113,46 @@ run = core.run_workflow_analysis()
 
 ## Architecture
 
-```
+```text
 src/comfywatchman/
-├── cli.py                   # CLI entry point (comfywatchman command)
-├── core.py                  # ComfyFixerCore orchestrator
-├── scanner.py               # Workflow JSON parsing, model extraction
-├── inventory.py             # Local model inventory builder
-├── search.py                # Multi-backend search coordination
-├── download.py              # Automatic download with hash verification
-├── scheduler.py             # Background scheduler with VRAM guard
-├── state_manager.py         # State tracking and download caching
-├── dashboard.py             # HTML dashboard generation
-├── config.py                # TOML + env-based configuration
-├── inspector/               # Model file metadata inspection
-│   ├── inspector.py
-│   └── cli.py
-├── civitai_tools/           # Civitai-specific search and download tools
-│   ├── advanced_search.py
-│   ├── batch_downloader.py
-│   ├── direct_downloader.py
-│   ├── direct_id_backend.py
-│   ├── enhanced_search.py
-│   └── fuzzy_finder.py
-└── adapters/                # Integration adapters (ComfyUI-Copilot, etc.)
-    ├── base.py
-    ├── copilot_validator.py
-    ├── modelscope_search.py
-    └── sql_state.py
+|-- cli.py                   # CLI entry point (comfywatchman command)
+|-- core.py                  # ComfyFixerCore orchestrator
+|-- scanner.py               # Workflow JSON parsing, model extraction
+|-- inventory.py             # Local model inventory builder
+|-- search.py                # Multi-backend search coordination
+|-- download.py              # Automatic download with hash verification
+|-- scheduler.py             # Background scheduler with VRAM guard
+|-- state_manager.py         # State tracking and download caching
+|-- dashboard.py             # Static HTML dashboard generation
+|-- config.py                # TOML + env-based configuration
+|-- inspector/               # Model file metadata inspection
+|-- civitai_tools/           # Civitai-specific search and download tools
+`-- adapters/                # Integration adapters (ComfyUI-Copilot, etc.)
 ```
 
 ## Search Backends
 
 | Backend | Description |
 |---------|-------------|
-| `civitai` | Civitai API search (default) |
-| `huggingface` | HuggingFace Hub search |
-| `qwen` | Pattern-based routing + Qwen agentic web search fallback |
+| `qwen` | Default first-pass agentic routing, pattern recognition, and web/HuggingFace evidence gathering |
+| `civitai` | Default fallback direct Civitai API search with DirectID support |
+| `huggingface` | Verification-oriented backend; direct discovery is currently handled through Qwen |
 
 Pattern recognition routes by filename:
-- `rife*.pth`, `sam_*.pth` → HuggingFace
-- `*.safetensors` → Civitai primary
-- `*.pt` → context-aware routing
+- `rife*.pth`, `sam_*.pth` -> likely HuggingFace-hosted
+- `*.safetensors` -> Civitai primary
+- `*.pt` -> context-aware routing
 
 ## Requirements
 
 - Python 3.12+
-- Civitai API key (free account) — required for Civitai search
+- Civitai API key (free account) - required for Civitai search
 - ComfyUI installation
 
 Optional:
-- HuggingFace token — for private HF models
-- Qwen CLI — for agentic web search fallback
+- HuggingFace token - for private HF models
+- Qwen CLI - for agentic web search fallback
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+MIT License - see [LICENSE](LICENSE).
