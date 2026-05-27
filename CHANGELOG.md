@@ -1,321 +1,271 @@
 # Changelog
 
-All notable changes to ComfyFixerSmart will be documented in this file.
+All notable changes to this fork of ComfyUI-Copilot are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.0] - 2025-01-XX
+
+This is a major enhancement release that adds autonomous agent capabilities, multi-provider support, voice I/O, and fixes critical LM Studio integration issues.
 
 ### Added
 
-#### Model Inspection & Metadata
-- **Safe Model Metadata Inspector** - `comfy-inspect` command and library module for deterministic inspection
-  - Supports safetensors, ONNX, and optional pickle formats (.ckpt, .pt, .pth)
-  - SHA256 hashing for integrity verification
-  - Memory-safe inspection without loading full tensors
-  - Comprehensive CLI with `--format`, `--hash`, `--recursive`, `--unsafe` options
-- `comfywatchman inspect` subcommand for integrated inspection workflow
-- `comfywatchman.inspector` library module with safe inspection APIs
-  - `inspect_file()` - Single file inspection
-  - `inspect_paths()` - Batch directory inspection
-  - `InspectionResult` dataclass with metadata, tensor info, and hashes
+#### Agent Mode - Autonomous Workflow Building
+- **PLAN/EXECUTE/VALIDATE/REPORT Loop** (`backend/service/agent_mode.py`)
+  - Agent breaks down complex goals into discrete tasks
+  - Autonomously searches nodes, builds workflows, sets parameters
+  - Validates workflow integrity before presenting to user
+  - Provides step-by-step progress reporting
+  
+- **Tool Budget System** (`backend/service/agent_mode_tools.py`)
+  - Per-tool call limits (e.g., `search_nodes` max 4x, `save_workflow` max 5x)
+  - Global tool budget of 30 calls per agent session
+  - Loop prevention: kills if same tool+args repeated 3x in last 8 calls
+  - 5-minute total timeout, 25 max agent turns
+  
+- **Visual Progress Tracking** (`ui/src/components/chat/AgentModeIndicator.tsx`)
+  - Real-time step indicator showing current agent phase
+  - Task queue visualization
+  - Toggle with robot button in chat input
 
-#### ComfyUI-Copilot Integration
-- **Adapter pattern foundation** for extensible external integrations
-  - `BaseAdapter` abstract base class with initialization lifecycle
-  - Three production adapters:
-    - `CopilotValidatorAdapter` - Workflow validation via ComfyUI-Copilot
-    - `SqlStateAdapter` - Optional SQL-based state persistence (alternative to JSON)
-    - `ModelScopeSearchAdapter` - ModelScope model hub search backend
-  - `ModelScopeSearchFallback` - Download fallback for ModelScope models
-- Copilot integration as git submodule at `src/copilot_backend/`
-- Adapter configuration in TOML with enable/disable flags
-- Integration strategy documentation explaining complementary positioning
+#### Multi-Provider Support
+- **OpenAI-Compatible Provider Architecture** (`backend/utils/globals.py`)
+  - `detect_provider()` function with URL pattern matching
+  - Provider-specific constants: timeouts, token limits, features
+  
+- **Supported Providers**:
+  - **OpenAI**: Full feature support with default model `gemini-2.5-flash`
+  - **Groq**: Free tier with `llama-3.3-70b-versatile`, reduced tool sets for rate limits
+  - **Anthropic**: Via OpenAI compatibility layer, `claude-sonnet-4-20250514`
+  - **LM Studio**: Fully local with auto-detection, no API key required
+  
+- **4-Tab Settings Modal** (`ui/src/components/chat/ApiKeyModal.tsx`)
+  - Auto-fill base URLs per provider
+  - Provider-specific placeholders and hints
+  - Model dropdown with refresh capability
+  
+- **Provider-Aware Optimizations**:
+  - Constrained providers get compressed prompts and reduced tool sets
+  - HTTP timeout hierarchy: Groq 30s, Anthropic 60s, LMStudio/OpenAI 120s
+  - Rate-limit detection with automatic wait-and-retry
+  - Frontend SSE timeout: 360s > Backend agent: 300s > MCP session: 180s
 
-#### Multi-Backend Search System
-- **ModelScope search backend** - Alternative to Civitai with fallback download capability
-- **Agentic search orchestration** via Qwen agent with multi-phase approach:
-  - Phase 1: Structured search with Civitai API
-  - Phase 2: Web search via agent tools for extended discovery
-  - Phase 3: HuggingFace hub integration
-  - Decision-making for best download source
-- Enhanced search architecture with configurable backend ordering
-- Backend selection now uses config defaults (qwen, civitai, huggingface) instead of hardcoded
+#### Voice I/O - Speech Interaction
+- **Speech-to-Text (STT)** (`ui/src/utils/vadRecorder.ts`)
+  - Browser-based voice recording with Voice Activity Detection (VAD)
+  - Web Audio AnalyserNode with RMS-based silence detection
+  - Auto-stops after 1.8 seconds of silence
+  - Real-time volume visualization on microphone button
+  - Backend endpoints: `/api/voice/speech-to-text`
+  - Groq: `whisper-large-v3-turbo` | OpenAI: `whisper-1`
+  
+- **Text-to-Speech (TTS)** (`ui/src/utils/streamingTTS.ts`)
+  - Streaming TTS that reads AI responses as they arrive
+  - Sentence-boundary detection for natural pacing (min 40 chars per chunk)
+  - Gapless audio queue for smooth playback
+  - Speaker button toggle (purple when active)
+  - Backend endpoints: `/api/voice/text-to-speech`, `/api/voice/capabilities`
+  - Groq: Orpheus TTS (200 char chunks, WAV) | OpenAI: tts-1 (4096 char chunks, MP3)
 
-#### Documentation & Planning
-- **40+ new documentation files** organized into logical sections:
-  - `docs/planning/` - Feature plans and implementation guides
-    - `EMBEDDING_SUPPORT_PLAN.md` - Embedding model support (1099 lines)
-    - `QWEN_SEARCH_IMPLEMENTATION_PLAN.md` - Agentic search architecture
-    - `AGENT_GUIDE.md` - Guidance for AI agents using this tool
-    - `INCREMENTAL_WORKFLOW.md` - Incremental processing patterns
-  - `docs/reports/` - Incident reports and analysis
-    - `civitai-api-wrong-metadata-incident.md` - Root cause and lessons learned
-    - `WAN22_POV_MISSIONARY_ANALYSIS.md` - Workflow analysis (817 lines)
-    - `WAN22_POV_MISSION_ANALYSIS.md` - Mission-focused analysis (525 lines)
-    - `CLAUDE_VERIFICATION.md` - AI verification results
-  - `docs/developer/` - Developer guides
-    - `api-reference.md` - Complete API documentation (660 lines)
-    - `developer-guide.md` - Development workflow guide (535 lines)
-    - `release-process.md` - Version management and releases (348 lines)
-    - `testing.md` - Testing strategy and frameworks
-    - `workflow_tooling_guide.md` - Workflow analysis tooling
-  - `docs/user/` - User-facing guides
-    - `cli-reference.md` - Complete CLI documentation
-    - `configuration.md` - Configuration guide (442 lines)
-    - `examples.md` - Usage examples and workflows
-    - `troubleshooting.md` - Common issues and solutions
-  - `docs/technical/` - Technical specifications
-    - `DOMAIN_ARCHITECTURE_STANDARDS.md` - Architecture design standards
-    - `integrations.md` - Integration patterns and APIs (769 lines)
-    - `performance.md` - Performance tuning guide (452 lines)
-    - `faq.md` - Frequently asked questions (530 lines)
-  - `docs/research/` - Research and analysis
-    - `ComfyUI-Copilot-Research-Report.md` - Deep integration analysis
-    - `EXISTING_SYSTEMS.md` - Landscape of 15+ related tools
-  - `docs/adr/` - Architecture decision records
-  - `docs/vision.md` - Long-term vision and roadmap
-
-#### Testing Infrastructure
-- **Comprehensive test suite** with 5,000+ lines of test code
-  - Unit tests: `test_config.py`, `test_inspector.py`, `test_logging.py`, `test_state_manager.py`, `test_utils.py` (874 lines)
-  - Integration tests: `test_cli.py`, `test_core.py`, `test_end_to_end.py`
-  - Functional tests: `test_scanner.py`, `test_search.py`, `test_download.py`, `test_inventory.py`, `test_civitai_search.py`, `test_single_search.py`
-  - Test fixtures and conftest with extensive fixtures (237 lines)
-  - Mock data and sample workflows for reproducibility
-
-#### Configuration & Deployment
-- `.kilocodemodes` configuration for Kilo Code IDE integration
-- `.gitignore` hardened to exclude model weights and generated artifacts
-- Pre-commit git hooks (`.githooks/pre-commit`) to prevent large file commits (≥90MB)
-- `config/default.toml` - Default production configuration
-- `config-example.toml` - Template configuration with all options
-- Environment variable support for all configuration options
-
-#### Utilities & Helpers
-- Enhanced utility functions in `utils.py` (132+ lines added)
-  - URL parsing and validation
-  - String sanitization for model names
-  - Download verification helpers
-  - Path manipulation utilities
-- Download script generation with safety checks
-- Comprehensive error messages and user feedback
-
-### Changed
-
-#### Search & Discovery
-- **V2 mode search backend fix** - Now uses config-defined backends (Qwen, Civitai, HuggingFace) instead of hardcoded Civitai-only
-  - Enables full agentic search capabilities as originally intended
-  - Respects backend ordering from configuration
-- Search architecture completely redesigned with adapter pattern
-- Backend selection now configurable per mode (V1 vs V2)
-- Search result confidence scoring improved with multi-source data
-
-#### Model Inspection
-- Inspector refactored from single module to structured submodule:
-  - `inspector/__init__.py` - Public API exports
-  - `inspector/cli.py` - CLI implementation (127 lines)
-  - `inspector/inspector.py` - Core inspection logic (560 lines)
-  - `inspector/logging.py` - Inspector-specific logging
-- Moved from `cli_inspect.py` to proper submodule structure
-
-#### Documentation & Communication
-- **README.md** updated with:
-  - Prominent "Relationship to ComfyUI-Copilot" section
-  - Integration positioning (complementary vs competitive)
-  - Upstream remote explanation (for different codebase)
-  - Feature differentiation callouts
-  - Modern formatting and badges
-- **CLAUDE.md** expanded with explicit integration strategy:
-  - Strategic positioning section (193 lines added)
-  - Hybrid architecture details
-  - Integration pathways (adapters, standalone mode, API)
-  - Key documents and references
-  - Clear upstream remote purpose
-- Configuration documentation expanded (442 lines in `docs/user/configuration.md`)
-- Comprehensive integration guide (769 lines in `docs/technical/integrations.md`)
-
-#### Configuration System
-- TOML configuration now fully integrated with environment variable override
-- Configuration validation with fail-fast for missing required fields (COMFYUI_ROOT)
-- Backend ordering configuration with sensible defaults
-- Adapter configuration flags for optional features
-
-#### Build & Package Management
-- `pyproject.toml` updated with:
-  - New optional dependency groups: `[inspector]`, `[copilot]`, `[modelscope]`, `[full]`
-  - Entry point for `comfy-inspect` standalone tool
-  - Updated classifiers and metadata
-- `setup.py` modernized with package discovery
-
-#### Download Management
-- Generated download scripts now force ComfyUI/models directory (no user path override)
-- Download verification enhanced with better error messages
-- State tracking improved for multi-phase operations
+#### Fine-Tuning Pipeline
+- **Dataset Generation** (`training/generate_dataset.py`)
+  - 18 conversation generators for ComfyUI tool-calling tasks
+  - Augmentation with parameter variations
+  - 9 current + 8 future tool schemas
+  - 11 workflow templates with parameter pools
+  
+- **Dataset Validation** (`training/validate_dataset.py`)
+  - 5-pass validation: structural + semantic checks
+  - JSON schema validation for tool calls
+  - Turn sequence validation
+  
+- **QLoRA Training** (`training/train.py`)
+  - Unsloth-based training framework
+  - Qwen3 model support with GGUF export
+  - Consumer GPU optimized (RTX 5060 8GB validated)
+  - Chunked cross-entropy loss (128-token chunks, ~37 MB vs 1.18 GB full)
+  - Windows WDDM-compatible gradient checkpointing
+  - Python 3.14 compatibility patches
 
 ### Fixed
 
-#### Critical Issues
-- **Civitai API Wrong Metadata Incident** - Documented root cause analysis:
-  - Image metadata was incorrectly retrieved from model objects instead of file objects
-  - Search was returning wrong image previews in some cases
-  - Code fixes applied to search.py for proper metadata extraction
-  - Comprehensive incident report in `docs/reports/civitai-api-wrong-metadata-incident.md`
-- **V2 search mode backend selection** - V2 now respects config defaults and full backend chain
-- **Git hygiene** - Pre-commit hooks prevent accidental large file commits
+#### LM Studio Integration - Complete Overhaul
+- **Port Configuration** (`backend/controller/llm_api.py`, `ui/src/components/chat/ApiKeyModal.tsx`)
+  - FIXED: Port hint was wrong (1235 → 1234)
+  - Correct default URL: `http://localhost:1234/v1`
+  
+- **URL Normalization** (`backend/utils/globals.py`)
+  - FIXED: `/api/v1` was not being converted to `/v1` for OpenAI SDK compatibility
+  - Automatic URL normalization: strips `/api` prefix, ensures `/v1` suffix
+  - Handles both `http://localhost:1234` and `http://localhost:1234/v1` inputs
+  
+- **Model Listing** (`backend/controller/llm_api.py`)
+  - FIXED: Did not parse LM Studio's native response format
+  - Robust multi-format parser handles both OpenAI and LM Studio response formats
+  - LM Studio format: `{"models": [...]}` with `key`/`display_name` fields
+  - OpenAI format: `{"data": [...]}` with `id` field
+  - 24-hour cache invalidation for model lists
+  
+- **API Key Handling** (`backend/service/mcp_client.py`, UI)
+  - FIXED: API key was required even though LM Studio doesn't need one
+  - Uses `"lmstudio-local"` placeholder when API key is empty
+  - Frontend allows empty API key for LM Studio
+  
+- **Header Forwarding** (`backend/controller/conversation_api.py`)
+  - FIXED: `Openai-Base-Url` header was not being sent from frontend
+  - Proper header forwarding for custom base URLs
+  
+- **Auto-Detection** (`backend/utils/globals.py`)
+  - Provider detection via URL patterns: `localhost:1234`, `127.0.0.1:1234`, `lmstudio`
+  - Automatic feature flagging for local models
 
-#### Code Quality
-- Fixed all code review feedback from ModelScope integration
-- Improved error handling in adapter initialization
-- Enhanced logging throughout all modules
-- Better exception messages with context
+#### Metadata Handling
+- **None-Safe Operations** (various files)
+  - FIXED: Crashes when node metadata was None or malformed
+  - Uses `(meta.get("field") or "").lower()` pattern
+  - Guards: `if not isinstance(meta, dict): continue`
 
-### Removed
-
-#### Legacy Code
-- Old Node.js/React UI code (moved to Copilot submodule)
-- Legacy backend implementation files
-- Hardcoded search backend configuration
-- Manual configuration templates (replaced with TOML)
-
-#### Unnecessary Files
-- Old assets and image files
-- Outdated localization files (zh/en JSON)
-- Legacy entry point scripts
-- Old test data files (replaced with new fixtures)
-
-### Security
-
-#### Safety Improvements
-- **Pre-commit hooks** block commits with files ≥90MB to prevent accidental large file uploads
-- **Safe model inspection** - Inspector never loads full tensors into memory
-- Pickle format inspection requires explicit `--unsafe` flag with user confirmation
-- Input validation and sanitization throughout CLI
-- File path validation to prevent directory traversal
-- HTTPS-only for all external API communication
-
-#### Repository Hygiene
-- Model weights explicitly excluded from git tracking (.gitignore)
-- Tighter ignore patterns for generated artifacts
-- Clear separation between tracked code and data artifacts
-- Security policy documented for safe model handling
-
-## [2.0.0] - 2025-10-12
-
-### Added
-- **Incremental Workflow System** - Complete redesign for better performance
-  - Search and download one model at a time
-  - Immediate downloads without waiting for batch completion
-  - Built-in verification every 6 downloads
-  - Real-time progress visibility
-- **Enhanced Configuration System** - TOML-based configuration with environment variable support
-- **Multi-Backend Search** - Support for Civitai and HuggingFace APIs
-- **Comprehensive CLI** - Full command-line interface with extensive options
-- **State Management** - Persistent tracking of downloads and operations
-- **Detailed Reporting** - Human-readable reports and JSON exports
-- **Caching System** - Intelligent caching to reduce API calls
-- **Resume Support** - Ability to resume interrupted downloads
-- **Cross-Platform Support** - Windows, macOS, and Linux compatibility
+#### Canvas Rule Enforcement
+- **Tool Restrictions** (`backend/service/mcp_client.py`, tool implementations)
+  - FIXED: Tools could unintentionally modify canvas state
+  - Only `save_workflow` modifies the canvas
+  - `explain_node` and `search_node` are read-only information tools
+  - Enforcement at code level (not just prompts) for local model compatibility
 
 ### Changed
-- **Architecture Overhaul** - Modular design with clear separation of concerns
-- **Performance Improvements** - 3x faster for typical workflows
-- **Memory Usage** - 50% reduction in memory footprint
-- **Error Handling** - Robust error recovery and user-friendly messages
-- **API Design** - Clean Python API for programmatic usage
 
-### Removed
-- Legacy batch processing mode (available as `--v1` compatibility)
-- Hardcoded paths and configurations
-- Manual script execution requirements
+#### Architecture
+- **Provider Detection** (`backend/utils/globals.py`)
+  - Added `detect_provider()` with URL pattern matching
+  - Centralized provider constants: `GROQ_HTTP_TIMEOUT`, `ANTHROPIC_HTTP_TIMEOUT`, etc.
+  
+- **Agent Factory** (`backend/agent_factory.py`)
+  - Provider-aware client configuration
+  - Timeout propagation from provider detection
+  
+- **Settings Modal** (`ui/src/components/chat/ApiKeyModal.tsx`)
+  - Restructured as 4-tab interface (was single form)
+  - Auto-fill functionality for base URLs
+  - Provider-specific help text and placeholders
+  
+- **Chat Input** (`ui/src/components/chat/ChatInput.tsx`)
+  - Added agent mode toggle button (robot icon)
+  - Added voice input button (microphone icon)
+  - Visual indicators for active modes
 
-### Fixed
-- Race conditions in concurrent downloads
-- Memory leaks in long-running operations
-- API rate limiting issues
-- File permission handling
-- Network timeout issues
+#### API Endpoints
+- **New Endpoints** (`backend/controller/conversation_api.py`, `backend/controller/llm_api.py`)
+  - `POST /api/workflow/agent-mode-stream` - Agent mode SSE stream
+  - `POST /api/voice/speech-to-text` - STT transcription
+  - `POST /api/voice/text-to-speech` - TTS audio generation
+  - `GET /api/voice/capabilities` - Provider TTS/STT capability check
+  
+- **Updated Endpoints**:
+  - `GET /api/llm/models` - Now handles multiple provider formats
+  - `POST /api/llm/verify` - Added base URL forwarding
 
-### Security
-- Secure API key handling
-- HTTPS-only communications
-- Input validation and sanitization
-- Safe file operations
+#### Documentation
+- **README.md** - Complete rewrite with feature comparison table
+- **Added Files**:
+  - `HOW_TO_USE_LMSTUDIO.md` - LM Studio setup guide
+  - `LMSTUDIO_SETUP.md` - Detailed configuration steps
+  - `LMSTUDIO_IMPLEMENTATION.md` - Technical implementation details
+- **Authors.txt** - Updated attribution
 
-## [1.5.0] - 2025-09-15
+### Dependencies
 
-### Added
-- HuggingFace backend support as fallback
-- Progress bars for long operations
-- JSON export functionality
-- Basic caching for API responses
+#### New Python Packages
+- `unsloth` - QLoRA training framework (training pipeline only)
+- Enhanced OpenAI SDK usage for multi-provider support
 
-### Changed
-- Improved error messages and user feedback
-- Better handling of network timeouts
-- Enhanced logging with structured output
+#### Updated Node Packages
+- Enhanced React components for agent mode UI
+- Added audio recording/playback utilities
 
-### Fixed
-- Issues with special characters in model names
-- Memory usage for large workflow files
-- API authentication edge cases
+### Technical Details
 
-## [1.0.0] - 2025-08-01
+#### Timeout Hierarchy
+```
+Frontend SSE: 360s
+  └─> Backend Agent: 300s
+      └─> MCP Session: 180s
+          └─> MCP Request: 120s
+              └─> Provider HTTP: 30-120s (provider-dependent)
+```
 
-### Added
-- Initial release of ComfyFixerSmart
-- Basic workflow analysis functionality
-- Civitai API integration
-- Automatic model downloading
-- Command-line interface
-- Basic configuration support
+#### Tool Budget Enforcement
+- Prevents runaway agent loops
+- Per-tool limits configurable in `agent_mode_tools.py`
+- Hard kill if tool abuse detected (3x same call in 8 turns)
 
-### Changed
-- N/A (initial release)
+#### Provider Detection Logic
+```python
+def detect_provider(base_url: str) -> str:
+    url_lower = base_url.lower()
+    if "groq" in url_lower: return "groq"
+    if "anthropic" in url_lower: return "anthropic"
+    if "localhost:1234" in url_lower or "lmstudio" in url_lower: return "lmstudio"
+    return "openai"  # default
+```
 
-### Removed
-- N/A (initial release)
+## [2.0.0] - Original Upstream Release
 
-### Fixed
-- N/A (initial release)
+Features from the original [AIDC-AI/ComfyUI-Copilot](https://github.com/AIDC-AI/ComfyUI-Copilot) v2.0:
 
-### Security
-- Basic input validation
-- Safe file operations
+- Workflow generation with library matching
+- One-click debug mode
+- Workflow rewriting via natural language
+- Parameter tuning (GenLab)
+- Node search and recommendations
+- Node query tool
+- Model recommendations
+- Downstream node suggestions
+- Multilingual support (English, Chinese)
 
 ---
 
-## Version Numbering
+## Upgrade Guide
 
-We use [Semantic Versioning](https://semver.org/):
+### From Upstream v2.0 to This Fork v3.0
 
-- **MAJOR.MINOR.PATCH** (e.g., 2.1.3)
-- **MAJOR**: Breaking changes
-- **MINOR**: New features, backward compatible
-- **PATCH**: Bug fixes, backward compatible
+1. **Install new dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Types of Changes
+2. **Update API configuration**:
+   - Open the settings modal in ComfyUI
+   - Your existing OpenAI key will continue to work
+   - If using LM Studio, clear the API key field and update the base URL to `http://localhost:1234/v1`
 
-- **Added** for new features
-- **Changed** for changes in existing functionality
-- **Deprecated** for soon-to-be removed features
-- **Removed** for now removed features
-- **Fixed** for any bug fixes
-- **Security** in case of vulnerabilities
+3. **Optional: Try new features**:
+   - Enable Agent Mode with the robot button
+   - Enable Voice I/O with the speaker button
+   - Test multiple providers by switching tabs in settings
 
-## Release Frequency
+### Breaking Changes
 
-- **Major releases**: As needed for breaking changes
-- **Minor releases**: Monthly for new features
-- **Patch releases**: As needed for bug fixes
+- **LM Studio URL format**: Old format `http://localhost:1235/api/v1` → New format `http://localhost:1234/v1`
+  - The system will auto-normalize, but update your saved configuration for clarity
 
-## Support Timeline
+### Migration Notes
 
-- **Current version**: Full support
-- **Previous major version**: Critical fixes only
-- **Older versions**: Security fixes only
+- All existing workflows are compatible
+- Chat history is preserved
+- Settings may need to be re-entered if base URL format changed
 
 ---
 
-For the most up-to-date information, check the [GitHub Releases](https://github.com/yourusername/comfywatchman/releases) page.
+## Support and Feedback
+
+For issues or questions:
+- **This fork**: https://github.com/vehoelite/ComfyUI-Copilot-w-Agent/issues
+- **Original project**: https://github.com/AIDC-AI/ComfyUI-Copilot/issues
+
+## Credits
+
+- **Original ComfyUI-Copilot v2.0**: [AIDC-AI](https://github.com/AIDC-AI)
+- **Fork enhancements v3.0**: Enhanced by Claude Opus 4.6
+- **ComfyUI**: [ComfyUI Project](https://github.com/comfyanonymous/ComfyUI)
+- **Unsloth**: [Unsloth Project](https://github.com/unslothai/unsloth)

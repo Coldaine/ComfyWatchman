@@ -1,104 +1,47 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Testing and coverage
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.hypothesis/
-
+__pycache__
+hash
+.env
+.env.llm
 # Logs
+logs
 *.log
-log/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Virtual environments
-venv/
-env/
-ENV/
-.venv
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
+ui/node_modules
+# ui/src/utils/encryptUtils.ts
+db
+dist-ssr
+*.local
+backup
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.db
+*.sw?
+.cache
+# dev
+ui/yarn.lock
 
-# Project-specific
-state/
-output/
-config/.compatibility_state.json
-_open_prs.json
-_open_issues.json
-issues.json
-_repo_metadata.json
-
-# Temporary files
-*.tmp
-*.bak
-.backup
-*.part
-
-# Common archives and compressed files
-*.zip
-*.7z
-*.rar
-*.tar
-*.gz
-*.bz2
-*.xz
-*.zst
-
-# Model binaries and large artifacts (prevent accidental commits)
-# Common AI/ComfyUI model formats
-*.safetensors
-*.ckpt
-*.pt
-*.pth
-*.bin
-*.onnx
-*.npz
-# Sometimes downloads create numbered duplicates
-*.safetensors.*
-*.ckpt.*
-*.pt.*
-*.pth.*
-*.bin.*
-
-# Generated download helper scripts at repo root
-# Keep explicit allow-list for real dev scripts if added later
-/*download*.sh
-/*_download.sh
-/complete_download.sh
-/corrected_download.sh
-/final_download.sh
-/fixed_download.sh
-/simple_download.sh
-/test_download.sh
+# Training artifacts
+training_venv/
+training/training_data.jsonl
+training/outputs/
+training/test_triton.py
+unsloth_compiled_cache/
+*.gguf
+# Training debug artifacts
+training/dry_run*.txt
+training/training_log.txt
+training/README.md
+package-lock.tar
+.github/instructions/memory.instructions.md
