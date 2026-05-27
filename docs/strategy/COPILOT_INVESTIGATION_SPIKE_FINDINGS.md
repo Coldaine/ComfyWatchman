@@ -19,41 +19,37 @@ gate the longer implementation plan.
   at `f04a01a9fce8e3cb21f2a21a14fc971d5753dc36`.
 - PR fork: `vehoelite/ComfyUI-Copilot`, PR #130 head
   at `2916691782d159b1327b93ac6662c37051e657aa`.
-- Local clones were created outside this repo under
-  `D:\_research\comfywatchman-copilot-spike\` so ComfyWatchman history stays
-  clean.
+- Local clones were created outside this repo so ComfyWatchman history stayed
+  clean during inspection.
 - ComfyWatchman was inspected only for salvage value.
 
 ## Evidence Snapshot
 
 - Upstream Copilot documents the hosted API service suspension and says users
   must provide their own API key/base URL to continue agent capabilities:
-  `D:\_research\comfywatchman-copilot-spike\upstream\README.md:51`.
+  [`README.md` at `f04a01a`](https://github.com/AIDC-AI/ComfyUI-Copilot/blob/f04a01a9fce8e3cb21f2a21a14fc971d5753dc36/README.md#L51).
 - Upstream already advertises prompt-to-workflow creation, workflow debug, node
   recommendation, model recommendation, and downstream subgraph recommendation:
-  `D:\_research\comfywatchman-copilot-spike\upstream\README.md:88`,
-  `:92`, `:115`, `:123`, and `:128`.
+  [`README.md` lines 88-128](https://github.com/AIDC-AI/ComfyUI-Copilot/blob/f04a01a9fce8e3cb21f2a21a14fc971d5753dc36/README.md#L88-L128).
 - PR #130 adds the Agent Mode backend route:
-  `D:\_research\comfywatchman-copilot-spike\vehoelite\backend\controller\conversation_api.py:1092`.
+  [`conversation_api.py` at `2916691`](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/controller/conversation_api.py#L1092).
 - PR #130 adds the frontend Agent Mode stream client and toggle path:
-  `D:\_research\comfywatchman-copilot-spike\vehoelite\ui\src\apis\workflowChatApi.ts:893`
-  and
-  `D:\_research\comfywatchman-copilot-spike\vehoelite\ui\src\workflowChat\workflowChat.tsx:398`.
+  [`workflowChatApi.ts`](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/ui/src/apis/workflowChatApi.ts#L893)
+  and [`workflowChat.tsx`](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/ui/src/workflowChat/workflowChat.tsx#L398).
 - PR #130 implements local constrained mode for Groq/LM Studio and skips MCP in
   that mode:
-  `D:\_research\comfywatchman-copilot-spike\vehoelite\backend\service\agent_mode.py:105`
-  and `:158`.
+  [`agent_mode.py` provider detection](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/service/agent_mode.py#L105)
+  and [`agent_mode.py` local tools](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/service/agent_mode.py#L158).
 - PR #130 adds tool budgets and loop-prevention limits:
-  `D:\_research\comfywatchman-copilot-spike\vehoelite\backend\service\agent_mode_tools.py:155`
-  and `:164`.
+  [`agent_mode_tools.py` per-tool limits](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/service/agent_mode_tools.py#L155)
+  and [`agent_mode_tools.py` global limit](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/service/agent_mode_tools.py#L164).
 - PR #130 still contains hosted defaults:
-  `D:\_research\comfywatchman-copilot-spike\vehoelite\backend\utils\globals.py:102`
-  and `:108`.
+  [`globals.py` backend URL](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/utils/globals.py#L102)
+  and [`globals.py` LLM default URL](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/utils/globals.py#L108).
 - PR #130's `validate_workflow` calls the same gateway used for execution, and
   that gateway posts to ComfyUI `/api/prompt`:
-  `D:\_research\comfywatchman-copilot-spike\vehoelite\backend\service\agent_mode_tools.py:366`
-  and
-  `D:\_research\comfywatchman-copilot-spike\vehoelite\backend\utils\comfy_gateway.py:54`.
+  [`agent_mode_tools.py`](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/service/agent_mode_tools.py#L366)
+  and [`comfy_gateway.py`](https://github.com/vehoelite/ComfyUI-Copilot/blob/2916691782d159b1327b93ac6662c37051e657aa/backend/utils/comfy_gateway.py#L54).
 - ComfyWatchman salvage candidates are concrete source modules:
   `src/comfywatchman/scanner.py`, `src/comfywatchman/inventory.py`,
   `src/comfywatchman/search.py`, and `src/comfywatchman/download.py`.
@@ -164,7 +160,8 @@ start with a live Copilot proof:
 4. Run one prompt that creates a valid workflow and saves it to the canvas.
 5. Replace unsafe "validation" with a true dry-run/readiness check before
    execution is trusted.
-6. Add one read-only ComfyWatchman tool: scan current workflow dependencies.
+6. Expose `WorkflowScanner` (`src/comfywatchman/scanner.py`) as a read-only
+   ComfyWatchman tool callable by Copilot Agent Mode for dependency scanning.
 
 If that proof works, write the longer implementation plan around Copilot as the
 shell and ComfyWatchman as local readiness/dependency tooling. If it fails for
