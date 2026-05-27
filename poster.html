@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI Copilot - 全新功能亮点</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #0a0f2e 0%, #1a2456 50%, #0d1942 100%);
+            color: white;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* 背景装饰元素 */
+        .bg-decoration {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 150, 255, 0.1) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(0, 255, 255, 0.03) 50%, transparent 51%);
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* 主标题 */
+        .main-title {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .title-line1 {
+            font-size: 4rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #00ffff, #0099ff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+            margin-bottom: 10px;
+            letter-spacing: 3px;
+        }
+
+        .title-line2 {
+            font-size: 3.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ffff00, #00ffff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 255, 0, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .stars {
+            display: inline-block;
+            color: #00ffff;
+            font-size: 3rem;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            margin: 0 20px;
+        }
+
+        /* 功能卡片 */
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(0, 150, 255, 0.1));
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            position: relative;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(0, 255, 255, 0.6);
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.2);
+        }
+
+        .feature-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ffff, #0099ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .feature-title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .feature-description {
+            font-size: 1.3rem;
+            line-height: 1.6;
+            color: #e0e0e0;
+            margin-left: 80px;
+        }
+
+        .feature-icon-right {
+            position: absolute;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 150, 255, 0.2));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            color: #00ffff;
+        }
+
+        /* 底部标语 */
+        .bottom-slogan {
+            text-align: center;
+            margin: 60px 0 40px 0;
+        }
+
+        .slogan-line1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #00ffff, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .slogan-line2 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ffff00, #00ff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* 二维码区域 */
+        .qr-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 40px;
+            margin-top: 60px;
+        }
+
+        .qr-item {
+            text-align: center;
+        }
+
+        .qr-code {
+            width: 150px;
+            height: 150px;
+            background: white;
+            border-radius: 15px;
+            margin: 0 auto 20px auto;
+            padding: 10px;
+            border: 3px solid #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #000;
+            text-align: center;
+        }
+
+        .qr-label {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #ffff00;
+            text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .title-line1 { font-size: 2.5rem; }
+            .title-line2 { font-size: 2rem; }
+            .stars { font-size: 2rem; margin: 0 10px; }
+            .feature-title { font-size: 1.5rem; }
+            .feature-description { font-size: 1.1rem; margin-left: 0; }
+            .feature-header { flex-direction: column; align-items: flex-start; }
+            .feature-icon { margin-bottom: 10px; }
+            .feature-icon-right { display: none; }
+            .qr-section { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+            .slogan-line1 { font-size: 1.8rem; }
+            .slogan-line2 { font-size: 1.6rem; }
+        }
+
+        /* 动画效果 */
+        @keyframes glow {
+            0%, 100% { text-shadow: 0 0 20px rgba(0, 255, 255, 0.5); }
+            50% { text-shadow: 0 0 40px rgba(0, 255, 255, 0.8), 0 0 60px rgba(0, 255, 255, 0.6); }
+        }
+
+        .title-line1, .title-line2 {
+            animation: glow 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-decoration"></div>
+    
+    <div class="container">
+        <!-- 主标题 -->
+        <div class="main-title">
+            <span class="stars">✦</span>
+            <div class="title-line1">ComfyUI Copilot</div>
+            <span class="stars">✦</span>
+            <div class="title-line2">全新功能亮点</div>
+        </div>
+
+        <!-- 功能介绍 -->
+        <div class="features-grid">
+            <!-- 工作流Debug功能 -->
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">AI</div>
+                    <div class="feature-title">工作流 Debug功能</div>
+                </div>
+                <div class="feature-description">
+                    自动分析您的工作流错误，并智能给出修复建议，<br>
+                    让问题排查更高效
+                </div>
+                <div class="feature-icon-right">🧠</div>
+            </div>
+
+            <!-- 工作流改写功能 -->
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">🔄</div>
+                    <div class="feature-title">工作流改写功能</div>
+                </div>
+                <div class="feature-description">
+                    只需描述您的需求，即可自动优化当前工作流结构，<br>
+                    支持参数修改与节点新增，流程调整更便捷
+                </div>
+                <div class="feature-icon-right">🤖</div>
+            </div>
+
+            <!-- AI工作流生成能力升级 -->
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">AI</div>
+                    <div class="feature-title">AI工作流生成能力升级</div>
+                </div>
+                <div class="feature-description">
+                    根据您的描述，智能生成完全符合您需求的工作流，<br>
+                    大幅提升使用体验与效率
+                </div>
+                <div class="feature-icon-right">📊</div>
+            </div>
+
+            <!-- 智能体架构升级 -->
+            <div class="feature-card">
+                <div class="feature-header">
+                    <div class="feature-icon">🧠</div>
+                    <div class="feature-title">智能体架构升级</div>
+                </div>
+                <div class="feature-description">
+                    系统可自动识别您本地 ComfyUI 环境，输出最优解决方案，<br>
+                    实现个性化适配
+                </div>
+                <div class="feature-icon-right">⚙️</div>
+            </div>
+        </div>
+
+        <!-- 底部标语 -->
+        <div class="bottom-slogan">
+            <div class="slogan-line1">探索对AI自动化及工作流</div>
+            <div class="slogan-line2">有深度使用需求的伙伴尽情体验</div>
+        </div>
+
+        <!-- 二维码区域 -->
+        <div class="qr-section" style="display: flex; justify-content: center; align-items: center; gap: 120px; flex-wrap: wrap; margin-top: 60px; margin-bottom: 40px;">
+            <div class="qr-item">
+                <div class="qr-code">
+                    GitHub<br>
+                    二维码占位符
+                </div>
+                <div class="qr-label">Github</div>
+            </div>
+            <div class="qr-item">
+                <div class="qr-code">
+                    微信小助手<br>
+                    二维码占位符
+                </div>
+                <div class="qr-label">微信小助手</div>
+            </div>
+            <div class="qr-item">
+                <div class="qr-code">
+                    Discord<br>
+                    二维码占位符
+                </div>
+                <div class="qr-label">Discord</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+__pycache__
+hash
+.env
+.env.llm
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+ui/node_modules
+# ui/src/utils/encryptUtils.ts
+db
+dist-ssr
+*.local
+backup
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.db
+*.sw?
+.cache
+# dev
+ui/yarn.lock
+
+# Training artifacts
+training_venv/
+training/training_data.jsonl
+training/outputs/
+training/test_triton.py
+unsloth_compiled_cache/
+*.gguf
+# Training debug artifacts
+training/dry_run*.txt
+training/training_log.txt
+training/README.md
+package-lock.tar
+.github/instructions/memory.instructions.md
