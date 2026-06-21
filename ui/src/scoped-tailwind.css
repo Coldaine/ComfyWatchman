@@ -1,0 +1,210 @@
+#comfyui-copilot-plugin,
+#comfyui-copilot-image-upload-modal,
+#comfyui-copilot-rewrite-expert-modal,
+#comfyui-copilot-model-download-modal,
+#comfyui-copilot-model-download,
+#comfyui-copilot-start-pop-view {
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Specifically reset basic elements within our scope to counter preflight:false */
+#comfyui-copilot-plugin,
+#comfyui-copilot-start-pop-view {
+  /* Reset common elements */
+  h1, h2, h3, h4, h5, h6, p, ul, ol, button, input, textarea, select {
+    margin: 0;
+    padding: 0;
+    font-size: 100%;
+    font-weight: normal;
+  }
+
+  /* Add basic styles that would normally come from preflight */
+  * {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+  }
+
+  img, svg, video, canvas, audio, iframe, embed, object {
+    display: block;
+    vertical-align: middle;
+  }
+
+  /* Specific resets for buttons that might be affected by ComfyUI styles */
+  button {
+    background-color: transparent;
+    background-image: none;
+  }
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* IE 10+ */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;              /* Chrome/Safari/Webkit */
+}
+
+@keyframes breathe {
+  0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+  }
+  50% {
+      opacity: 0.7;
+      transform: scale(1.2);
+  }
+}
+
+@keyframes colorBreathe {
+  0%, 100% {
+      color: hsl(189, 97%, 36%);
+  }
+  50% {
+    color: var(--p-text-color) / 20; /* gray-200 */
+  }
+}
+
+.animate-breathe-green {
+  animation: breathe 3s ease-in-out infinite, colorBreathe 3s ease-in-out infinite;
+}
+
+@keyframes rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.beautify-card-light {
+  box-shadow: 0px -16px 24px 0px rgba(255, 255, 255, 0.25) inset;
+  background-image: linear-gradient(135deg, hsl(210 100% 98%), hsl(270 100% 96%));
+
+  .card-border {
+    overflow: hidden;
+    pointer-events: none;
+  
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
+    background-image: linear-gradient(
+      0deg,
+      hsl(0, 0%, 80%) -50%,
+      hsl(0, 0%, 90%) 100%
+    );
+  }
+
+  .card-border::before {
+    content: "";
+    pointer-events: none;
+  
+    position: fixed;
+    z-index: 200;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%), rotate(0deg);
+    transform-origin: left;
+  
+    width: 200%;
+    height: 10rem;
+    background-image: linear-gradient(
+      0deg,
+      hsla(0, 0%, 100%, 100%) 0%,
+      hsl(189, 100%, 50%) 40%,
+      hsl(189, 100%, 50%) 60%,
+      hsla(0, 0%, 100%, 90%) 100%
+    );
+    animation: rotate 8s linear infinite;
+  }
+}
+
+.beautify-card-dark {
+  box-shadow: 0px -16px 24px 0px rgba(255, 255, 255, 0.25) inset;
+  background-color: hsla(240, 15%, 9%, 1);
+  background-image: radial-gradient(at 88% 40%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
+    radial-gradient(at 49% 30%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
+    radial-gradient(at 14% 26%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
+    radial-gradient(at 0% 64%, hsl(189, 99%, 26%) 0px, transparent 85%),
+    radial-gradient(at 41% 94%, hsl(189, 97%, 36%) 0px, transparent 85%),
+    radial-gradient(at 100% 99%, hsl(188, 94%, 13%) 0px, transparent 85%);
+  /* background-image: linear-gradient(43deg, hsl(210 100% 98%) 0%, #C850C0 46%, #FFCC70 100%); */
+
+  .card-border {
+    overflow: hidden;
+    pointer-events: none;
+  
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
+    background-image: linear-gradient(
+      0deg,
+      hsl(0, 0%, 40%) -50%,
+      hsl(0, 0%, 60%) 100%
+    );
+  }
+
+  .card-border::before {
+    content: "";
+    pointer-events: none;
+  
+    position: fixed;
+    z-index: 200;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%), rotate(0deg);
+    transform-origin: left;
+  
+    width: 200%;
+    height: 10rem;
+    background-image: linear-gradient(
+      0deg,
+      hsla(0, 0%, 100%, 0) 0%,
+      hsl(189, 100%, 50%) 40%,
+      hsl(189, 100%, 50%) 60%,
+      hsla(0, 0%, 40%, 0) 100%
+    );
+    animation: rotate 8s linear infinite;
+  }
+}
+
+.debug-btn {
+  transition: 0.8s;
+  background-size: 280% auto;
+  box-shadow:
+    0px 0px 20px rgba(71, 184, 255, 0.5),
+    0px 5px 5px -1px rgba(58, 125, 233, 0.25),
+    inset 4px 4px 8px rgba(175, 230, 255, 0.5),
+    inset -4px -4px 8px rgba(19, 95, 216, 0.35);
+}
+
+.debug-btn:hover {
+  background-position: right top;
+}
+
+/* .debug-btn:is(:focus, :focus-visible, :active) {
+  outline: none;
+  box-shadow:
+    0 0 0 3px hsla(360 100% 100% / 1),
+    0 0 0 6px hsl(189, 97%, 36%);
+} */
+
+.loading-spin {
+  animation: rotate 1s linear infinite;
+}
+
+.search-input input::placeholder { color: #888; }

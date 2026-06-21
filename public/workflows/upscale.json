@@ -1,0 +1,16 @@
+{
+    "last_node_id": 4,
+    "last_link_id": 3,
+    "nodes": [
+      {
+        "id": 1,
+        "type": "LoadImage",
+        "pos": [200, 200]
+      },
+      {
+        "id": 2,
+        "type": "ImageUpscale",
+        "pos": [500, 200]
+      }
+    ]
+  }

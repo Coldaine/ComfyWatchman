@@ -1,0 +1,1 @@
+mkdir -p static/workflows 

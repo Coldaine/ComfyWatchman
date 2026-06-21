@@ -1,0 +1,26 @@
+{
+    "last_node_id": 9,
+    "last_link_id": 9,
+    "nodes": [
+      {
+        "id": 7,
+        "type": "CLIPTextEncode",
+        "pos": [413, 389],
+        "size": { "0": 425.27801513671875, "1": 180.6060791015625 },
+        "flags": {},
+        "order": 3,
+        "mode": 0,
+        "inputs": [{ "name": "clip", "type": "CLIP", "link": 5 }],
+        "outputs": [
+          {
+            "name": "CONDITIONING",
+            "type": "CONDITIONING",
+            "links": [6],
+            "slot_index": 0
+          }
+        ],
+        "properties": {},
+        "widgets_values": ["text, watermark"]
+      }
+    ]
+  }

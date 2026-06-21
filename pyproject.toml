@@ -1,114 +1,14 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "comfywatchman"
-version = "3.0.0"
-description = "An intelligent workflow assistant for ComfyUI"
-readme = "README.md"
-license = {text = "MIT"}
-requires-python = ">=3.12"
-authors = [
-    {name = "ComfyWatchman Team", email = "comfywatchman@example.com"},
-]
-maintainers = [
-    {name = "ComfyWatchman Team", email = "comfywatchman@example.com"},
-]
-keywords = ["comfyui", "stable-diffusion", "automation", "ai", "workflow-assistant"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Utilities",
-]
-dependencies = [
-    "requests>=2.32.0",
-    "psutil>=6.1.0",
-    "jinja2>=3.1.0",
-    "pyyaml>=6.0",
-]
-
-[project.optional-dependencies]
-# Development dependencies
-dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0.0",
-    "sphinx>=4.0.0",
-    "sphinx-rtd-theme>=1.0.0",
-    "pre-commit>=2.17.0",
-    "tox>=3.24.0",
-    "Pillow>=10.0.0",
-]
+name = "ComfyUI-Copilot"
+description = "Your Intelligent Assistant for Comfy-UI."
+version = "2.0.28"
+license = {file = "LICENSE"}
 
 [project.urls]
-Homepage = "https://github.com/Coldaine/ComfyWatchman"
-Repository = "https://github.com/Coldaine/ComfyWatchman.git"
-Issues = "https://github.com/Coldaine/ComfyWatchman/issues"
-Changelog = "https://github.com/Coldaine/ComfyWatchman/blob/main/CHANGELOG.md"
+Repository = "https://github.com/AIDC-AI/ComfyUI-Copilot"
+#  Used by Comfy Registry https://comfyregistry.org
 
-[project.scripts]
-comfywatchman = "comfywatchman.cli:main"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-ra -q"
-testpaths = ["tests"]
-python_files = "test_*.py"
-
-[tool.ruff]
-line-length = 100
-target-version = "py312"
-exclude = [
-    ".git",
-    "__pycache__",
-    ".venv",
-    "venv",
-    "env",
-    "build",
-    "dist",
-    "*.egg-info",
-    "archives",
-]
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP"]
-ignore = ["E501"]
-fixable = ["ALL"]
-unfixable = []
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-[tool.ruff.lint.isort]
-known-first-party = ["comfywatchman"]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
-docstring-code-format = true
+[tool.comfy]
+PublisherId = "yx9966"
+DisplayName = "ComfyUI-Copilot"
+Icon = ""
