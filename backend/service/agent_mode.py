@@ -128,14 +128,16 @@ async def agent_mode_invoke(
         mcp_servers: list = []
 
         if not is_constrained:
+            mcp_headers = {"X-Session-Id": session_id}
+            copilot_api_key = get_comfyui_copilot_api_key()
+            if copilot_api_key:
+                mcp_headers["Authorization"] = f"Bearer {copilot_api_key}"
+
             mcp_server = MCPServerSse(
                 params={
                     "url": BACKEND_BASE_URL + "/mcp-server/mcp",
                     "timeout": _MCP_TIMEOUT,
-                    "headers": {
-                        "X-Session-Id": session_id,
-                        "Authorization": f"Bearer {get_comfyui_copilot_api_key()}",
-                    },
+                    "headers": mcp_headers,
                 },
                 cache_tools_list=True,
                 client_session_timeout_seconds=_MCP_SESSION,
@@ -144,10 +146,7 @@ async def agent_mode_invoke(
                 params={
                     "url": "https://mcp.api-inference.modelscope.net/8c9fe550938e4f/sse",
                     "timeout": _MCP_TIMEOUT,
-                    "headers": {
-                        "X-Session-Id": session_id,
-                        "Authorization": f"Bearer {get_comfyui_copilot_api_key()}",
-                    },
+                    "headers": mcp_headers,
                 },
                 cache_tools_list=True,
                 client_session_timeout_seconds=_MCP_SESSION,

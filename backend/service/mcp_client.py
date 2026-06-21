@@ -118,11 +118,16 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
         log.info(f"[MCP] Optimized messages count: {len(messages)}, messages: {messages}")
         
         # Create MCP server instances
+        mcp_headers = {"X-Session-Id": session_id}
+        copilot_api_key = get_comfyui_copilot_api_key()
+        if copilot_api_key:
+            mcp_headers["Authorization"] = f"Bearer {copilot_api_key}"
+
         mcp_server = MCPServerSse(
             params= {
                 "url": BACKEND_BASE_URL + "/mcp-server/mcp",
                 "timeout": 300.0,
-                "headers": {"X-Session-Id": session_id, "Authorization": f"Bearer {get_comfyui_copilot_api_key()}"}
+                "headers": mcp_headers,
             },
             cache_tools_list=True,
             client_session_timeout_seconds=300.0
@@ -132,7 +137,7 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
             params= {
                 "url": "https://mcp.api-inference.modelscope.net/8c9fe550938e4f/sse",
                 "timeout": 300.0,
-                "headers": {"X-Session-Id": session_id, "Authorization": f"Bearer {get_comfyui_copilot_api_key()}"}
+                "headers": mcp_headers,
             },
             cache_tools_list=True,
             client_session_timeout_seconds=300.0

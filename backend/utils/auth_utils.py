@@ -6,12 +6,16 @@ Authentication utilities for ComfyUI Copilot
 """
 
 from typing import Optional
-from .globals import set_comfyui_copilot_api_key, get_comfyui_copilot_api_key
+from .globals import (
+    clear_comfyui_copilot_api_key,
+    get_comfyui_copilot_api_key,
+    set_comfyui_copilot_api_key,
+)
 from .logger import log
 
 def extract_and_store_api_key(request) -> Optional[str]:
     """
-    Extract Bearer token from Authorization header and store it in globals
+    Extract Bearer token from Authorization header and store it for this async request.
     
     Args:
         request: The aiohttp request object
@@ -24,17 +28,18 @@ def extract_and_store_api_key(request) -> Optional[str]:
         if auth_header and auth_header.startswith('Bearer '):
             api_key = auth_header[7:]  # Remove 'Bearer ' prefix
             set_comfyui_copilot_api_key(api_key)
-            log.info(f"ComfyUI Copilot API key extracted and stored: {api_key[:12]}...")
+            log.info("ComfyUI Copilot API key extracted for current request")
             
             # Verify it's stored correctly
             stored_key = get_comfyui_copilot_api_key()
             if stored_key == api_key:
-                log.info("API key verification: Successfully stored in globals")
+                log.info("API key verification: Successfully stored in request context")
             else:
                 log.error("API key verification: Storage failed")
                 
             return api_key
         else:
+            clear_comfyui_copilot_api_key()
             log.error("No valid Authorization header found")
             return None
     except Exception as e:

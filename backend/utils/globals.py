@@ -11,6 +11,7 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 Global utilities for managing application-wide state and configuration.
 """
 
+import contextvars
 import os
 import threading
 from typing import Optional, Dict, Any
@@ -61,6 +62,10 @@ class GlobalState:
 
 # Global instance
 _global_state = GlobalState()
+_comfyui_copilot_api_key: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "comfyui_copilot_api_key",
+    default=None,
+)
 
 # Convenience functions for external access
 def get_global(key: str, default: Any = None) -> Any:
@@ -91,12 +96,16 @@ def get_all_globals() -> Dict[str, Any]:
     return _global_state.get_all()
 
 def get_comfyui_copilot_api_key() -> Optional[str]:
-    """Get the ComfyUI Copilot API key."""
-    return _global_state.get('comfyui_copilot_api_key')
+    """Get the ComfyUI Copilot API key for the current async request context."""
+    return _comfyui_copilot_api_key.get()
 
 def set_comfyui_copilot_api_key(api_key: str) -> None:
-    """Set the ComfyUI Copilot API key."""
-    _global_state.set('comfyui_copilot_api_key', api_key)
+    """Set the ComfyUI Copilot API key for the current async request context."""
+    _comfyui_copilot_api_key.set(api_key)
+
+def clear_comfyui_copilot_api_key() -> None:
+    """Clear the ComfyUI Copilot API key for the current async request context."""
+    _comfyui_copilot_api_key.set(None)
 
 
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "https://comfyui-copilot-server.onrender.com")
